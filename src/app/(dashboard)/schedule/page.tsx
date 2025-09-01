@@ -6,6 +6,9 @@ import { CalEvent, GROUPS, loadEvents, upsertEvents } from "@/lib/clientStore";
 type Draft = { dayIndex:number; start:string; end:string; group:string; title:string };
 const toDate=(base:Date,hhmm:string)=>{const [h,m]=hhmm.split(":").map(Number);const d=new Date(base);d.setHours(h,m??0,0,0);return d;};
 const tide=(hhmm:string)=> Number(hhmm.split(":")[0]||"0")<16?"eb":"vloed";
+const dl=(name:string,data:string,type:string)=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();};
+const icsDate=(d:Date)=>`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}T${String(d.getHours()).padStart(2,"0")}${String(d.getMinutes()).padStart(2,"0")}00`;
+
 export default function SchedulePage(){
   const [anchor,setAnchor]=useState<Date>(()=>startOfWeek(new Date(),{weekStartsOn:1}));
   const days=Array.from({length:7},(_,i)=>addDays(anchor,i));
@@ -13,13 +16,21 @@ export default function SchedulePage(){
   const [draft,setDraft]=useState<Draft>({dayIndex:0,start:"16:00",end:"16:45",group:"Algemeen",title:"Sportmoment"});
   const [pending,setPending]=useState<Draft[]>([]);
   const [all,setAll]=useState(()=>loadEvents());
-  const weekEvents=useMemo(()=>{const range={start:days[0],end:addDays(days[6],1)};return all.filter(e=>isWithinInterval(e.start,range));},[all,anchor]);
+  const range={start:days[0],end:addDays(days[6],1)};
+  const weekEvents=useMemo(()=>all.filter(e=>isWithinInterval(e.start,range)),[all,anchor]);
+
   const addBlock=()=>setPending(p=>[...p,draft]);
   const autofill=()=>setPending(days.map((_,i)=>({...draft,dayIndex:i})));
   const clearPending=()=>setPending([]);
   const saveAll=()=>{ const news:CalEvent[]=pending.map(b=>{const d=days[b.dayIndex];const s=toDate(d,b.start), e=toDate(d,b.end);
       return { id:crypto.randomUUID(), title:b.title||"Sportmoment", start:s, end:e, tide:tide(b.start), group:b.group||"Algemeen" };});
     upsertEvents(news); setAll(loadEvents()); setPending([]); alert(`Opgeslagen: ${news.length} blok(ken).`); };
+  const exportICS=()=>{ const lines=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//sportdash//schedule//NL"];
+    for(const ev of weekEvents){ lines.push("BEGIN:VEVENT"); lines.push("UID:"+ev.id);
+      lines.push("DTSTART:"+icsDate(ev.start)); lines.push("DTEND:"+icsDate(ev.end));
+      lines.push("SUMMARY:"+ev.title+" ("+ev.group+")"); lines.push("END:VEVENT"); }
+    lines.push("END:VCALENDAR"); dl("week.ics",lines.join("\r\n"),"text/calendar"); };
+
   return (
     <div className="grid gap-3">
       <h1 className="text-xl font-bold">Schedule</h1>
@@ -32,6 +43,7 @@ export default function SchedulePage(){
         <button onClick={autofill} className="px-3 py-2 rounded-xl border">Auto-vul</button>
         <button onClick={saveAll} className="px-3 py-2 rounded-xl border">Opslaan</button>
         <button onClick={clearPending} className="px-3 py-2 rounded-xl border">Leeg</button>
+        <button onClick={exportICS} className="px-3 py-2 rounded-xl border">Exporteer ICS (week)</button>
       </div>
       <div className="border rounded-2xl p-3 grid grid-cols-1 md:grid-cols-5 gap-3 bg-white">
         <div><div className="text-xs opacity-70 mb-1">Dag</div>
