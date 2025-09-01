@@ -1,9 +1,9 @@
 {
   "pages": {
-    "/health/page": [
+    "/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/health/page.js"
+      "static/chunks/app/page.js"
     ],
     "/layout": [
       "static/chunks/webpack.js",
@@ -11,16 +11,31 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
+    "/(dashboard)/admin/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(dashboard)/admin/page.js"
+    ],
+    "/(dashboard)/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(dashboard)/layout.js"
+    ],
     "/(dashboard)/calendar/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/css/app/(dashboard)/calendar/page.css",
       "static/chunks/app/(dashboard)/calendar/page.js"
     ],
-    "/(dashboard)/layout": [
+    "/(dashboard)/groepen/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(dashboard)/layout.js"
+      "static/chunks/app/(dashboard)/groepen/page.js"
+    ],
+    "/(dashboard)/sportmutaties/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(dashboard)/sportmutaties/page.js"
     ]
   }
 }
