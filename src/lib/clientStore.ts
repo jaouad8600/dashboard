@@ -1,107 +1,132 @@
-import { addDays, startOfWeek, isWithinInterval } from "date-fns";
+/**
+ * Client-only storage helpers voor Sportdash.
+ * SSR geeft lege defaults; alle browser-API's zitten achter guards.
+ */
 
-/* ——— Kalender ——— */
-export type Tide = "eb"|"vloed";
-export type CalEvent = { id:string; title:string; start:Date; end:Date; tide:Tide; group:string; staff?:string[]; };
-export const EVENTS_KEY="rbc-events-v1";
-export const ACTIVE_GROUP_KEY="active-group";
-export const GROUPS=["Poel","Lier","Zijl","Nes","Vliet","Gaag","Kust","Golf","Zift","Lei","Kade","Kreek","Duin","Rak","Bron","Dijk","Burcht","Balk","Algemeen"];
+export type Tide = "eb" | "vloed";
 
-export function loadEvents():CalEvent[]{
-  try{
-    const raw=localStorage.getItem(EVENTS_KEY); const arr=raw?JSON.parse(raw):[];
-    return arr.map((e:any)=>({
-      id:String(e.id), title:String(e.title??"Sportmoment"),
-      start:new Date(e.start), end:new Date(e.end),
-      tide:e.tide==="vloed"?"vloed":"eb",
-      group:String(e.group??"Algemeen"),
-      staff:Array.isArray(e.staff)?e.staff:undefined
-    }));
-  }catch{return[];}
-}
-export function saveEvents(evts:CalEvent[]){ localStorage.setItem(EVENTS_KEY, JSON.stringify(evts)); }
-export function upsertEvents(newOnes:CalEvent[]){ const by=new Map<string,CalEvent>(); for(const e of loadEvents()) by.set(e.id,e); for(const e of newOnes) by.set(e.id,e); saveEvents([...by.values()]); }
-export function weekRange(date=new Date()){ const start=startOfWeek(date,{weekStartsOn:1}); const end=addDays(start,7); return {start,end}; }
-export function eventsInWeek(date=new Date()){ const {start,end}=weekRange(date); return loadEvents().filter(e=>isWithinInterval(e.start,{start,end})); }
-
-/* ——— Sportmutaties ——— */
-export type SportMutatie = {
-  id:string; createdAt:string;
-  jongere:string; group:string; type:string; note?:string;
-  status:"open"|"gesloten";
+export type CalEvent = {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  tide: Tide;
+  group: string;
+  staff?: string[];
 };
-export const SPORTMUT_KEY="sportmutaties-v1";
-const OLD_MUT_KEY="mutaties-v1"; // migratie
 
-export function loadSportmutaties():SportMutatie[]{
-  try{
-    const raw=localStorage.getItem(SPORTMUT_KEY);
-    let arr:SportMutatie[]=raw?JSON.parse(raw):[];
-    // Migratie van oude key zonder 'jongere'
-    if(!raw){
-      const oldRaw=localStorage.getItem(OLD_MUT_KEY);
-      if(oldRaw){
-        try{
-          const old=JSON.parse(oldRaw) as any[];
-          arr = old.map(o=>({
-            id:o.id||crypto.randomUUID(),
-            createdAt:o.createdAt||new Date().toISOString(),
-            jongere:o.jongere || "Onbekend",
-            group:o.group||"Algemeen",
-            type:o.type||"Materiaal",
-            note:o.note||"",
-            status:o.status==="gesloten"?"gesloten":"open",
-          }));
-          localStorage.setItem(SPORTMUT_KEY, JSON.stringify(arr));
-        }catch{}
-      }
-    }
-    return arr;
-  }catch{return[];}
-}
-export function saveSportmutaties(m:SportMutatie[]){ localStorage.setItem(SPORTMUT_KEY, JSON.stringify(m)); }
-export function addSportmutatie(m:Omit<SportMutatie,"id"|"createdAt">){
-  const cur=loadSportmutaties();
-  cur.unshift({ id:crypto.randomUUID(), createdAt:new Date().toISOString(), ...m });
-  saveSportmutaties(cur);
-}
-export function countOpenSportmutaties(){ return loadSportmutaties().filter(m=>m.status==="open").length; }
-
-/* ——— Bestanden ——— */
-export type FileLink = { id:string; title:string; url:string; group?:string; note?:string; };
-export const FILES_KEY="files-links-v1";
-export function loadFiles():FileLink[]{ try{ return JSON.parse(localStorage.getItem(FILES_KEY)||"[]"); }catch{return[];} }
-export function saveFiles(f:FileLink[]){ localStorage.setItem(FILES_KEY, JSON.stringify(f)); }
-
-/* ——— Logging ——— */
-export type LogEntry = { id:string; ts:string; text:string };
-export const LOGS_KEY="logs-v1";
-export function loadLogs():LogEntry[]{ try{ return JSON.parse(localStorage.getItem(LOGS_KEY)||"[]"); }catch{return[];} }
-export function saveLogs(l:LogEntry[]){ localStorage.setItem(LOGS_KEY, JSON.stringify(l)); }
-
-/* ——— Bezoek/Bibliotheek ——— */
-export type Visit = {
-  id:string; title:string; group:string;
-  kind:"Bibliotheek"|"Bezoek"|"Overig";
-  date:string; start?:string; end?:string;
-  status:"gepland"|"afgerond"|"geannuleerd"; note?:string;
+export type SportMutation = {
+  id: string;
+  group: string;
+  title?: string;
+  status?: "open" | "gesloten";
+  createdAt?: string;
 };
-export const VISITS_KEY="visits-v1";
-export function loadVisits():Visit[]{ try{ return JSON.parse(localStorage.getItem(VISITS_KEY)||"[]"); }catch{return[];} }
-export function saveVisits(v:Visit[]){ localStorage.setItem(VISITS_KEY, JSON.stringify(v)); }
 
-/* ——— Indicaties (algemeen) ——— */
-export type Restriction = { id:string; group:string; label:string; note?:string; active:boolean; createdAt:string };
-export const RESTRICTIONS_KEY="restrictions-v1";
-export function loadRestrictions():Restriction[]{ try{ return JSON.parse(localStorage.getItem(RESTRICTIONS_KEY)||"[]"); }catch{return[];} }
-export function saveRestrictions(r:Restriction[]){ localStorage.setItem(RESTRICTIONS_KEY, JSON.stringify(r)); }
+export type Restriction = {
+  id: string;
+  group: string;
+  label: string;
+  note?: string;
+  active: boolean;
+  until?: string;
+};
 
-/* ——— Indicatie sport (aparte lijst) ——— */
-export const SPORT_RESTR_KEY="sport-restrictions-v1";
-export function loadSportRestrictions():Restriction[]{ try{ return JSON.parse(localStorage.getItem(SPORT_RESTR_KEY)||"[]"); }catch{return[];} }
-export function saveSportRestrictions(r:Restriction[]){ localStorage.setItem(SPORT_RESTR_KEY, JSON.stringify(r)); }
-export function addSportRestriction(r:Omit<Restriction,"id"|"createdAt">){
-  const cur=loadSportRestrictions();
-  cur.unshift({ id:crypto.randomUUID(), createdAt:new Date().toISOString(), ...r });
-  saveSportRestrictions(cur);
+/** Standaard groepen (vul aan naar wens) */
+export const GROUPS = [
+  "Gaag","Golf","Kust","Lier","Nes","Vliet","Poel","Zijl",
+  "Duin","Kade","Kreek","Lei","Rak","Zift","Bron","Burcht","Balk"
+];
+
+const K_EVENTS = "rbc-events-v1";
+const K_GROUP  = "active-group";
+const K_SMUT   = "sportmutaties-v1";
+const K_RESTR  = "restrictions-v1";
+const K_SRESTR = "sport-restrictions-v1";
+const K_VISITS = "visits-v1";
+const K_FILES  = "files-links-v1";
+const K_LOGS   = "logs-v1";
+
+export const isBrowser = typeof window !== "undefined";
+
+function readJSON<T>(key: string, fallback: T): T {
+  if (!isBrowser) return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw == null) return fallback;
+    return JSON.parse(raw) as T;
+  } catch { return fallback; }
+}
+function writeJSON(key: string, value: unknown) {
+  if (!isBrowser) return;
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+
+/* ===== Events ===== */
+export function loadEvents(): CalEvent[] {
+  const arr = readJSON<any[]>(K_EVENTS, []);
+  return arr.map(e => ({ ...e, start: new Date(e.start), end: new Date(e.end) }));
+}
+export function saveEvents(events: CalEvent[]): void {
+  const out = events.map(e => ({
+    ...e,
+    start: e.start instanceof Date ? e.start.toISOString() : e.start,
+    end: e.end instanceof Date ? e.end.toISOString() : e.end,
+  }));
+  writeJSON(K_EVENTS, out);
+}
+
+/* ===== Actieve groep ===== */
+export function getActiveGroup(): string | null {
+  const v = readJSON<string | null>(K_GROUP, null);
+  return typeof v === "string" ? v : null;
+}
+export function setActiveGroup(group: string | null): void {
+  if (!isBrowser) return;
+  if (group == null) { try { localStorage.removeItem(K_GROUP); } catch {} }
+  else { writeJSON(K_GROUP, group); }
+}
+
+/* ===== Sportmutaties ===== */
+export function loadSportmutaties(): SportMutation[] {
+  return readJSON<SportMutation[]>(K_SMUT, []);
+}
+export function countOpenSportmutaties(): number {
+  const all = loadSportmutaties();
+  return all.filter(m => (m.status || "open") !== "gesloten").length;
+}
+
+/* ===== Indicaties ===== */
+export function loadRestrictions(): Restriction[] {
+  return readJSON<Restriction[]>(K_RESTR, []);
+}
+export function loadSportRestrictions(): Restriction[] {
+  return readJSON<Restriction[]>(K_SRESTR, []);
+}
+
+/* ===== Visits / Files / Logs ===== */
+export function loadVisits(): any[] { return readJSON<any[]>(K_VISITS, []); }
+export function loadFiles(): any[] { return readJSON<any[]>(K_FILES, []); }
+export function loadLogs(): any[] { return readJSON<any[]>(K_LOGS, []); }
+
+/* ===== Utils ===== */
+export function makeEvent(partial: Partial<CalEvent>): CalEvent {
+  const id =
+    partial.id ||
+    (isBrowser && "crypto" in window && (window as any).crypto?.randomUUID
+      ? (window as any).crypto.randomUUID()
+      : `ev_${Date.now()}_${Math.random().toString(16).slice(2)}`);
+
+  const start = partial.start instanceof Date ? partial.start : new Date(partial.start || Date.now());
+  const end   = partial.end   instanceof Date ? partial.end   : new Date(partial.end   || Date.now());
+
+  return {
+    id,
+    title: partial.title || "Sportmoment",
+    start,
+    end,
+    tide: (partial.tide as Tide) || "eb",
+    group: partial.group || (getActiveGroup() || "Onbekend"),
+    staff: partial.staff || [],
+  };
 }

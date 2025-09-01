@@ -1,9 +1,10 @@
 "use client";
+
 import { useEffect, useMemo, useState } from "react";
 import { isSameDay, isSameWeek, startOfWeek, addDays } from "date-fns";
 import nl from "date-fns/locale/nl";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar } from "recharts";
+import ClientOnly from "@/components/ClientOnly";
+import WeekStrip from "../../../components/WeekStrip";
 import { loadEvents, loadRestrictions } from "@/lib/clientStore";
 import { countOpenSportmutaties } from "@/lib/clientStore";
 
@@ -34,7 +35,6 @@ function extractAlerts():AlertItem[]{
     for(const l of g.sancties||[])  out.push(mk("warning",`Sanctie (${group})`,l,group));
     for(const l of g.timeouts||[])   out.push(mk("info",`Time-out (${group})`,l,group));
   }
-  // Actieve algemene indicaties tonen
   try{
     const restrictions = loadRestrictions().filter(r=>r.active);
     for(const r of restrictions){ out.push(mk("info", `Indicatie actief (${r.group})`, `${r.label}${r.note?": "+r.note:""}`, r.group)); }
@@ -43,33 +43,87 @@ function extractAlerts():AlertItem[]{
 }
 
 export default function Admin(){
-  const [events,setEvents]=useState(()=>loadEvents());
-  useEffect(()=>{ const on=()=>setEvents(loadEvents()); window.addEventListener("focus",on); const id=setInterval(on,2000); return ()=>{window.removeEventListener("focus",on); clearInterval(id);}; },[]);
-  const today=new Date(); const wStart=startOfWeek(today,{weekStartsOn:1,locale:nl});
-  const week=events.filter(e=>isSameWeek(e.start,today,{weekStartsOn:1,locale:nl}));
-  const kToday=events.filter(e=>isSameDay(e.start,today)).length;
+  // Hooks in vaste volgorde
+  const [mounted,setMounted] = useState(false);
+  const [events,setEvents] = useState<any[]>([]);
+  const [kSportMut,setKSportMut] = useState(0);
+  const [alerts,setAlerts] = useState<AlertItem[]>([]);
+  const [dismissed,setDismissed] = useState<string[]>([]);
+
+  useEffect(()=>{ setMounted(true); },[]);
+
+  // Events na mount (client)
+  useEffect(()=>{
+    if(!mounted) return;
+    const read=()=>setEvents(loadEvents());
+    read();
+    const onFocus=()=>read();
+    const id=setInterval(read, 10000);
+    window.addEventListener("focus",onFocus);
+    return ()=>{ window.removeEventListener("focus",onFocus); clearInterval(id); };
+  },[mounted]);
+
+  useEffect(()=>{ if(!mounted) return; try{ setKSportMut(countOpenSportmutaties()); }catch{} },[mounted, events]);
+
+  useEffect(()=>{
+    if(!mounted) return;
+    try{ setDismissed(JSON.parse(localStorage.getItem("dashboard-dismissed-alerts")||"[]")); }catch{}
+    setAlerts(extractAlerts());
+  },[mounted]);
+  useEffect(()=>{ if(!mounted) return; try{ localStorage.setItem("dashboard-dismissed-alerts", JSON.stringify(dismissed)); }catch{} },[mounted, dismissed]);
+
+  // KPI’s
+  const today=new Date();
+  const wStart=startOfWeek(today,{weekStartsOn:1,locale:nl});
+  const week=events.filter((e:any)=>isSameWeek(new Date(e.start),today,{weekStartsOn:1,locale:nl}));
+  const kToday=events.filter((e:any)=>isSameDay(new Date(e.start),today)).length;
   const kWeek=week.length;
-  const kEb=week.filter(e=>e.tide==="eb").length;
-  const kVloed=week.filter(e=>e.tide==="vloed").length;
-  const kSportMut=countOpenSportmutaties();
+  const kEb=week.filter((e:any)=>e.tide==="eb").length;
+  const kVloed=week.filter((e:any)=>e.tide==="vloed").length;
 
-  const chart=Array.from({length:7},(_,i)=>{ const d=addDays(wStart,i); return {name:d.toLocaleDateString("nl-NL",{weekday:"short"}),count:week.filter(e=>isSameDay(e.start,d)).length}; });
+  // Weekdata voor WeekStrip (totaal/eb/vloed per dag)
+  const weekStrip = useMemo(()=>Array.from({length:7},(_,i)=>{
+    const d=addDays(wStart,i);
+    const dayEvents = week.filter((e:any)=>isSameDay(new Date(e.start),d));
+    const eb = dayEvents.filter((e:any)=>e.tide==="eb").length;
+    const vloed = dayEvents.filter((e:any)=>e.tide==="vloed").length;
+    return {
+      name: d.toLocaleDateString("nl-NL",{weekday:"short"}),
+      total: dayEvents.length,
+      eb,
+      vloed
+    };
+  }),[wStart,week]);
 
-  const [mounted,setMounted]=useState(false); const [alerts,setAlerts]=useState<AlertItem[]>([]); const [dismissed,setDismissed]=useState<string[]>([]);
-  useEffect(()=>{ setMounted(true); try{setDismissed(JSON.parse(localStorage.getItem("dashboard-dismissed-alerts")||"[]"));}catch{} setAlerts(extractAlerts()); },[]);
-  useEffect(()=>{ try{localStorage.setItem("dashboard-dismissed-alerts",JSON.stringify(dismissed));}catch{} },[dismissed]);
-  const visible=useMemo(()=>alerts.filter(a=>!dismissed.includes(a.id)),[alerts,dismissed]);
+  const visible = useMemo(()=>alerts.filter(a=>!dismissed.includes(a.id)),[alerts,dismissed]);
 
   return (
     <div className="grid gap-4">
+      {/* KPI's */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card><CardHeader className="text-zinc-500">Vandaag</CardHeader><CardContent><div className="text-3xl font-bold text-brand-700">{kToday}</div></CardContent></Card>
-        <Card><CardHeader className="text-zinc-500">Deze week</CardHeader><CardContent><div className="text-3xl font-bold text-brand-700">{kWeek}</div></CardContent></Card>
-        <Card><CardHeader className="text-zinc-500">Eb (week)</CardHeader><CardContent><div className="text-3xl font-bold text-brand-700">{kEb}</div></CardContent></Card>
-        <Card><CardHeader className="text-zinc-500">Vloed (week)</CardHeader><CardContent><div className="text-3xl font-bold text-brand-700">{kVloed}</div></CardContent></Card>
-        <Card><CardHeader className="text-zinc-500">Actieve sportmutaties</CardHeader><CardContent><div className="text-3xl font-bold text-brand-700">{kSportMut}</div></CardContent></Card>
+        <div className="border rounded-2xl p-3 bg-white">
+          <div className="text-zinc-500 text-sm">Vandaag</div>
+          <div className="text-3xl font-bold text-brand-700"><ClientOnly>{kToday}</ClientOnly></div>
+        </div>
+        <div className="border rounded-2xl p-3 bg-white">
+          <div className="text-zinc-500 text-sm">Deze week</div>
+          <div className="text-3xl font-bold text-brand-700"><ClientOnly>{kWeek}</ClientOnly></div>
+        </div>
+        <div className="border rounded-2xl p-3 bg-white">
+          <div className="text-zinc-500 text-sm">Eb (week)</div>
+          <div className="text-3xl font-bold text-brand-700"><ClientOnly>{kEb}</ClientOnly></div>
+        </div>
+        <div className="border rounded-2xl p-3 bg-white">
+          <div className="text-zinc-500 text-sm">Vloed (week)</div>
+          <div className="text-3xl font-bold text-brand-700"><ClientOnly>{kVloed}</ClientOnly></div>
+        </div>
+        <div className="border rounded-2xl p-3 bg-white">
+          <div className="text-zinc-500 text-sm">Actieve sportmutaties</div>
+          <div className="text-3xl font-bold text-brand-700"><ClientOnly>{kSportMut}</ClientOnly></div>
+        </div>
       </div>
 
+      {/* Alerts */}
       <div className="rounded-2xl border bg-white">
         <div className="p-4 font-semibold">Meldingen</div>
         <div className="p-4 grid gap-3">
@@ -80,25 +134,21 @@ export default function Admin(){
                 <div className="p-3 grid gap-1">
                   <div className={`font-semibold ${s.text}`}>{a.group?`${a.group} • `:""}{a.title}</div>
                   {a.desc && <div className="opacity-80 whitespace-pre-wrap">{a.desc}</div>}
+                  <div className="text-right">
+                    <button onClick={()=>setDismissed(d=>[...d,a.id])} className="px-2 py-1 rounded-lg border">Sluiten</button>
+                  </div>
                 </div>
               </div>
             );
-          }) : <div className="text-sm opacity-80">Geen nieuwe meldingen. Vul <a className="underline text-brand-700" href="/overdrachten">Overdrachten</a> of <a className="underline text-brand-700" href="/sportmutaties">Sportmutaties</a> aan.</div>}
+          }) : <div className="text-sm opacity-80">{mounted ? "Geen nieuwe meldingen." : "Laden…"}</div>}
         </div>
       </div>
 
+      {/* Week-strook i.p.v. grafiek */}
       <div className="rounded-2xl border bg-white">
-        <div className="p-4 font-semibold">Tellingen per weekdag</div>
-        <div style={{width:"100%",height:280}} className="text-brand-600 px-2 pb-4">
-          <ResponsiveContainer>
-            <BarChart data={chart}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
-              <Bar dataKey="count" fill="currentColor" radius={[6,6,0,0]} />
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="p-4 font-semibold">Weekoverzicht (Eb/Vloed)</div>
+        <div className="px-3 pb-4">
+          <WeekStrip data={weekStrip}/>
         </div>
       </div>
     </div>

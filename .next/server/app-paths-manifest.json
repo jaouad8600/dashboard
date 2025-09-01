@@ -1,3 +1,5 @@
 {
+  "/health/page": "app/health/page.js",
+  "/health/route": "app/health/route.js",
   "/(dashboard)/calendar/page": "app/(dashboard)/calendar/page.js"
 }
