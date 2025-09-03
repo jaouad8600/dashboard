@@ -1,3 +1,7 @@
+export { EB_GROUPS, VLOED_GROUPS, GROUPS_OFFICIAL, normalizeGroup } from "./wk";
+
+
+
 /**
  * Client-only storage helpers voor Sportdash.
  * SSR geeft lege defaults; alle browser-API's zitten achter guards.
@@ -130,3 +134,68 @@ export function makeEvent(partial: Partial<CalEvent>): CalEvent {
     staff: partial.staff || [],
   };
 }
+// ===== Groep-states (verkeerslicht) per tide =====
+export type GroupState = "groen" | "geel" | "oranje" | "rood" | null;
+type GroupStates = { eb: Record<string, GroupState>; vloed: Record<string, GroupState> };
+const K_GSTATE = "group-states-v1";
+
+export function loadGroupStates(): GroupStates {
+  const def: GroupStates = { eb: {}, vloed: {} };
+  const v = readJSON<GroupStates>(K_GSTATE, def);
+  return { eb: v?.eb || {}, vloed: v?.vloed || {} };
+}
+export function saveGroupStates(s: GroupStates){ writeJSON(K_GSTATE, s); }
+
+export function getGroupState(tide: Tide, group: string): GroupState {
+  const s = loadGroupStates();
+  return (s[tide] as Record<string, GroupState>)[group] ?? null;
+}
+export function setGroupState(tide: Tide, group: string, state: GroupState){
+  const s = loadGroupStates();
+  (s[tide] as Record<string, GroupState>)[group] = state;
+  saveGroupStates(s);
+}
+export function countSturing(tide: Tide): number {
+  const s = loadGroupStates();
+  return Object.values((s[tide] as Record<string, GroupState>)).filter(v => v === "rood").length;
+}
+export const GROUP_STATE_ORDER: GroupState[] = ["groen","geel","oranje","rood",null];
+export function nextGroupState(cur: GroupState): GroupState {
+  const i = GROUP_STATE_ORDER.indexOf(cur as any);
+  const ni = i >= 0 ? (i + 1) % GROUP_STATE_ORDER.length : 0;
+  return GROUP_STATE_ORDER[ni];
+}
+// ===== Officiële groepen + normalisatie =====
+
+function cap1(s:string){ return s ? s.charAt(0).toUpperCase()+s.slice(1).toLowerCase() : s; }
+
+/** normaliseer vrije tekst naar officiële groepsnaam, of null voor onbekend/ongewenst */
+
+// ===== Kleurenpalet voor groep-states (uniform in hele app) =====
+export const GROUP_STATE_PALETTE: Record<Exclude<GroupState,null>, {
+  bg: string; border: string; text: string; dot: string; label: string;
+}> = {
+  groen:  { bg:"#ecfdf5", border:"#22c55e", text:"#14532d", dot:"#22c55e", label:"Groen"  },
+  geel:   { bg:"#fffbeb", border:"#eab308", text:"#713f12", dot:"#eab308", label:"Geel"   },
+  oranje: { bg:"#fff7ed", border:"#f97316", text:"#7c2d12", dot:"#f97316", label:"Oranje" },
+  rood:   { bg:"#fef2f2", border:"#ef4444", text:"#7f1d1d", dot:"#ef4444", label:"Rood"   },
+};
+
+/** Haal paletinfo op voor een groep+tide; null indien geen state gezet */
+export function getGroupStatePalette(tide: Tide, group: string){
+  const s = getGroupState(tide, group);
+  if(!s) return null;
+  const p = GROUP_STATE_PALETTE[s];
+  return { state: s, ...p };
+}
+// ===== Helpers =====
+export function uniqGroups(list: readonly string[]): string[] {
+  // filter falsy en dedup
+  return Array.from(new Set((list as readonly string[]).filter(Boolean)));
+}
+// Tellen per state (per tide)
+export function countByState(tide: Tide, state: GroupState): number {
+  const s = loadGroupStates();
+  return Object.values((s[tide] as Record<string, GroupState>)).filter(v => v === state).length;
+}
+// Re-export: één bron van waarheid voor groepslijsten

@@ -1,6 +1,0 @@
-{
-  "/(dashboard)/admin/page": "app/(dashboard)/admin/page.js",
-  "/(dashboard)/groepen/page": "app/(dashboard)/groepen/page.js",
-  "/(dashboard)/calendar/page": "app/(dashboard)/calendar/page.js",
-  "/(dashboard)/sportmutaties/page": "app/(dashboard)/sportmutaties/page.js"
-}

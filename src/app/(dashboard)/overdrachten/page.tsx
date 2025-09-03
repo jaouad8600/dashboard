@@ -1,66 +1,183 @@
 "use client";
-import { useEffect, useState } from "react";
-const GROUPS=["Poel","Lier","Zijl","Nes","Vliet","Gaag","Kust","Golf","Zift","Lei","Kade","Kreek","Duin","Rak","Bron","Dijk","Burcht","Balk"];
-function parseDag(txt:string){
-  const lines=txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-  type G={group:string;sfeer?:string;timeouts?:string[];incidenten?:string[];sancties?:string[]};
-  const out:G[]=[]; let cur:G|undefined;
-  for(const l of lines){
-    const g=GROUPS.find(g=>new RegExp(`^${g}\\b`,"i").test(l));
-    if(g){ cur={group:g}; out.push(cur); continue; }
-    if(!cur) continue;
-    if(/time-?out|to\b/i.test(l)) (cur.timeouts ||= []).push(l);
-    if(/incident|alarm|vecht|fysiek|bloed/i.test(l)) (cur.incidenten ||= []).push(l);
-    if(/OM\b|ordemaatregel|AP-?A|OB\b|sanctie/i.test(l)) (cur.sancties ||= []).push(l);
-    if(!/time-?out|incident|alarm|vecht|fysiek|bloed|OM\b|ordemaatregel|AP-?A|OB\b|sanctie/i.test(l)) {
-      cur.sfeer = [cur.sfeer,l].filter(Boolean).join(" ");
+
+import { useEffect, useMemo, useState } from "react";
+import { GROUPS_OFFICIAL, normalizeGroup } from "@/lib/clientStore";
+
+type DagGroup = {
+  group: string;
+  headcount?: number;
+  sfeer?: string;
+  timeouts?: string[];
+  incidenten?: string[];
+  sancties?: string[];
+  afspraken?: string[];
+  transport?: string[];
+};
+type DagOverdracht = {
+  header?: { datum?: string; savedAt?: string };
+  groups: DagGroup[];
+};
+
+function readJSON<T>(k:string, def:T):T {
+  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; }
+}
+function writeJSON(k:string, v:any){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
+
+function parseDag(text:string): DagOverdracht {
+  const lines = text.split(/\r?\n/).map(l=>l.replace(/\t/g," ").trim());
+  const groups: DagGroup[] = [];
+  let cur: DagGroup | null = null;
+
+  const gRegex = new RegExp(
+    `^(?:groep\\s+)?(?:de\\s+)?(${GROUPS_OFFICIAL.join("|")})\\b`, "i"
+  );
+
+  // header datum
+  const datumLine = lines.find(l => /^datum\s*:/.test(l.toLowerCase()));
+  const datum = datumLine ? datumLine.split(":").slice(1).join(":").trim() : undefined;
+
+  const pushCur = () => { if(cur) groups.push(cur); cur = null; };
+
+  for(const raw of lines){
+    if(!raw) continue;
+    const m = raw.match(gRegex);
+    if(m){
+      pushCur();
+      const name = normalizeGroup(m[1]) || m[1];
+      cur = { group: name, timeouts:[], incidenten:[], sancties:[], afspraken:[], transport:[] };
+      continue;
     }
+    if(!cur) continue;
+
+    const l = raw;
+
+    // sfeer
+    if(/sfeer/i.test(l) && !cur.sfeer){
+      cur.sfeer = l.replace(/^\s*sfeer\s*:?\s*/i,"").trim() || l;
+    }
+
+    // headcount
+    const hc = l.match(/\b(\d+)\s*(?:jongens|jongere[n]?|jeugdigen)/i);
+    if(hc && !cur.headcount) cur.headcount = parseInt(hc[1],10);
+
+    // time-outs
+    if(/\btime[-\s]?out|\bTO\b/i.test(l)) cur.timeouts!.push(l);
+
+    // incidenten/alarm/geweld
+    if(/\balarm|vechtpartij|fysiek|bloedneus|bedreig|dreig|geweld|korte\s*time[-\s]?out/i.test(l))
+      cur.incidenten!.push(l);
+
+    // sancties / ordemaatregelen / OM / AP-A / OB / JR
+    if(/\b(ordemaatregel|OM\b|AP-A|OB\b|sancti|JR\b)/i.test(l))
+      cur.sancties!.push(l);
+
+    // afspraken
+    if(/\bafspraak|afspraken|NIFP|advocaat|therapie|PMT|MDFT|schematherapie/i.test(l))
+      cur.afspraken!.push(l);
+
+    // transport
+    if(/\btransport|overgeplaatst|overplaatsing/i.test(l))
+      cur.transport!.push(l);
   }
-  return { groups: out };
+  pushCur();
+
+  // opruimen lege arrays
+  for(const g of groups){
+    if(g.timeouts && g.timeouts.length===0) delete g.timeouts;
+    if(g.incidenten && g.incidenten.length===0) delete g.incidenten;
+    if(g.sancties && g.sancties.length===0) delete g.sancties;
+    if(g.afspraken && g.afspraken.length===0) delete g.afspraken;
+    if(g.transport && g.transport.length===0) delete g.transport;
+  }
+
+  return { header: { datum, savedAt: new Date().toISOString() }, groups };
 }
-function parseSport(txt:string){
-  const blocks = txt.split(/\n\s*\n/).map(b=>b.trim()).filter(Boolean).map(b=>{
-    const group = GROUPS.find(g=>new RegExp(g,"i").test(b)) || "Algemeen";
-    return { group, bijzonderheden: b };
-  });
-  return { blocks };
-}
-export default function Overdrachten(){
-  const [dag,setDag]=useState(""); const [sport,setSport]=useState("");
-  useEffect(()=>{ const a=localStorage.getItem("overdracht-last-raw"); if(a) setDag(a); const b=localStorage.getItem("overdracht-sport-last-raw"); if(b) setSport(b);},[]);
-  const save=()=>{ localStorage.setItem("overdracht-last-raw",dag); localStorage.setItem("overdracht-sport-last-raw",sport);
-    localStorage.setItem("overdracht-last-json", JSON.stringify(parseDag(dag)));
-    localStorage.setItem("overdracht-sport-last-json", JSON.stringify(parseSport(sport)));
-    alert("Geparsed en opgeslagen."); };
-  const clear=()=>{ ["overdracht-last-raw","overdracht-sport-last-raw","overdracht-last-json","overdracht-sport-last-json"].forEach(k=>localStorage.removeItem(k)); setDag(""); setSport(""); };
-  const loadDemo=()=>{ setDag(`Gaag
-De sfeer op de Gaag is wisselend. Alarm om 18:15 wegens hard slaan op pingpongtafel.
-Time-out: Rayan korte TO wegens grote mond.
-Sanctie: Abdullahi OM om 17:00.
-Kust
-Sfeer prima. Geen incidenten.
-`); setSport(`Groep: De Golf
-Bijzonderheden: sportmoment stopgezet wegens onsportief gedrag en scheldwoorden.
-Groep: De Zift
-Bijzonderheden: gevoetbald tegen de Duin, goede sfeer.`); };
+
+export default function OverdrachtenPage(){
+  const [raw,setRaw] = useState("");
+  const [parsed,setParsed] = useState<DagOverdracht | null>(null);
+
+  // laad laatste
+  useEffect(()=>{
+    setRaw(readJSON("overdracht-last-raw",""));
+    setParsed(readJSON("overdracht-last-json", null));
+  },[]);
+
+  function doParse(){
+    const doc = parseDag(raw);
+    writeJSON("overdracht-last-raw", raw);
+    writeJSON("overdracht-last-json", doc);
+    setParsed(doc);
+    alert("Dag-overdracht opgeslagen. Dashboard-meldingen gebruiken deze data.");
+  }
+
+  function clearAll(){
+    localStorage.removeItem("overdracht-last-raw");
+    localStorage.removeItem("overdracht-last-json");
+    setParsed(null);
+    setRaw("");
+  }
+
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-4">
       <h1 className="text-xl font-bold">Overdrachten</h1>
-      <div className="grid md:grid-cols-2 gap-3">
-        <div className="grid gap-2">
-          <div className="text-sm font-medium">Dag overdracht</div>
-          <textarea value={dag} onChange={e=>setDag(e.target.value)} className="min-h-[300px] p-3 rounded-xl border" placeholder="Plak je dag-overdracht hier"/>
-        </div>
-        <div className="grid gap-2">
-          <div className="text-sm font-medium">Sport & Activiteiten</div>
-          <textarea value={sport} onChange={e=>setSport(e.target.value)} className="min-h-[300px] p-3 rounded-xl border" placeholder="Plak je sport-rapport hier"/>
-        </div>
-      </div>
-      <div className="flex gap-2 flex-wrap">
-        <button onClick={save} className="px-3 py-2 rounded-xl border">Parse + Opslaan</button>
-        <button onClick={clear} className="px-3 py-2 rounded-xl border">Leegmaken</button>
-        <button onClick={loadDemo} className="px-3 py-2 rounded-xl border">Laad demo-tekst</button>
-        <a className="px-3 py-2 rounded-xl border" href="/admin">Naar Dashboard</a>
+      <div className="text-sm opacity-70">Alleen <b>Dag-overdracht</b>. Sportrapport en andere onderdelen zijn verwijderd van deze pagina.</div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <section className="grid gap-2">
+          <h2 className="font-semibold">Plak je dag-overdracht</h2>
+          <textarea
+            value={raw}
+            onChange={e=>setRaw(e.target.value)}
+            className="w-full min-h-[240px] border rounded-2xl p-3 bg-white"
+            placeholder="Plak hier de dag-overdracht…"
+          />
+          <div className="flex flex-wrap gap-2">
+            <button onClick={doParse} className="px-3 py-2 rounded-xl border bg-white hover:bg-zinc-50">Parse & Opslaan</button>
+            <button onClick={clearAll} className="px-3 py-2 rounded-xl border bg-white hover:bg-zinc-50">Leeg maken</button>
+          </div>
+        </section>
+
+        <section className="grid gap-2">
+          <h2 className="font-semibold">Resultaat</h2>
+          {!parsed ? (
+            <div className="border rounded-2xl p-3 bg-zinc-50 text-sm opacity-70">Nog niets geparsed.</div>
+          ) : (
+            <div className="border rounded-2xl p-3 bg-white grid gap-3">
+              <div className="text-sm opacity-70">
+                Datum: <b>{parsed.header?.datum || "onbekend"}</b> • opgeslagen: {new Date(parsed.header?.savedAt || "").toLocaleString("nl-NL") || "—"}
+              </div>
+              <div className="grid gap-2">
+                {parsed.groups.map(g=>(
+                  <div key={g.group} className="border rounded-xl p-2">
+                    <div className="font-medium">{g.group}</div>
+                    <div className="text-xs opacity-70">
+                      {g.headcount ? <>Aantal: {g.headcount} • </> : null}
+                      {g.sfeer ? <>Sfeer: {g.sfeer}</> : "Geen sfeerregel gevonden"}
+                    </div>
+                    <div className="mt-1 grid gap-1 text-sm">
+                      {g.incidenten && g.incidenten.length>0 && (
+                        <div><b>Incidenten:</b><br/>{g.incidenten.map((l,i)=><div key={i} className="opacity-80">• {l}</div>)}</div>
+                      )}
+                      {g.timeouts && g.timeouts.length>0 && (
+                        <div><b>Time-outs:</b><br/>{g.timeouts.map((l,i)=><div key={i} className="opacity-80">• {l}</div>)}</div>
+                      )}
+                      {g.sancties && g.sancties.length>0 && (
+                        <div><b>Sancties:</b><br/>{g.sancties.map((l,i)=><div key={i} className="opacity-80">• {l}</div>)}</div>
+                      )}
+                      {g.afspraken && g.afspraken.length>0 && (
+                        <div><b>Afspraken:</b><br/>{g.afspraken.map((l,i)=><div key={i} className="opacity-80">• {l}</div>)}</div>
+                      )}
+                      {g.transport && g.transport.length>0 && (
+                        <div><b>Transport:</b><br/>{g.transport.map((l,i)=><div key={i} className="opacity-80">• {l}</div>)}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

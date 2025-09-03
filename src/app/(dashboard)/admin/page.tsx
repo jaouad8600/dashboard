@@ -1,4 +1,10 @@
 "use client";
+import OverdrachtTile from "@/components/OverdrachtTile";
+import OverdrachtSnapshotCard from "@/components/OverdrachtSnapshotCard";
+import SportmutatiesCard from "@/components/SportmutatiesCard";
+import IndicatiesSummaryCard from "@/components/IndicatiesSummaryCard";
+import TodayPlanCard from "@/components/TodayPlanCard";
+import RedGroupsCard from "@/components/RedGroupsCard";
 
 import { useEffect, useMemo, useState } from "react";
 import { isSameDay, isSameWeek, startOfWeek, addDays } from "date-fns";
