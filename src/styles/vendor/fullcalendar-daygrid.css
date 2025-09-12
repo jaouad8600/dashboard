@@ -1,0 +1,3 @@
+/* minimale daygrid-basis */
+.fc, .fc * { box-sizing: border-box; }
+.fc-daygrid-day-frame{ min-height: 4rem; }

@@ -2,38 +2,27 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const links = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/kalender", label: "Kalender" },
-  { href: "/planner", label: "Planner" },
+const NAV = [
+  { href: "/", label: "Dashboard" },
   { href: "/groepen", label: "Groepen" },
-  { href: "/sportmutaties", label: "Sportmutaties" },
-  { href: "/indicatie-sport", label: "Indicatie sport" },
-  { href: "/overdrachten", label: "Overdrachten" },
-  { href: "/back-up", label: "Back-up" },
-  { href: "/diagnose", label: "Diagnose" },
-  , { label: "SharePoint", href: "/sharepoint" }
+  { href: "/extra-sport", label: "Extra sport" },
 ];
 
-    <a href="/sharepoint" className="block px-3 py-2 rounded-lg hover:bg-zinc-50">SharePoint</a>
 export default function Sidebar(){
-  const path = usePathname();
+  const pathname = usePathname();
   return (
-    <aside className="w-64 border-r bg-white min-h-screen">
-      <div className="p-4 border-b">
+    <aside className="w-64 bg-white border-r min-h-screen p-4">
+      <div className="mb-6">
         <div className="text-sm opacity-70">Teylingereind</div>
         <div className="font-bold">Sport & Activiteiten</div>
       </div>
-      <nav className="p-2 grid gap-1">
-        {links.map(l=>{
-          const active = path === l.href;
+      <nav className="space-y-1">
+        {NAV.map(i=>{
+          const active = pathname === i.href;
           return (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={`px-3 py-2 rounded-xl text-sm ${active ? "bg-zinc-100 font-semibold" : "hover:bg-zinc-50"}`}
-            >
-              {l.label}
+            <Link key={i.href} href={i.href}
+              className={`block px-3 py-2 rounded-lg text-sm ${active ? "bg-blue-100 text-blue-700" : "hover:bg-gray-100"}`}>
+              {i.label}
             </Link>
           );
         })}

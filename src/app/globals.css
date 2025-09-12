@@ -2,23 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-html,body{height:100%}
-:root{
-  --bg: #f8fafc;           /* licht */
-  --card: #ffffff;
-  --muted: #71717a;
-}
-body{ background-color: var(--bg); color:#0a0a0a; }
-
-/* Kaarten en randen net wat zachter */
-.card { @apply rounded-2xl border bg-white shadow-card; }
-
-/* Active nav state tint */
-.active-nav { @apply bg-brand-50 border-brand-200 text-brand-800; }
-
-/* Kleine helper voor pill-badges */
-.badge { @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full border; }
-.badge-danger  { @apply border-danger/30  bg-danger-soft  text-danger-fg; }
-.badge-warning { @apply border-warning/30 bg-warning-soft text-warning-fg; }
-.badge-info    { @apply border-info/30    bg-info-soft    text-info-fg; }
-.badge-ok      { @apply border-emerald-200 bg-ok-soft text-ok-fg; }
+/* Globale opmaak voor leesbare, strakke UI */
+:root { color-scheme: light; }
+html, body { min-height: 100%; }
+body { @apply bg-zinc-100 text-zinc-900 antialiased; }
+.card { @apply rounded-2xl border bg-white p-4; }
+.tile-title { @apply text-sm text-zinc-500; }
+.tile-value { @apply mt-1 text-2xl font-bold; }
+.link { @apply text-sm text-blue-700 hover:underline; }

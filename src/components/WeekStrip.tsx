@@ -1,42 +1,39 @@
 "use client";
+import { useMemo } from "react";
 
-type Item = { name: string; total: number; eb: number; vloed: number };
+function startOfWeekLocal(d = new Date()) {
+  const copy = new Date(d);
+  const weekday = (copy.getDay() + 6) % 7; // maandag = 0
+  copy.setDate(copy.getDate() - weekday);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+function addDays(d: Date, n: number) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+function label(d: Date) {
+  return new Intl.DateTimeFormat("nl-NL", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  }).format(d);
+}
 
-export default function WeekStrip({ data }: { data: Item[] }) {
+export default function WeekStrip() {
+  const days = useMemo(() => {
+    const start = startOfWeekLocal(new Date());
+    return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
+  }, []);
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-      {data.map((d) => {
-        const total = d.total || 0;
-        const ebPct = total ? Math.round((d.eb / total) * 100) : 0;
-        const vloedPct = total ? 100 - ebPct : 0;
-        return (
-          <div key={d.name} className="border rounded-2xl p-3 bg-white grid gap-2">
-            <div className="flex items-baseline justify-between">
-              <div className="text-sm text-zinc-500 capitalize">{d.name}</div>
-              <div className="text-xl font-bold text-brand-700">{d.total}</div>
-            </div>
-
-            {/* Stacked microbar Eb/Vloed (subtiel, geen library) */}
-            <div className="h-2 w-full rounded-full overflow-hidden border flex" aria-label={`Verdeling Eb/Vloed voor ${d.name}`}>
-              <div
-                className="h-full"
-                style={{ width: `${ebPct}%`, background: "#22c55e" }}  /* groen voor Eb */
-                title={`Eb ${d.eb}`}
-              />
-              <div
-                className="h-full"
-                style={{ width: `${vloedPct}%`, background: "#3b82f6" }} /* blauw voor Vloed */
-                title={`Vloed ${d.vloed}`}
-              />
-            </div>
-
-            <div className="flex justify-between text-xs text-zinc-600">
-              <span>Eb: {d.eb}</span>
-              <span>Vloed: {d.vloed}</span>
-            </div>
-          </div>
-        );
-      })}
+    <div className="flex gap-2 text-sm">
+      {days.map((d, i) => (
+        <div key={i} className="px-2 py-1 rounded border bg-white">
+          <span suppressHydrationWarning>{label(d)}</span>
+        </div>
+      ))}
     </div>
   );
 }

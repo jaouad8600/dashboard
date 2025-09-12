@@ -1,0 +1,12 @@
+"use client";
+import { DEFAULT_GROUPS } from "@/lib/groups";
+export type ExtraSport = { id: string; groupName: string; at: number; note?: string };
+const KEY="extra_sport";
+function readAll(): ExtraSport[]{ try{ if(typeof window==="undefined")return[]; const raw=localStorage.getItem(KEY); const arr=raw?(JSON.parse(raw) as ExtraSport[]):[]; return Array.isArray(arr)?arr.sort((a,b)=>b.at-a.at):[]; }catch{return[];} }
+function writeAll(list:ExtraSport[]){ localStorage.setItem(KEY, JSON.stringify(list)); window.dispatchEvent(new CustomEvent("extra-sport:changed")); }
+export function getExtras(){ return readAll(); }
+export function addExtra(groupName:string, at:number, note?:string){ const list=readAll(); const id=(globalThis.crypto&&"randomUUID"in globalThis.crypto?(crypto as any).randomUUID():null)||String(Date.now()); const it:ExtraSport={id,groupName,at:Number(at)||Date.now(),note:note?.trim()||undefined}; list.unshift(it); writeAll(list); return it; }
+export function removeExtra(id:string){ writeAll(readAll().filter(x=>x.id!==id)); }
+export function onExtraSportChange(cb:()=>void){ const h=()=>cb(); const hs=(e:StorageEvent)=>{ if(e.key===KEY) cb(); }; window.addEventListener("extra-sport:changed", h as EventListener); window.addEventListener("storage", hs); return ()=>{ window.removeEventListener("extra-sport:changed", h as EventListener); window.removeEventListener("storage", hs); }; }
+export function getKnownGroups(){ try{ const raw=localStorage.getItem("groups"); if(raw){ const arr=JSON.parse(raw); if(Array.isArray(arr)) return arr.map((g:any)=>({id:String(g?.id||g?.name||""),name:String(g?.name||"")})).filter(x=>x.id&&x.name); } }catch{} return DEFAULT_GROUPS.map(g=>({id:g.id,name:g.name})); }
+export function countByGroup(items:ExtraSport[], groups:{id:string;name:string}[]){ const now=new Date(); const wk=new Date(now); const d=(now.getDay()+6)%7; wk.setDate(now.getDate()-d); wk.setHours(0,0,0,0); const weekMs=wk.getTime(); const monthMs=new Date(now.getFullYear(), now.getMonth(), 1).getTime(); const map:Record<string,{name:string;total:number;week:number;month:number}>={}; groups.forEach(g=>map[g.id]={name:g.name,total:0,week:0,month:0}); for(const it of items){ const g=groups.find(x=>x.name===it.groupName); const gid=g?.id??"__onbekend__"; if(!map[gid]) map[gid]={name:g?.name||it.groupName,total:0,week:0,month:0}; map[gid].total++; if(it.at>=weekMs) map[gid].week++; if(it.at>=monthMs) map[gid].month++; } return map; }
