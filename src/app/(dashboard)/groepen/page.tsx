@@ -11,7 +11,7 @@ import {
   type GroepType,
   type NotitieType,
   type GroupColor,
-} from "@/lib/groepen.filtered";
+} from "@/lib/groepen_filtered";
 
 const COLORS: { key: GroupColor; label: string; ring: string; dot: string; bg: string; text: string }[] = [
   { key: "green",  label: "Groen",  ring: "ring-emerald-200", dot: "bg-emerald-500", bg: "bg-emerald-50", text: "text-emerald-700" },
