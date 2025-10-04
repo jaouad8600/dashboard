@@ -1,0 +1,53 @@
+{
+  "columns": [
+    {
+      "id": "todo",
+      "title": "To Do",
+      "order": 0
+    },
+    {
+      "id": "doing",
+      "title": "Doing",
+      "order": 1
+    },
+    {
+      "id": "done",
+      "title": "Done",
+      "order": 2
+    }
+  ],
+  "tasks": [
+    {
+      "id": "751da998-65cc-4b9b-b3e7-6b557884d470",
+      "title": "Inventarischeck materialen",
+      "description": "Sporthal Q1",
+      "columnId": "todo",
+      "order": 0,
+      "createdAt": 1757884441346
+    },
+    {
+      "id": "c9f51157-15d4-4ac9-a436-a368d72576f2",
+      "title": "Sync Refine resources",
+      "description": "Companies hook koppelen",
+      "columnId": "doing",
+      "order": 0,
+      "createdAt": 1757884441346
+    },
+    {
+      "id": "bb15a0bd-0c76-47f0-b3d6-40f96a32756d",
+      "title": "Update dashboard tegels",
+      "description": "Rode groepen + mutaties",
+      "columnId": "doing",
+      "order": 1,
+      "createdAt": 1757884441346
+    },
+    {
+      "id": "84c32c3f-65c2-4c92-a1cb-1b7f7696da4a",
+      "title": "SSE live testen",
+      "description": "EventSource in Kanban",
+      "columnId": "done",
+      "order": 0,
+      "createdAt": 1757884441346
+    }
+  ]
+}

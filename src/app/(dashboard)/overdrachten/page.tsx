@@ -1,183 +1,114 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { GROUPS_OFFICIAL, normalizeGroup } from "@/lib/clientStore";
+import { useEffect, useState } from "react";
+import {
+  listOverdrachten,
+  onOverdrachtenChange,
+  createOverdracht,
+  patchOverdracht,
+  deleteOverdracht,
+  type Overdracht,
+} from "@/lib/overdrachten";
 
-type DagGroup = {
-  group: string;
-  headcount?: number;
-  sfeer?: string;
-  timeouts?: string[];
-  incidenten?: string[];
-  sancties?: string[];
-  afspraken?: string[];
-  transport?: string[];
-};
-type DagOverdracht = {
-  header?: { datum?: string; savedAt?: string };
-  groups: DagGroup[];
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const nowHHMM = () => {
+  const d = new Date(); const z = (n:number)=>String(n).padStart(2,"0");
+  return `${z(d.getHours())}:${z(d.getMinutes())}`;
 };
 
-function readJSON<T>(k:string, def:T):T {
-  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; }
-}
-function writeJSON(k:string, v:any){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
+export default function OverdrachtenPage() {
+  const [items, setItems] = useState<Overdracht[]>(listOverdrachten());
+  const [datumISO, setDatumISO] = useState(todayISO());
+  const [tijd, setTijd] = useState(nowHHMM());
+  const [auteur, setAuteur] = useState("");
+  const [bericht, setBericht] = useState("");
+  const [belangrijk, setBelangrijk] = useState(false);
 
-function parseDag(text:string): DagOverdracht {
-  const lines = text.split(/\r?\n/).map(l=>l.replace(/\t/g," ").trim());
-  const groups: DagGroup[] = [];
-  let cur: DagGroup | null = null;
+  useEffect(() => onOverdrachtenChange(() => setItems(listOverdrachten())), []);
 
-  const gRegex = new RegExp(
-    `^(?:groep\\s+)?(?:de\\s+)?(${GROUPS_OFFICIAL.join("|")})\\b`, "i"
-  );
-
-  // header datum
-  const datumLine = lines.find(l => /^datum\s*:/.test(l.toLowerCase()));
-  const datum = datumLine ? datumLine.split(":").slice(1).join(":").trim() : undefined;
-
-  const pushCur = () => { if(cur) groups.push(cur); cur = null; };
-
-  for(const raw of lines){
-    if(!raw) continue;
-    const m = raw.match(gRegex);
-    if(m){
-      pushCur();
-      const name = normalizeGroup(m[1]) || m[1];
-      cur = { group: name, timeouts:[], incidenten:[], sancties:[], afspraken:[], transport:[] };
-      continue;
-    }
-    if(!cur) continue;
-
-    const l = raw;
-
-    // sfeer
-    if(/sfeer/i.test(l) && !cur.sfeer){
-      cur.sfeer = l.replace(/^\s*sfeer\s*:?\s*/i,"").trim() || l;
-    }
-
-    // headcount
-    const hc = l.match(/\b(\d+)\s*(?:jongens|jongere[n]?|jeugdigen)/i);
-    if(hc && !cur.headcount) cur.headcount = parseInt(hc[1],10);
-
-    // time-outs
-    if(/\btime[-\s]?out|\bTO\b/i.test(l)) cur.timeouts!.push(l);
-
-    // incidenten/alarm/geweld
-    if(/\balarm|vechtpartij|fysiek|bloedneus|bedreig|dreig|geweld|korte\s*time[-\s]?out/i.test(l))
-      cur.incidenten!.push(l);
-
-    // sancties / ordemaatregelen / OM / AP-A / OB / JR
-    if(/\b(ordemaatregel|OM\b|AP-A|OB\b|sancti|JR\b)/i.test(l))
-      cur.sancties!.push(l);
-
-    // afspraken
-    if(/\bafspraak|afspraken|NIFP|advocaat|therapie|PMT|MDFT|schematherapie/i.test(l))
-      cur.afspraken!.push(l);
-
-    // transport
-    if(/\btransport|overgeplaatst|overplaatsing/i.test(l))
-      cur.transport!.push(l);
-  }
-  pushCur();
-
-  // opruimen lege arrays
-  for(const g of groups){
-    if(g.timeouts && g.timeouts.length===0) delete g.timeouts;
-    if(g.incidenten && g.incidenten.length===0) delete g.incidenten;
-    if(g.sancties && g.sancties.length===0) delete g.sancties;
-    if(g.afspraken && g.afspraken.length===0) delete g.afspraken;
-    if(g.transport && g.transport.length===0) delete g.transport;
-  }
-
-  return { header: { datum, savedAt: new Date().toISOString() }, groups };
-}
-
-export default function OverdrachtenPage(){
-  const [raw,setRaw] = useState("");
-  const [parsed,setParsed] = useState<DagOverdracht | null>(null);
-
-  // laad laatste
-  useEffect(()=>{
-    setRaw(readJSON("overdracht-last-raw",""));
-    setParsed(readJSON("overdracht-last-json", null));
-  },[]);
-
-  function doParse(){
-    const doc = parseDag(raw);
-    writeJSON("overdracht-last-raw", raw);
-    writeJSON("overdracht-last-json", doc);
-    setParsed(doc);
-    alert("Dag-overdracht opgeslagen. Dashboard-meldingen gebruiken deze data.");
-  }
-
-  function clearAll(){
-    localStorage.removeItem("overdracht-last-raw");
-    localStorage.removeItem("overdracht-last-json");
-    setParsed(null);
-    setRaw("");
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const text = bericht.trim();
+    if (!text) return;
+    createOverdracht({ datumISO, tijd, auteur: auteur || undefined, bericht: text, belangrijk });
+    setBericht("");
+    setBelangrijk(false);
   }
 
   return (
-    <div className="grid gap-4">
-      <h1 className="text-xl font-bold">Overdrachten</h1>
-      <div className="text-sm opacity-70">Alleen <b>Dag-overdracht</b>. Sportrapport en andere onderdelen zijn verwijderd van deze pagina.</div>
+    <div className="p-6 space-y-6">
+      <h1 className="text-2xl font-bold">Overdrachten</h1>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <section className="grid gap-2">
-          <h2 className="font-semibold">Plak je dag-overdracht</h2>
-          <textarea
-            value={raw}
-            onChange={e=>setRaw(e.target.value)}
-            className="w-full min-h-[240px] border rounded-2xl p-3 bg-white"
-            placeholder="Plak hier de dag-overdracht…"
-          />
-          <div className="flex flex-wrap gap-2">
-            <button onClick={doParse} className="px-3 py-2 rounded-xl border bg-white hover:bg-zinc-50">Parse & Opslaan</button>
-            <button onClick={clearAll} className="px-3 py-2 rounded-xl border bg-white hover:bg-zinc-50">Leeg maken</button>
+      <form
+        onSubmit={onSubmit}
+        className="rounded-2xl border bg-white p-4 shadow-sm grid grid-cols-1 md:grid-cols-6 gap-3"
+      >
+        <div>
+          <label className="text-xs text-zinc-500">Datum</label>
+          <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm"
+                 value={datumISO} onChange={(e)=>setDatumISO(e.target.value)} />
+        </div>
+        <div>
+          <label className="text-xs text-zinc-500">Tijd</label>
+          <input type="time" className="w-full rounded-lg border px-3 py-2 text-sm"
+                 value={tijd} onChange={(e)=>setTijd(e.target.value)} />
+        </div>
+        <div>
+          <label className="text-xs text-zinc-500">Auteur</label>
+          <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Optioneel"
+                 value={auteur} onChange={(e)=>setAuteur(e.target.value)} />
+        </div>
+        <div className="md:col-span-2">
+          <label className="text-xs text-zinc-500">Bericht</label>
+          <input className="w-full rounded-lg border px-3 py-2 text-sm"
+                 placeholder="Wat moet de volgende dienst weten?"
+                 value={bericht} onChange={(e)=>setBericht(e.target.value)} />
+        </div>
+        <div className="flex items-end gap-2">
+          <label className="inline-flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={belangrijk}
+                   onChange={(e)=>setBelangrijk(e.target.checked)} />
+            Belangrijk
+          </label>
+          <button type="submit"
+                  className="ml-auto rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
+            Plaatsen
+          </button>
+        </div>
+      </form>
+
+      <div className="space-y-3">
+        {items.length === 0 ? (
+          <div className="rounded-2xl border bg-white p-6 text-center text-zinc-500">
+            Nog geen overdrachten.
           </div>
-        </section>
-
-        <section className="grid gap-2">
-          <h2 className="font-semibold">Resultaat</h2>
-          {!parsed ? (
-            <div className="border rounded-2xl p-3 bg-zinc-50 text-sm opacity-70">Nog niets geparsed.</div>
-          ) : (
-            <div className="border rounded-2xl p-3 bg-white grid gap-3">
-              <div className="text-sm opacity-70">
-                Datum: <b>{parsed.header?.datum || "onbekend"}</b> • opgeslagen: {new Date(parsed.header?.savedAt || "").toLocaleString("nl-NL") || "—"}
+        ) : items.map((o) => (
+          <div key={o.id} className="rounded-2xl border bg-white p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <span className={`mt-1 h-2 w-2 rounded-full ${o.belangrijk ? "bg-red-500" : "bg-zinc-300"}`} />
+              <div className="flex-1">
+                <div className="text-sm text-zinc-500">
+                  {o.datumISO} • {o.tijd}{o.auteur ? ` • ${o.auteur}` : ""}
+                </div>
+                <div className="mt-1">{o.bericht}</div>
               </div>
-              <div className="grid gap-2">
-                {parsed.groups.map(g=>(
-                  <div key={g.group} className="border rounded-xl p-2">
-                    <div className="font-medium">{g.group}</div>
-                    <div className="text-xs opacity-70">
-                      {g.headcount ? <>Aantal: {g.headcount} • </> : null}
-                      {g.sfeer ? <>Sfeer: {g.sfeer}</> : "Geen sfeerregel gevonden"}
-                    </div>
-                    <div className="mt-1 grid gap-1 text-sm">
-                      {g.incidenten && g.incidenten.length>0 && (
-                        <div><b>Incidenten:</b><br/>{g.incidenten.map((l,i)=><div key={i} className="opacity-80">• {l}</div>)}</div>
-                      )}
-                      {g.timeouts && g.timeouts.length>0 && (
-                        <div><b>Time-outs:</b><br/>{g.timeouts.map((l,i)=><div key={i} className="opacity-80">• {l}</div>)}</div>
-                      )}
-                      {g.sancties && g.sancties.length>0 && (
-                        <div><b>Sancties:</b><br/>{g.sancties.map((l,i)=><div key={i} className="opacity-80">• {l}</div>)}</div>
-                      )}
-                      {g.afspraken && g.afspraken.length>0 && (
-                        <div><b>Afspraken:</b><br/>{g.afspraken.map((l,i)=><div key={i} className="opacity-80">• {l}</div>)}</div>
-                      )}
-                      {g.transport && g.transport.length>0 && (
-                        <div><b>Transport:</b><br/>{g.transport.map((l,i)=><div key={i} className="opacity-80">• {l}</div>)}</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => patchOverdracht(o.id, { belangrijk: !o.belangrijk })}
+                  className="rounded-lg border px-3 py-1 text-sm hover:bg-zinc-50"
+                >
+                  {o.belangrijk ? "Markeer normaal" : "Markeer belangrijk"}
+                </button>
+                <button
+                  onClick={() => deleteOverdracht(o.id)}
+                  className="rounded-lg border px-3 py-1 text-sm hover:bg-zinc-50"
+                >
+                  Verwijderen
+                </button>
               </div>
             </div>
-          )}
-        </section>
+          </div>
+        ))}
       </div>
     </div>
   );

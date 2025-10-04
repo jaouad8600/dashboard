@@ -10,3 +10,11 @@ body { @apply bg-zinc-100 text-zinc-900 antialiased; }
 .tile-title { @apply text-sm text-zinc-500; }
 .tile-value { @apply mt-1 text-2xl font-bold; }
 .link { @apply text-sm text-blue-700 hover:underline; }
+
+/* === SportDash: groepsnaam badge-typografie === */
+.group-title{
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 700;
+  font-size: 0.95rem;
+}

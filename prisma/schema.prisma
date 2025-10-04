@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"         // dev snel & betrouwbaar; voor prod kun je naar postgresql wisselen
+  url      = "file:./dev.db"
+}
+
+enum GroupColor { GREEN ORANGE YELLOW RED }
+enum MateriaalStatus { GOED DEFECT BESTELD TOPDESK }
+enum MutatieStatus { OPEN IN_BEHANDELING AFGEROND }
+enum Maatregel { GEEN FITNESS_ALLEEN SPORTVERBOD_TOTAAL }
+
+model Groep {
+  id        String         @id @default(cuid())
+  naam      String         @unique
+  kleur     GroupColor     @default(GREEN)
+  notes     GroepNotitie[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+model GroepNotitie {
+  id        String   @id @default(cuid())
+  groepId   String
+  groep     Groep    @relation(fields: [groepId], references: [id], onDelete: Cascade)
+  auteur    String?
+  tekst     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Mutatie {
+  id          String        @id @default(cuid())
+  titel       String
+  beschrijving String?
+  datum       DateTime      @default(now())
+  status      MutatieStatus @default(OPEN)
+  maatregel   Maatregel     @default(GEEN)
+  groepId     String?
+  groep       Groep?        @relation(fields: [groepId], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Overdracht {
+  id        String   @id @default(cuid())
+  datum     DateTime @default(now())  // datum+tijd in één
+  auteur    String?
+  bericht   String
+  belangrijk Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Materiaal {
+  id        String           @id @default(cuid())
+  naam      String
+  locatie   String?
+  status    MateriaalStatus  @default(GOED)
+  notitie   String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}

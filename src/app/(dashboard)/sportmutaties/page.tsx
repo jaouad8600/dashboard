@@ -1,162 +1,93 @@
 "use client";
+import { useEffect, useMemo, useState } from "react";
+import { listMutaties, createMutatie, patchMutatie, deleteMutatie, onMutatiesChange, type Mutatie } from "@/lib/mutaties";
 
-import SyncService from "@/components/SyncService";
-import { useMutaties, addMutatie } from "@/lib/live";
-import { getAllGroups } from "@/lib/groupColors";
-import { useMemo, useState } from "react";
+const GROUPS = ["Poel A","Poel B","Lier","Zijl","Nes","Vliet","Gaag","Kust","Golf","Zift","Lei","Kade","Kreek","Duin","Rak","Bron","Eb","Vloed"];
+const TYPES  = ["Totaal sportverbod","Alleen fitness"];
 
-type Mutatie = {
-  id: string;
-  group: string;
-  name: string;
-  medic: string;
-  status: "Niet sporten" | "Beperkt" | "Voorzichtig" | "Vrijgegeven";
-  active: boolean;
-  start?: string;
-  end?: string;
-  note?: string;
-};
+export default function Page(){
+  const [items,setItems]=useState<Mutatie[]>([]);
+  const [group,setGroup]=useState(GROUPS[0]);
+  const [naam,setNaam]=useState("");
+  const [dienst,setDienst]=useState("");
+  const [type,setType]=useState(TYPES[0]);
+  const [notitie,setNotitie]=useState("");
+  const [by,setBy]=useState("");
 
-function fmt(dt?: string){ return dt ? new Date(dt).toLocaleString("nl-NL") : ""; }
-
-export default function SportmutatiesPage(){
-  const [mutaties, setMutaties] = useMutaties();
-  const groups = getAllGroups();
-
-  // form state
-  const [group, setGroup] = useState(groups[0] ?? "");
-  const [name, setName]   = useState("");
-  const [medic, setMedic] = useState("");
-  const [status, setStatus] = useState<Mutatie["status"]>("Niet sporten");
-  const [note, setNote] = useState("");
-
-  const addManual = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!group || !name || !medic || !status) return;
-    const item: Mutatie = {
-      id: "mut_" + Date.now(),
-      group, name, medic, status,
-      active: status !== "Vrijgegeven",
-      start: new Date().toISOString(),
-      note: note || undefined,
-    };
-    addMutatie(item); // prepend + broadcast
-    // lokaal ook refresh (direct)
-    setMutaties((prev:any[]) => [item, ...(prev||[])]);
-    // reset
-    setName(""); setMedic(""); setStatus("Niet sporten"); setNote("");
-  };
+  useEffect(()=>{
+    const load=()=>listMutaties().then(setItems).catch(()=>{});
+    load(); const off=onMutatiesChange(load); return off;
+  },[]);
 
   const grouped = useMemo(()=>{
-    const map: Record<string, Mutatie[]> = {};
-    for(const m of (mutaties as Mutatie[] || [])){
-      const g = m.group || "Onbekend";
-      if(!map[g]) map[g]=[];
-      map[g].push(m);
-    }
-    return map;
-  }, [mutaties]);
+    const m = new Map<string,Mutatie[]>();
+    for(const it of items){ if(!m.has(it.group)) m.set(it.group,[]); m.get(it.group)!.push(it); }
+    return Array.from(m.entries()).sort((a,b)=>a[0].localeCompare(b[0]));
+  },[items]);
 
-  const toggleActive = (id: string) => {
-    setMutaties((prev:any[]) => (prev||[]).map((m:Mutatie)=> m.id===id ? { ...m, active: !m.active } : m));
-  };
-  const changeStatus = (id: string, next: Mutatie["status"]) => {
-    setMutaties((prev:any[]) => (prev||[]).map((m:Mutatie)=> m.id===id ? { ...m, status: next, active: next!=="Vrijgegeven" } : m));
-  };
-  const removeItem = (id: string) => {
-    setMutaties((prev:any[]) => (prev||[]).filter((m:Mutatie)=> m.id!==id));
-  };
-
-  const statuses: Mutatie["status"][] = ["Niet sporten","Beperkt","Voorzichtig","Vrijgegeven"];
+  async function add(e:React.FormEvent){
+    e.preventDefault();
+    if(!naam.trim()) return alert("Naam verplicht");
+    await createMutatie({ group, naam, dienst, type, notitie, by });
+    setNaam(""); setDienst(""); setNotitie("");
+  }
 
   return (
     <div className="p-6 space-y-6">
-      <SyncService />
       <h1 className="text-2xl font-bold">Sportmutaties</h1>
-
-      {/* Handmatig toevoegen */}
-      <form onSubmit={addManual} className="bg-white shadow rounded-2xl p-4 grid grid-cols-1 md:grid-cols-6 gap-3">
-        <div className="md:col-span-1">
-          <label className="block text-sm font-medium">Groep</label>
-          <select value={group} onChange={e=>setGroup(e.target.value)} className="border rounded-lg px-3 py-2 w-full">
-            {groups.map(g => <option key={g} value={g}>{g}</option>)}
+      <form onSubmit={add} className="rounded-2xl border bg-white p-4 grid gap-3 md:grid-cols-3">
+        <div><label className="block text-sm mb-1">Groep</label>
+          <select className="w-full rounded-lg border px-3 py-2" value={group} onChange={e=>setGroup(e.target.value)}>
+            {GROUPS.map(g=><option key={g} value={g}>{g}</option>)}
           </select>
         </div>
-        <div className="md:col-span-1">
-          <label className="block text-sm font-medium">Naam</label>
-          <input value={name} onChange={e=>setName(e.target.value)} className="border rounded-lg px-3 py-2 w-full" placeholder="Deelnemer" required />
+        <div><label className="block text-sm mb-1">Naam</label>
+          <input className="w-full rounded-lg border px-3 py-2" value={naam} onChange={e=>setNaam(e.target.value)} />
         </div>
-        <div className="md:col-span-1">
-          <label className="block text-sm font-medium">Medische dienst</label>
-          <input value={medic} onChange={e=>setMedic(e.target.value)} className="border rounded-lg px-3 py-2 w-full" placeholder="Arts/verpleegkundige" required />
+        <div><label className="block text-sm mb-1">Medische dienst</label>
+          <input className="w-full rounded-lg border px-3 py-2" value={dienst} onChange={e=>setDienst(e.target.value)} placeholder="optioneel"/>
         </div>
-        <div className="md:col-span-1">
-          <label className="block text-sm font-medium">Soort mutatie</label>
-          <select value={status} onChange={e=>setStatus(e.target.value as Mutatie["status"])} className="border rounded-lg px-3 py-2 w-full">
-            {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+        <div><label className="block text-sm mb-1">Soort mutatie</label>
+          <select className="w-full rounded-lg border px-3 py-2" value={type} onChange={e=>setType(e.target.value)}>
+            {TYPES.map(t=><option key={t} value={t}>{t}</option>)}
           </select>
         </div>
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium">Notitie (optioneel)</label>
-          <input value={note} onChange={e=>setNote(e.target.value)} className="border rounded-lg px-3 py-2 w-full" placeholder="Bijv. alleen fitness toegestaan" />
+        <div><label className="block text-sm mb-1">Toegevoegd door</label>
+          <input className="w-full rounded-lg border px-3 py-2" value={by} onChange={e=>setBy(e.target.value)} placeholder="optioneel"/>
         </div>
-        <div className="md:col-span-6 flex justify-end">
-          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg">Toevoegen</button>
+        <div className="md:col-span-3"><label className="block text-sm mb-1">Notitie (optioneel)</label>
+          <textarea className="w-full rounded-lg border px-3 py-2 min-h-[80px]" value={notitie} onChange={e=>setNotitie(e.target.value)} />
+        </div>
+        <div className="md:col-span-3">
+          <button className="rounded-lg border px-4 py-2 bg-blue-600 text-white hover:bg-blue-700" type="submit">Toevoegen</button>
         </div>
       </form>
 
-      {/* Overzicht per groep */}
-      <div className="space-y-6">
-        {Object.keys(grouped).length===0 && (
-          <p className="text-gray-500">Nog geen sportmutaties.</p>
-        )}
-        {Object.entries(grouped).map(([g, items])=>(
-          <div key={g} className="bg-white shadow rounded-2xl">
-            <div className="px-4 py-3 border-b font-semibold">{g}</div>
-            <ul className="p-4 space-y-3">
-              {items.map(m => (
-                <li key={m.id} className="border rounded-lg p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <div className="font-medium">{m.name} <span className="text-xs text-gray-500">({m.medic})</span></div>
-                      <div className="text-sm text-gray-600">
-                        {m.status}{m.note ? ` • ${m.note}` : ""} {m.start ? `• ${fmt(m.start)}` : ""}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={m.status}
-                        onChange={e=>changeStatus(m.id, e.target.value as Mutatie["status"])}
-                        className="border rounded px-2 py-1 text-sm"
-                        title="Wijzig soort mutatie"
-                      >
-                        {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-
-                      <button
-                        onClick={()=>toggleActive(m.id)}
-                        className={`px-2 py-1 rounded text-sm ${m.active ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800"}`}
-                        title="Actief / Gestopt"
-                      >
-                        {m.active ? "Actief" : "Gestopt"}
+      {grouped.length===0 ? <div className="rounded-2xl border bg-white p-6 text-center text-zinc-500">Nog geen mutaties.</div> :
+        <div className="grid md:grid-cols-2 gap-6">
+          {grouped.map(([g,list])=>(
+            <div key={g} className="rounded-2xl border bg-white p-4">
+              <div className="font-semibold mb-2">{g}</div>
+              <ul className="space-y-2">
+                {list.map(r=>(
+                  <li key={r.id} className="rounded border p-2">
+                    <div className="text-sm font-medium">{r.naam}{r.by ? ` (door ${r.by})` : ""}</div>
+                    <div className="text-xs text-zinc-600">{r.type}{r.dienst ? ` • ${r.dienst}` : ""} • {new Date(r.ts).toLocaleString("nl-NL")}</div>
+                    {r.notitie ? <div className="mt-1 text-sm whitespace-pre-wrap">{r.notitie}</div> : null}
+                    <div className="mt-2 flex items-center gap-2">
+                      <button className="rounded border px-2 py-1 text-xs" onClick={()=>patchMutatie(r.id,{active:!r.active})}>
+                        {r.active?"Deactiveer":"Activeer"}
                       </button>
-
-                      <button
-                        onClick={()=>removeItem(m.id)}
-                        className="px-2 py-1 rounded text-sm bg-red-50 text-red-700"
-                        title="Verwijderen"
-                      >
+                      <button className="rounded border px-2 py-1 text-xs text-red-600" onClick={()=>{ if(confirm("Verwijderen?")) deleteMutatie(r.id); }}>
                         Verwijder
                       </button>
                     </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>}
     </div>
   );
 }

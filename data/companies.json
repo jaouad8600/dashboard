@@ -1,0 +1,66 @@
+[
+  {
+    "id": "bddc0b69-b08f-474b-9e4d-fcde65d7f484",
+    "name": "Acme Logistics",
+    "city": "Leiden",
+    "industry": "Transport",
+    "createdAt": 1744286400000,
+    "updatedAt": 1744286400000
+  },
+  {
+    "id": "291c354c-cd7b-4883-a165-f2b68bdb2868",
+    "name": "Bluewave Tech",
+    "city": "Den Haag",
+    "industry": "IT",
+    "createdAt": 1746878400000,
+    "updatedAt": 1746878400000
+  },
+  {
+    "id": "89384e04-b471-4183-ae5e-8cd1aedb6799",
+    "name": "GreenLeaf Foods",
+    "city": "Rotterdam",
+    "industry": "Voeding",
+    "createdAt": 1747742400000,
+    "updatedAt": 1747742400000
+  },
+  {
+    "id": "8dcaadd8-31a8-482d-ae46-e325f84ff93e",
+    "name": "Sunrise Health",
+    "city": "Utrecht",
+    "industry": "Zorg",
+    "createdAt": 1749556800000,
+    "updatedAt": 1749556800000
+  },
+  {
+    "id": "0ed1c555-2729-433b-8619-00c6ca1136f0",
+    "name": "Northwind Traders",
+    "city": "Amsterdam",
+    "industry": "Groothandel",
+    "createdAt": 1752148800000,
+    "updatedAt": 1752148800000
+  },
+  {
+    "id": "90c98e8f-bdb5-4adc-907a-6ac156d62b79",
+    "name": "Pixel Studio",
+    "city": "Delft",
+    "industry": "Design",
+    "createdAt": 1754827200000,
+    "updatedAt": 1754827200000
+  },
+  {
+    "id": "358b8193-b1e5-4f68-b7e4-5e01e1270850",
+    "name": "Riviera Finance",
+    "city": "Haarlem",
+    "industry": "FinTech",
+    "createdAt": 1757073600000,
+    "updatedAt": 1757073600000
+  },
+  {
+    "id": "2cf1d8ae-67e1-44e5-9e4d-c1b5752960f7",
+    "name": "Delta Security",
+    "city": "Zoetermeer",
+    "industry": "Beveiliging",
+    "createdAt": 1758196800000,
+    "updatedAt": 1758196800000
+  }
+]

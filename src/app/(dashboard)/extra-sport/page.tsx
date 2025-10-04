@@ -1,62 +1,128 @@
 "use client";
+
 import { useEffect, useMemo, useState } from "react";
-import { getExtras, addExtra, removeExtra, onExtraSportChange, getKnownGroups, countByGroup } from "@/lib/extraSport";
+import {
+  getGroupsForExtra,
+  getCounts,
+  inc,
+  setCount,
+  resetWeek,
+  onExtraSportChange,
+  weekKeyFromDate,
+  shiftWeek,
+  type WeekKey,
+} from "@/lib/extraSport";
 
-export default function ExtraSportPage(){
-  const [items,setItems]=useState(getExtras());
-  const [groups,setGroups]=useState<{id:string;name:string}[]>([]);
-  const [group,setGroup]=useState(""); const [note,setNote]=useState("");
+export default function ExtraSportPage() {
+  const [mounted, setMounted] = useState(false);
+  const [week, setWeek] = useState<WeekKey>(weekKeyFromDate());
+  const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
 
-  useEffect(()=>{ setGroups(getKnownGroups()); const off=onExtraSportChange(()=>setItems(getExtras())); return off; },[]);
-  useEffect(()=>{ if(groups.length && !group) setGroup(groups[0].name); },[groups,group]);
+  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setGroups(getGroupsForExtra());
+    setCounts(getCounts(week));
+    const off = onExtraSportChange(() => setCounts(getCounts(week)));
+    return off;
+  }, [week]);
 
-  const stats = useMemo(()=>countByGroup(items, groups),[items,groups]);
+  const total = useMemo(
+    () => Object.values(counts).reduce((a, b) => a + (Number(b) || 0), 0),
+    [counts]
+  );
 
-  const add=()=>{
-    if(!group) return;
-    addExtra(group, Date.now(), note);
-    setNote("");
-  };
+  const prev = () => setWeek((w) => shiftWeek(w, -1));
+  const next = () => setWeek((w) => shiftWeek(w, +1));
+
+  if (!mounted) return null; // voorkom hydration-mismatch
 
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Extra sport</h1>
-
-      <div className="rounded-xl border bg-white p-4 flex gap-2 items-end">
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Groep</label>
-          <select className="border rounded-lg px-3 py-2" value={group} onChange={e=>setGroup(e.target.value)}>
-            {groups.map(g=><option key={g.id} value={g.name}>{g.name}</option>)}
-          </select>
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Extra sportmomenten</h1>
+        <div className="flex items-center gap-2">
+          <button onClick={prev} className="rounded-lg border px-3 py-1 text-sm">← Vorige week</button>
+          <div className="px-3 py-1 text-sm rounded-lg border bg-white">{week}</div>
+          <button onClick={next} className="rounded-lg border px-3 py-1 text-sm">Volgende week →</button>
         </div>
-        <div className="flex-1">
-          <label className="block text-xs text-gray-500 mb-1">Notitie (optioneel)</label>
-          <input className="w-full border rounded-lg px-3 py-2" value={note} onChange={e=>setNote(e.target.value)} placeholder="bijv. extra zaal uur" />
-        </div>
-        <button onClick={add} className="px-3 py-2 rounded-lg bg-black text-white text-sm">Toevoegen</button>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        {Object.entries(stats).map(([id,row])=>(
-          <div key={id} className="rounded-xl border bg-white p-4">
-            <div className="font-semibold">{row.name}</div>
-            <div className="mt-2 text-sm text-gray-700">Totaal: {row.total} • Deze week: {row.week} • Deze maand: {row.month}</div>
-          </div>
-        ))}
+      <div className="rounded-2xl border bg-white overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead className="bg-zinc-50 text-zinc-600">
+            <tr>
+              <th className="text-left p-3">Groep</th>
+              <th className="text-center p-3">Aantal (deze week)</th>
+              <th className="text-right p-3">Acties</th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="p-6 text-center text-zinc-500">
+                  Geen groepen gevonden.
+                </td>
+              </tr>
+            ) : (
+              groups.map((g) => {
+                const c = Number(counts[g.id] ?? 0);
+                return (
+                  <tr key={g.id} className="border-t">
+                    <td className="p-3 font-medium">{g.name}</td>
+                    <td className="p-3 text-center">
+                      <span className="inline-block min-w-[3ch]">{c}</span>
+                    </td>
+                    <td className="p-3 text-right">
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          className="rounded-lg border px-2 py-1"
+                          onClick={() => inc(g.id, -1, week)}
+                          title="−1"
+                        >
+                          −
+                        </button>
+                        <button
+                          className="rounded-lg border px-2 py-1"
+                          onClick={() => inc(g.id, +1, week)}
+                          title="+1"
+                        >
+                          +
+                        </button>
+                        <button
+                          className="text-red-600 hover:underline"
+                          onClick={() => setCount(g.id, 0, week)}
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+          <tfoot>
+            <tr className="border-t bg-zinc-50">
+              <td className="p-3 font-semibold">Totaal</td>
+              <td className="p-3 text-center font-semibold">{total}</td>
+              <td className="p-3 text-right">
+                <button
+                  className="text-red-600 hover:underline"
+                  onClick={() => resetWeek(week)}
+                  title="Reset alle groepen voor deze week"
+                >
+                  Reset hele week
+                </button>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
 
-      <div className="rounded-xl border bg-white p-4">
-        <div className="font-semibold mb-2">Laatst toegevoegd</div>
-        <ul className="space-y-1 text-sm">
-          {items.slice(0,15).map(it=>(
-            <li key={it.id} className="flex items-center justify-between">
-              <span>{new Date(it.at).toLocaleString()} — {it.groupName}{it.note?` — ${it.note}`:""}</span>
-              <button onClick={()=>removeExtra(it.id)} className="text-red-600 hover:underline text-xs">Verwijderen</button>
-            </li>
-          ))}
-          {items.length===0 && <li className="text-gray-500 text-sm">Nog geen extra sportmomenten.</li>}
-        </ul>
-      </div>
+      <p className="text-xs text-zinc-500">
+        Opslag: lokaal in je browser (key <code>extraSport</code>). Back-up via <b>Back-up / Herstel</b>.
+      </p>
     </div>
   );
 }

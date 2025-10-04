@@ -15,8 +15,21 @@
     "@fullcalendar/interaction": "^6.1.19",
     "@fullcalendar/react": "^6.1.19",
     "@fullcalendar/timegrid": "^6.1.19",
+    "@prisma/client": "^6.16.1",
+    "@refinedev/antd": "^6.0.1",
+    "@refinedev/core": "^5.0.1",
+    "@refinedev/nextjs-router": "^7.0.0",
+    "@refinedev/simple-rest": "^6.0.0",
+    "@syncfusion/ej2-react-dropdowns": "^31.1.18",
+    "@syncfusion/ej2-react-grids": "^31.1.17",
+    "@syncfusion/ej2-react-inputs": "^31.1.17",
+    "@syncfusion/ej2-react-kanban": "^31.1.17",
+    "@syncfusion/ej2-react-popups": "^31.1.17",
+    "@syncfusion/ej2-react-schedule": "^31.1.17",
+    "antd": "^5.27.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "dayjs": "^1.11.18",
     "jspdf": "^3.0.2",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.542.0",
@@ -25,7 +38,7 @@
     "react": "^18",
     "react-big-calendar": "^1.19.4",
     "react-dom": "^18",
-    "recharts": "^3.1.2"
+    "recharts": "^3.2.0"
   },
   "devDependencies": {
     "@types/node": "^20",
@@ -35,6 +48,7 @@
     "eslint": "^8",
     "eslint-config-next": "14.2.5",
     "postcss": "^8.5.6",
+    "prisma": "^6.16.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
   }

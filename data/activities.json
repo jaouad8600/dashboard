@@ -1,0 +1,37 @@
+[
+  {
+    "id": "ba35a632-0b94-4823-b0c9-fc13fe9b8807",
+    "message": "Nieuw bedrijf: Riviera Finance",
+    "createdAt": 1757764800000
+  },
+  {
+    "id": "e6a480e0-140d-4a65-8a26-80eba5fe398b",
+    "message": "Overdracht geplaatst voor avonddienst",
+    "createdAt": 1757678400000
+  },
+  {
+    "id": "76cecbb1-4c00-4588-ae7d-2082f78365e0",
+    "message": "Kanban: taak verplaatst naar Doing",
+    "createdAt": 1757505600000
+  },
+  {
+    "id": "6117c36a-02ac-41fd-8f98-5df5d6f1a7ea",
+    "message": "Mutatie aangemaakt door beheerder",
+    "createdAt": 1757332800000
+  },
+  {
+    "id": "287fdfc9-62aa-42c3-af1f-1896e2d78acb",
+    "message": "Nieuw bedrijf: GreenLeaf Foods",
+    "createdAt": 1757160000000
+  },
+  {
+    "id": "bed5e22e-9aa4-40ff-a76b-efc7835d1b68",
+    "message": "Nieuw bedrijf: Bluewave Tech",
+    "createdAt": 1757073600000
+  },
+  {
+    "id": "4c419dd3-62f4-43cd-8142-dddcd9214bec",
+    "message": "Admin ingelogd",
+    "createdAt": 1756987200000
+  }
+]
