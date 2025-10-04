@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 
 export async function GET() {
-  const groepen = await prisma.groep.findMany({
-    orderBy: { naam: "asc" },
-    include: { notes: { orderBy: { createdAt: "desc" } } },
-  });
-  return NextResponse.json(groepen);
-}
-
-export async function POST(req: Request) {
-  const { naam, kleur } = await req.json();
-  const created = await prisma.groep.create({ data: { naam, kleur } });
-  return NextResponse.json(created, { status: 201 });
+  try {
+    const rows = await prisma.groep.findMany({ orderBy: { createdAt: "desc" } });
+    return NextResponse.json(rows.map(g => ({ id: g.id, naam: g.naam, kleur: g.kleur })));
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json([], { status: 200 });
+  }
 }

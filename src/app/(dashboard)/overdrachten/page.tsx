@@ -1,114 +1,169 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import {
   listOverdrachten,
-  onOverdrachtenChange,
-  createOverdracht,
+  addOverdracht,
   patchOverdracht,
   deleteOverdracht,
-  type Overdracht,
+  type Overdracht
 } from "@/lib/overdrachten";
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
-const nowHHMM = () => {
-  const d = new Date(); const z = (n:number)=>String(n).padStart(2,"0");
-  return `${z(d.getHours())}:${z(d.getMinutes())}`;
-};
-
 export default function OverdrachtenPage() {
-  const [items, setItems] = useState<Overdracht[]>(listOverdrachten());
-  const [datumISO, setDatumISO] = useState(todayISO());
-  const [tijd, setTijd] = useState(nowHHMM());
+  const [items, setItems] = useState<Overdracht[]>([]);
+  const [loading, setLoading] = useState(true);
   const [auteur, setAuteur] = useState("");
   const [bericht, setBericht] = useState("");
   const [belangrijk, setBelangrijk] = useState(false);
 
-  useEffect(() => onOverdrachtenChange(() => setItems(listOverdrachten())), []);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editAuteur, setEditAuteur] = useState("");
+  const [editBericht, setEditBericht] = useState("");
+  const [editBelangrijk, setEditBelangrijk] = useState(false);
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const text = bericht.trim();
-    if (!text) return;
-    createOverdracht({ datumISO, tijd, auteur: auteur || undefined, bericht: text, belangrijk });
-    setBericht("");
-    setBelangrijk(false);
+  async function refresh() {
+    setLoading(true);
+    try {
+      const data = await listOverdrachten();
+      setItems(Array.isArray(data) ? data : []);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { refresh(); }, []);
+
+  async function handleAdd() {
+    if (!bericht.trim()) return;
+    await addOverdracht(auteur.trim() || "Onbekend", bericht.trim(), belangrijk);
+    setAuteur(""); setBericht(""); setBelangrijk(false);
+    await refresh();
+  }
+
+  function startEdit(o: Overdracht) {
+    setEditId(o.id);
+    setEditAuteur(o.auteur || "");
+    setEditBericht(o.bericht || "");
+    setEditBelangrijk(Boolean(o.belangrijk));
+  }
+
+  async function saveEdit() {
+    if (!editId) return;
+    await patchOverdracht(editId, {
+      auteur: editAuteur,
+      bericht: editBericht,
+      belangrijk: editBelangrijk
+    });
+    setEditId(null);
+    await refresh();
+  }
+
+  async function toggleBelangrijk(id: string, cur: boolean) {
+    await patchOverdracht(id, { belangrijk: !cur });
+    await refresh();
+  }
+
+  async function remove(id: string) {
+    if (!confirm("Weet je zeker dat je deze overdracht wilt verwijderen?")) return;
+    await deleteOverdracht(id);
+    await refresh();
   }
 
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">Overdrachten</h1>
 
-      <form
-        onSubmit={onSubmit}
-        className="rounded-2xl border bg-white p-4 shadow-sm grid grid-cols-1 md:grid-cols-6 gap-3"
-      >
-        <div>
-          <label className="text-xs text-zinc-500">Datum</label>
-          <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm"
-                 value={datumISO} onChange={(e)=>setDatumISO(e.target.value)} />
-        </div>
-        <div>
-          <label className="text-xs text-zinc-500">Tijd</label>
-          <input type="time" className="w-full rounded-lg border px-3 py-2 text-sm"
-                 value={tijd} onChange={(e)=>setTijd(e.target.value)} />
-        </div>
-        <div>
-          <label className="text-xs text-zinc-500">Auteur</label>
-          <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Optioneel"
-                 value={auteur} onChange={(e)=>setAuteur(e.target.value)} />
-        </div>
-        <div className="md:col-span-2">
-          <label className="text-xs text-zinc-500">Bericht</label>
-          <input className="w-full rounded-lg border px-3 py-2 text-sm"
-                 placeholder="Wat moet de volgende dienst weten?"
-                 value={bericht} onChange={(e)=>setBericht(e.target.value)} />
-        </div>
-        <div className="flex items-end gap-2">
+      {/* Toevoegen */}
+      <div className="rounded-2xl border bg-white p-4 shadow-sm">
+        <div className="grid gap-3 sm:grid-cols-[1fr_3fr_auto_auto] items-center">
+          <input
+            className="rounded-lg border px-3 py-2"
+            placeholder="Auteur"
+            value={auteur}
+            onChange={(e)=>setAuteur(e.target.value)}
+          />
+        <input
+            className="rounded-lg border px-3 py-2"
+            placeholder="Bericht"
+            value={bericht}
+            onChange={(e)=>setBericht(e.target.value)}
+          />
           <label className="inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={belangrijk}
-                   onChange={(e)=>setBelangrijk(e.target.checked)} />
+            <input type="checkbox" checked={belangrijk} onChange={(e)=>setBelangrijk(e.target.checked)} />
             Belangrijk
           </label>
-          <button type="submit"
-                  className="ml-auto rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700">
-            Plaatsen
+          <button
+            onClick={handleAdd}
+            className="rounded-lg bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700"
+          >
+            Toevoegen
           </button>
         </div>
-      </form>
+      </div>
 
+      {/* Lijst */}
       <div className="space-y-3">
-        {items.length === 0 ? (
-          <div className="rounded-2xl border bg-white p-6 text-center text-zinc-500">
-            Nog geen overdrachten.
-          </div>
-        ) : items.map((o) => (
-          <div key={o.id} className="rounded-2xl border bg-white p-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <span className={`mt-1 h-2 w-2 rounded-full ${o.belangrijk ? "bg-red-500" : "bg-zinc-300"}`} />
-              <div className="flex-1">
-                <div className="text-sm text-zinc-500">
-                  {o.datumISO} • {o.tijd}{o.auteur ? ` • ${o.auteur}` : ""}
+        {loading ? (
+          <div className="text-sm text-zinc-500">Laden…</div>
+        ) : items.length === 0 ? (
+          <div className="text-sm text-zinc-500">Nog geen overdrachten</div>
+        ) : (
+          items.map((o) => (
+            <div key={o.id} className="rounded-2xl border bg-white p-4 shadow-sm">
+              {editId === o.id ? (
+                <div className="grid gap-3 sm:grid-cols-[1fr_3fr_auto_auto] items-start">
+                  <input
+                    className="rounded-lg border px-3 py-2"
+                    value={editAuteur}
+                    onChange={(e)=>setEditAuteur(e.target.value)}
+                  />
+                  <textarea
+                    className="rounded-lg border px-3 py-2 min-h-[60px]"
+                    value={editBericht}
+                    onChange={(e)=>setEditBericht(e.target.value)}
+                  />
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={editBelangrijk} onChange={(e)=>setEditBelangrijk(e.target.checked)} />
+                    Belangrijk
+                  </label>
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={()=>setEditId(null)} className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50">Annuleer</button>
+                    <button onClick={saveEdit} className="rounded-lg bg-green-600 px-3 py-2 text-white text-sm hover:bg-green-700">Opslaan</button>
+                  </div>
                 </div>
-                <div className="mt-1">{o.bericht}</div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => patchOverdracht(o.id, { belangrijk: !o.belangrijk })}
-                  className="rounded-lg border px-3 py-1 text-sm hover:bg-zinc-50"
-                >
-                  {o.belangrijk ? "Markeer normaal" : "Markeer belangrijk"}
-                </button>
-                <button
-                  onClick={() => deleteOverdracht(o.id)}
-                  className="rounded-lg border px-3 py-1 text-sm hover:bg-zinc-50"
-                >
-                  Verwijderen
-                </button>
-              </div>
+              ) : (
+                <div className="flex items-start gap-3">
+                  <span className={`mt-1 h-2 w-2 rounded-full ${o.belangrijk ? "bg-red-500" : "bg-zinc-300"}`} />
+                  <div className="flex-1">
+                    <div className="text-sm text-zinc-500">
+                      {new Date(o.datumISO).toISOString().slice(0,10)} • {o.tijd}{o.auteur ? ` • ${o.auteur}` : ""}
+                    </div>
+                    <div className="mt-1">{o.bericht}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={()=>toggleBelangrijk(o.id, o.belangrijk)}
+                      className="rounded-lg border px-3 py-1 text-sm hover:bg-zinc-50"
+                    >
+                      {o.belangrijk ? "Markeer normaal" : "Markeer belangrijk"}
+                    </button>
+                    <button
+                      onClick={()=>startEdit(o)}
+                      className="rounded-lg border px-3 py-1 text-sm hover:bg-zinc-50"
+                    >
+                      Bewerk
+                    </button>
+                    <button
+                      onClick={()=>remove(o.id)}
+                      className="rounded-lg border px-3 py-1 text-sm hover:bg-zinc-50 text-red-600"
+                    >
+                      Verwijderen
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );

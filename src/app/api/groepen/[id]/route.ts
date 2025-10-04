@@ -1,17 +1,20 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 
-export async function PATCH(_: Request, { params }: { params: { id: string } }) {
-  const id = params.id;
-  const body = await _.json();
-  const updated = await prisma.groep.update({
-    where: { id },
-    data: { ...(body.naam && { naam: body.naam }), ...(body.kleur && { kleur: body.kleur }) },
-  });
-  return NextResponse.json(updated);
-}
-
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
-  await prisma.groep.delete({ where: { id: params.id } });
-  return NextResponse.json({ ok: true });
+export async function PATCH(req: Request, { params }: { params: { id: string }}) {
+  const { id } = params;
+  try {
+    const body = await req.json();
+    const updated = await prisma.groep.update({
+      where: { id },
+      data: {
+        kleur: typeof body.kleur === "string" ? body.kleur : undefined,
+        naam: typeof body.naam === "string" ? body.naam : undefined,
+      },
+    });
+    return NextResponse.json({ id: updated.id, naam: updated.naam, kleur: updated.kleur });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ error: "Kan groep niet bijwerken" }, { status: 500 });
+  }
 }

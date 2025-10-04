@@ -3,63 +3,51 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"         // dev snel & betrouwbaar; voor prod kun je naar postgresql wisselen
+  provider = "sqlite"
   url      = "file:./dev.db"
 }
 
-enum GroupColor { GREEN ORANGE YELLOW RED }
-enum MateriaalStatus { GOED DEFECT BESTELD TOPDESK }
-enum MutatieStatus { OPEN IN_BEHANDELING AFGEROND }
-enum Maatregel { GEEN FITNESS_ALLEEN SPORTVERBOD_TOTAAL }
-
 model Groep {
-  id        String         @id @default(cuid())
-  naam      String         @unique
-  kleur     GroupColor     @default(GREEN)
-  notes     GroepNotitie[]
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id        String     @id @default(uuid())
+  naam      String
+  kleur     String     @default("gray")
+  notities  Notitie[]
+  createdAt DateTime   @default(now())
 }
 
-model GroepNotitie {
-  id        String   @id @default(cuid())
-  groepId   String
-  groep     Groep    @relation(fields: [groepId], references: [id], onDelete: Cascade)
-  auteur    String?
+model Notitie {
+  id        String   @id @default(uuid())
   tekst     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Mutatie {
-  id          String        @id @default(cuid())
-  titel       String
-  beschrijving String?
-  datum       DateTime      @default(now())
-  status      MutatieStatus @default(OPEN)
-  maatregel   Maatregel     @default(GEEN)
-  groepId     String?
-  groep       Groep?        @relation(fields: [groepId], references: [id])
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-}
-
-model Overdracht {
-  id        String   @id @default(cuid())
-  datum     DateTime @default(now())  // datum+tijd in één
   auteur    String?
-  bericht   String
-  belangrijk Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  datumISO  DateTime @default(now())
+  groep     Groep    @relation(fields: [groepId], references: [id])
+  groepId   String
 }
 
 model Materiaal {
-  id        String           @id @default(cuid())
+  id        String   @id @default(uuid())
   naam      String
-  locatie   String?
-  status    MateriaalStatus  @default(GOED)
+  aantal    Int
+  locatie   String
+  status    String
+  createdAt DateTime @default(now())
+}
+
+model Overdracht {
+  id        String   @id @default(uuid())
+  auteur    String
+  bericht   String
+  datumISO  DateTime @default(now())
+  tijd      String
+  belangrijk Boolean  @default(false)
+}
+
+model Planning {
+  id        String   @id @default(uuid())
+  titel     String
+  locatie   String
+  start     DateTime
+  eind      DateTime
   notitie   String?
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  createdAt DateTime @default(now())
 }

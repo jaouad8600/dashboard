@@ -4,13 +4,15 @@ import { prisma } from "@/lib/db";
 export async function PATCH(req: Request, { params }: { params: { id: string }}) {
   const { id } = params;
   try {
-    const body = await req.json();
-    const updated = await prisma.overdracht.update({
+    const b = await req.json();
+    const updated = await prisma.planning.update({
       where: { id },
       data: {
-        auteur: body.auteur ?? undefined,
-        bericht: body.bericht ?? undefined,
-        belangrijk: typeof body.belangrijk === "boolean" ? body.belangrijk : undefined,
+        titel: b.titel ?? undefined,
+        locatie: b.locatie ?? undefined,
+        start: b.start ? new Date(b.start) : undefined,
+        eind: b.eind ? new Date(b.eind) : undefined,
+        notitie: b.notitie ?? undefined,
       },
     });
     return NextResponse.json(updated);
@@ -23,7 +25,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string }})
 export async function DELETE(_: Request, { params }: { params: { id: string }}) {
   const { id } = params;
   try {
-    await prisma.overdracht.delete({ where: { id }});
+    await prisma.planning.delete({ where: { id }});
     return new NextResponse(null, { status: 204 });
   } catch (e) {
     console.error(e);
