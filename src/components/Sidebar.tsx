@@ -19,7 +19,8 @@ export default function Sidebar() {
             {i.label}
           </Link>
         ))}
-      </nav>
+        <a href="/indicaties" className="block rounded-lg px-3 py-2 hover:bg-zinc-100">Indicaties</a>
+    </nav>
     </aside>
   );
 }

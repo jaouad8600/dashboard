@@ -2,181 +2,167 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type Status = "OPEN" | "IN_BEHANDELING" | "AFGEROND";
-type IndicatieItem = {
+type Indicatie = {
   id: string;
   naam: string;
   type: string;
-  start?: string | null;
-  eind?: string | null;
-  status: Status;
-  opmerking?: string | null;
+  status: "Open" | "In behandeling" | "Afgerond";
+  start?: string;
+  eind?: string;
+  opmerking?: string;
 };
 
-type Summary = { open: number; inBehandeling: number; afgerond: number; totaal: number };
+const STATI: Indicatie["status"][] = ["Open","In behandeling","Afgerond"];
 
 export default function IndicatiesPage() {
-  const [items, setItems] = useState<IndicatieItem[]>([]);
-  const [sum, setSum] = useState<Summary | null>(null);
+  const [items, setItems] = useState<Indicatie[]>([]);
   const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+  const [flt, setFlt] = useState<Indicatie["status"] | "Alle">("Alle");
 
-  // Form-state nieuw item
-  const [naam, setNaam] = useState("");
-  const [type, setType] = useState("Sport");
-  const [start, setStart] = useState<string>("");
-  const [eind, setEind] = useState<string>("");
-  const [status, setStatus] = useState<Status>("OPEN");
-  const [opmerking, setOpmerking] = useState("");
-
-  async function reload() {
+  async function load() {
     setLoading(true);
-    const [r1, r2] = await Promise.all([
-      fetch("/api/indicaties", { cache: "no-store" }),
-      fetch("/api/indicaties/summary", { cache: "no-store" }),
-    ]);
-    const list = (await r1.json()) as IndicatieItem[];
-    const s = (await r2.json()) as Summary;
-    setItems(list);
-    setSum(s);
+    const r = await fetch(`/api/indicaties?t=${Date.now()}`, { cache: "no-store" });
+    const data = await r.json();
+    setItems(Array.isArray(data) ? data : []);
     setLoading(false);
   }
 
   useEffect(() => {
-    reload();
+    load();
   }, []);
 
-  async function addIndicatie() {
-    const body = {
-      naam,
-      type,
-      start: start || undefined,
-      eind: eind || undefined,
-      status,
-      opmerking: opmerking || undefined,
-    };
+  const filtered = useMemo(() => {
+    const s = (q || "").toLowerCase();
+    return items.filter(i => {
+      const passStatus = flt === "Alle" ? true : i.status === flt;
+      const passSearch =
+        !s ||
+        i.naam.toLowerCase().includes(s) ||
+        i.type.toLowerCase().includes(s) ||
+        (i.opmerking ?? "").toLowerCase().includes(s);
+      return passStatus && passSearch;
+    });
+  }, [items, q, flt]);
+
+  async function addIndicatie(form: HTMLFormElement & { naam: HTMLInputElement; type: HTMLInputElement; opmerking: HTMLInputElement; }) {
+    const naam = form.naam.value.trim();
+    const type = form.type.value.trim();
+    const opmerking = form.opmerking.value.trim();
+    if (!naam || !type) return;
     await fetch("/api/indicaties", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ naam, type, opmerking }),
     });
-    // reset form + refresh
-    setNaam(""); setType("Sport"); setStart(""); setEind(""); setStatus("OPEN"); setOpmerking("");
-    await reload();
+    form.reset();
+    await load();
   }
 
-  async function updateStatus(id: string, status: Status) {
+  async function updateStatus(id: string, status: Indicatie["status"]) {
     await fetch(`/api/indicaties/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
-    await reload();
+    await load();
   }
-
-  async function removeIndicatie(id: string) {
-    await fetch(`/api/indicaties/${id}`, { method: "DELETE" });
-    await reload();
-  }
-
-  const rows = useMemo(() => items, [items]);
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Indicaties</h1>
-      <p className="text-sm text-zinc-500">Overzicht en beheer van sport-indicaties.</p>
-
-      {/* Tegels */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Tile title="Open" value={sum?.open ?? (loading ? "…" : 0)} />
-        <Tile title="In behandeling" value={sum?.inBehandeling ?? (loading ? "…" : 0)} />
-        <Tile title="Afgerond" value={sum?.afgerond ?? (loading ? "…" : 0)} />
-        <Tile title="Totaal" value={sum?.totaal ?? (loading ? "…" : 0)} />
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Indicaties</h1>
+          <p className="text-sm text-zinc-500">Overzicht van (sport)indicaties.</p>
+        </div>
+        <form
+          className="hidden md:flex items-center gap-2"
+          onSubmit={(e) => { e.preventDefault(); addIndicatie(e.currentTarget as any); }}
+        >
+          <input name="naam" className="rounded-lg border p-2" placeholder="Naam…" />
+          <input name="type" className="rounded-lg border p-2" placeholder="Type (bv. Sportindicatie)…" />
+          <input name="opmerking" className="rounded-lg border p-2 w-64" placeholder="Opmerking (optioneel)…" />
+          <button className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50">Toevoegen</button>
+        </form>
       </div>
 
-      {/* Nieuw item */}
-      <div className="rounded-2xl border bg-white p-4 shadow-sm">
-        <h2 className="font-semibold mb-3">Nieuwe indicatie</h2>
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-          <input className="rounded-lg border p-2" placeholder="Naam"
-                 value={naam} onChange={(e)=>setNaam(e.target.value)} />
-          <input className="rounded-lg border p-2" placeholder="Type"
-                 value={type} onChange={(e)=>setType(e.target.value)} />
-          <input className="rounded-lg border p-2" type="date" value={start}
-                 onChange={(e)=>setStart(e.target.value)} />
-          <input className="rounded-lg border p-2" type="date" value={eind}
-                 onChange={(e)=>setEind(e.target.value)} />
-          <select className="rounded-lg border p-2" value={status}
-                  onChange={(e)=>setStatus(e.target.value as Status)}>
-            <option value="OPEN">Open</option>
-            <option value="IN_BEHANDELING">In behandeling</option>
-            <option value="AFGEROND">Afgerond</option>
-          </select>
-          <input className="rounded-lg border p-2 md:col-span-2" placeholder="Opmerking"
-                 value={opmerking} onChange={(e)=>setOpmerking(e.target.value)} />
-        </div>
-        <div className="mt-3">
-          <button onClick={addIndicatie}
-                  className="rounded-lg bg-black text-white px-4 py-2 hover:opacity-90">
-            Toevoegen
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        {(["Alle", ...STATI] as const).map(s => (
+          <button
+            key={s}
+            onClick={() => setFlt(s as any)}
+            className={`rounded-full border px-3 py-1 text-sm ${flt===s ? "bg-black text-white" : "bg-white hover:bg-zinc-50"}`}
+          >
+            {s}
           </button>
-        </div>
+        ))}
+        <input
+          value={q}
+          onChange={(e)=>setQ(e.target.value)}
+          className="ml-auto rounded-lg border p-2 w-[220px]"
+          placeholder="Zoek naam / type / opm…"
+        />
       </div>
 
       {/* Tabel */}
-      <div className="rounded-2xl border bg-white p-4 shadow-sm overflow-x-auto">
-        <table className="min-w-[800px] w-full">
-          <thead>
-            <tr className="text-left text-sm text-zinc-500">
-              <th className="py-2">Naam</th>
-              <th>Type</th>
-              <th>Start</th>
-              <th>Eind</th>
-              <th>Status</th>
-              <th>Opmerking</th>
-              <th></th>
+      <div className="overflow-x-auto rounded-2xl border bg-white">
+        <table className="min-w-[720px] w-full text-sm">
+          <thead className="bg-zinc-50 text-zinc-600">
+            <tr>
+              <th className="text-left px-4 py-3">Naam</th>
+              <th className="text-left px-4 py-3">Type</th>
+              <th className="text-left px-4 py-3">Status</th>
+              <th className="text-left px-4 py-3">Start</th>
+              <th className="text-left px-4 py-3">Eind</th>
+              <th className="text-left px-4 py-3">Opmerking</th>
+              <th className="text-right px-4 py-3">Acties</th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
-              <tr><td colSpan={7} className="py-6 text-center text-sm text-zinc-500">
-                {loading ? "Laden…" : "Geen indicaties gevonden."}
-              </td></tr>
+            {loading && (
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-zinc-500">Laden…</td></tr>
             )}
-            {rows.map((r)=>(
-              <tr key={r.id} className="border-t">
-                <td className="py-2">{r.naam}</td>
-                <td>{r.type}</td>
-                <td>{r.start ? new Date(r.start).toLocaleDateString() : "-"}</td>
-                <td>{r.eind ? new Date(r.eind).toLocaleDateString() : "-"}</td>
-                <td>
+            {!loading && filtered.length === 0 && (
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-zinc-500">Geen resultaten.</td></tr>
+            )}
+            {!loading && filtered.map((i) => (
+              <tr key={i.id} className="border-t">
+                <td className="px-4 py-3">{i.naam}</td>
+                <td className="px-4 py-3">{i.type}</td>
+                <td className="px-4 py-3">
                   <select
-                    className="rounded-lg border p-1 text-sm"
-                    value={r.status}
-                    onChange={(e)=>updateStatus(r.id, e.target.value as Status)}
+                    value={i.status}
+                    onChange={(e)=>updateStatus(i.id, e.target.value as any)}
+                    className="rounded-md border px-2 py-1"
                   >
-                    <option value="OPEN">Open</option>
-                    <option value="IN_BEHANDELING">In behandeling</option>
-                    <option value="AFGEROND">Afgerond</option>
+                    {STATI.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </td>
-                <td className="max-w-[280px] truncate">{r.opmerking ?? "-"}</td>
-                <td className="text-right">
-                  <button onClick={()=>removeIndicatie(r.id)} className="text-red-600 hover:underline text-sm">Verwijderen</button>
+                <td className="px-4 py-3">{i.start ?? "-"}</td>
+                <td className="px-4 py-3">{i.eind ?? "-"}</td>
+                <td className="px-4 py-3">{i.opmerking ?? "-"}</td>
+                <td className="px-4 py-3 text-right">
+                  {/* ruimte voor extra acties */}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </div>
-  );
-}
 
-function Tile(props: { title: string; value: number | string }) {
-  return (
-    <div className="rounded-2xl border bg-white p-4 shadow-sm">
-      <div className="text-sm text-zinc-500">{props.title}</div>
-      <div className="text-2xl font-bold mt-1">{props.value}</div>
+      {/* Mobiel formulier */}
+      <div className="md:hidden">
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(e) => { e.preventDefault(); addIndicatie(e.currentTarget as any); }}
+        >
+          <input name="naam" className="rounded-lg border p-2" placeholder="Naam…" />
+          <input name="type" className="rounded-lg border p-2" placeholder="Type (bv. Sportindicatie)…" />
+          <input name="opmerking" className="rounded-lg border p-2" placeholder="Opmerking (optioneel)…" />
+          <button className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50">Toevoegen</button>
+        </form>
+      </div>
     </div>
   );
 }

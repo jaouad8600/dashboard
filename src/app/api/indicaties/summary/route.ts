@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import type { Indicatie } from "../route";
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __INDICATIES__: Indicatie[] | undefined;
+}
+
+const store: Indicatie[] = (globalThis as any).__INDICATIES__ ?? [];
 
 export async function GET() {
-  const [open, inBehandeling, afgerond, totaal] = await Promise.all([
-    prisma.indicatie.count({ where: { status: "OPEN" } }),
-    prisma.indicatie.count({ where: { status: "IN_BEHANDELING" } }),
-    prisma.indicatie.count({ where: { status: "AFGEROND" } }),
-    prisma.indicatie.count(),
-  ]);
+  const open = store.filter(i => i.status === "Open").length;
+  const inBehandeling = store.filter(i => i.status === "In behandeling").length;
+  const afgerond = store.filter(i => i.status === "Afgerond").length;
+  const totaal = store.length;
   return NextResponse.json({ open, inBehandeling, afgerond, totaal });
 }
