@@ -4,3 +4,11 @@ node_modules
 /generated/prisma
 
 .next/
+
+# backups en archieven niet in git
+__bak/
+backups/
+*.zip
+*.bundle
+*.7z
+*.tar
