@@ -61,7 +61,7 @@ export default function InventarisPage() {
         <span className="text-sm text-zinc-500">PDF export staat uit. Rest werkt.</span>
       </div>
 
-      <div className="rounded-2xl border bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border bg-white p-4 shadow-sm overflow-x-auto">
         <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
           <input className="rounded-lg border px-3 py-2" placeholder="Naam"
                  value={naam} onChange={(e)=>setNaam(e.target.value)} />
@@ -91,7 +91,7 @@ export default function InventarisPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border bg-white p-4 shadow-sm overflow-x-auto">
         <table className="w-full table-fixed border-separate [border-spacing:0]">
           <thead>
             <tr className="text-left text-sm text-zinc-500">

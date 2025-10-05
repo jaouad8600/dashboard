@@ -1,0 +1,20 @@
+[
+  {
+    "id": "f0026c6b-ceb8-4980-bc79-b598df3150a3",
+    "naam": "Poel",
+    "kleur": "red",
+    "notities": []
+  },
+  {
+    "id": "70b45aa2-0ca1-48b3-bf9a-95871cfaa8b0",
+    "naam": "Vloed",
+    "kleur": "green",
+    "notities": []
+  },
+  {
+    "id": "7d072dc9-c58a-4055-b1ad-b94c07535637",
+    "naam": "Eb",
+    "kleur": "yellow",
+    "notities": []
+  }
+]

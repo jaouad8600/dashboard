@@ -1,22 +1,18 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { removeGroepNotitie, updateGroepNotitie } from "@/lib/fsdb";
 
-export async function PATCH(req: Request, { params }: { params: { id: string, noteId: string }}) {
-  const { noteId } = params;
-  const b = await req.json();
-  const updated = await prisma.notitie.update({
-    where: { id: noteId },
-    data: {
-      tekst: typeof b.tekst === "string" ? b.tekst : undefined,
-      auteur: typeof b.auteur === "string" ? b.auteur : undefined
-    },
-    select: { id:true, tekst:true, auteur:true, datumISO:true, groepId:true }
-  });
-  return NextResponse.json(updated);
+export async function PATCH(req: Request, { params }: { params: { id: string; noteId: string } }) {
+  const b = await req.json().catch(()=>({}));
+  const patch: any = {};
+  if (typeof b.tekst === "string")  patch.tekst  = b.tekst;
+  if (typeof b.auteur === "string") patch.auteur = b.auteur;
+  const note = await updateGroepNotitie(params.id, params.noteId, patch);
+  if (!note) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });
+  return NextResponse.json(note);
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string, noteId: string }}) {
-  const { noteId } = params;
-  await prisma.notitie.delete({ where: { id: noteId } });
-  return new NextResponse(null, { status: 204 });
+export async function DELETE(_req: Request, { params }: { params: { id: string; noteId: string } }) {
+  const ok = await removeGroepNotitie(params.id, params.noteId);
+  if (!ok) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });
+  return NextResponse.json({ ok: true });
 }
