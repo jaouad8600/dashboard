@@ -1,32 +1,56 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { promises as fs } from "fs";
+import path from "path";
 
-export async function PATCH(req: Request, { params }: { params: { id: string }}) {
-  const { id } = params;
+type Overdracht = {
+  id: string;
+  datumISO: string;
+  tijd: string;
+  auteur?: string;
+  bericht: string;
+  belangrijk?: boolean;
+  createdAt: string;
+};
+
+const dataFile = path.join(process.cwd(), "var", "overdrachten.json");
+
+async function load(): Promise<Overdracht[]> {
   try {
-    const body = await req.json();
-    const updated = await prisma.overdracht.update({
-      where: { id },
-      data: {
-        auteur: body.auteur ?? undefined,
-        bericht: body.bericht ?? undefined,
-        belangrijk: typeof body.belangrijk === "boolean" ? body.belangrijk : undefined,
-      },
-    });
-    return NextResponse.json(updated);
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: "Kan niet bijwerken" }, { status: 500 });
+    const buf = await fs.readFile(dataFile, "utf8");
+    const arr = JSON.parse(buf);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
   }
 }
+async function save(rows: Overdracht[]) {
+  await fs.writeFile(dataFile, JSON.stringify(rows, null, 2), "utf8");
+}
 
-export async function DELETE(_: Request, { params }: { params: { id: string }}) {
-  const { id } = params;
-  try {
-    await prisma.overdracht.delete({ where: { id }});
-    return new NextResponse(null, { status: 204 });
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: "Kan niet verwijderen" }, { status: 500 });
+export async function PATCH(req: Request, { params }: { params: { id: string }}) {
+  const id = params.id;
+  const patch = await req.json().catch(() => ({}));
+  const rows = await load();
+  const idx = rows.findIndex(r => r.id === id);
+  if (idx === -1) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });
+
+  const r = rows[idx];
+  if (typeof patch.bericht === "string") r.bericht = patch.bericht.trim();
+  if (typeof patch.auteur === "string")  r.auteur  = patch.auteur.trim() || undefined;
+  if (typeof patch.belangrijk === "boolean") r.belangrijk = patch.belangrijk;
+
+  rows[idx] = r;
+  await save(rows);
+  return NextResponse.json(r);
+}
+
+export async function DELETE(_req: Request, { params }: { params: { id: string }}) {
+  const id = params.id;
+  const rows = await load();
+  const kept = rows.filter(r => r.id !== id);
+  if (kept.length === rows.length) {
+    return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });
   }
+  await save(kept);
+  return NextResponse.json({ ok: true });
 }

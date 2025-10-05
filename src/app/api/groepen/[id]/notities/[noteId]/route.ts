@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
-import { removeGroepNotitie, updateGroepNotitie } from "@/lib/fsdb";
+import { updateGroepNotitie, removeGroepNotitie } from "@/lib/groepen.data";
 
 export async function PATCH(req: Request, { params }: { params: { id: string; noteId: string } }) {
-  const b = await req.json().catch(()=>({}));
-  const patch: any = {};
-  if (typeof b.tekst === "string")  patch.tekst  = b.tekst;
-  if (typeof b.auteur === "string") patch.auteur = b.auteur;
-  const note = await updateGroepNotitie(params.id, params.noteId, patch);
-  if (!note) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });
-  return NextResponse.json(note);
+  const { id, noteId } = params;
+  const b = await req.json().catch(() => ({}));
+  const updated = updateGroepNotitie(id, noteId, {
+    tekst: b.tekst !== undefined ? String(b.tekst) : undefined,
+    auteur: b.auteur !== undefined ? String(b.auteur) : undefined,
+  });
+  return NextResponse.json(updated);
 }
 
 export async function DELETE(_req: Request, { params }: { params: { id: string; noteId: string } }) {
-  const ok = await removeGroepNotitie(params.id, params.noteId);
-  if (!ok) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });
-  return NextResponse.json({ ok: true });
+  const { id, noteId } = params;
+  const updated = removeGroepNotitie(id, noteId);
+  return NextResponse.json(updated);
 }

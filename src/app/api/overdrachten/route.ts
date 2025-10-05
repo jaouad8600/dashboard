@@ -1,34 +1,68 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { promises as fs } from "fs";
+import path from "path";
 
-export async function GET() {
+type Overdracht = {
+  id: string;
+  datumISO: string;   // YYYY-MM-DD
+  tijd: string;       // HH:MM
+  auteur?: string;
+  bericht: string;
+  belangrijk?: boolean;
+  createdAt: string;  // ISO datetime
+};
+
+const dataFile = path.join(process.cwd(), "var", "overdrachten.json");
+
+async function load(): Promise<Overdracht[]> {
   try {
-    const rows = await prisma.overdracht.findMany({
-      orderBy: [{ datumISO: "desc" }]
-    });
-    return NextResponse.json(rows);
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: "Serverfout" }, { status: 500 });
+    const buf = await fs.readFile(dataFile, "utf8");
+    const arr = JSON.parse(buf);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
   }
 }
 
+async function save(rows: Overdracht[]) {
+  await fs.writeFile(dataFile, JSON.stringify(rows, null, 2), "utf8");
+}
+
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const limit = Number(url.searchParams.get("limit") || "50");
+  const all = await load();
+  // sort desc op createdAt
+  const sorted = [...all].sort((a,b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+  return NextResponse.json(sorted.slice(0, Math.max(1, Math.min(limit, 500))));
+}
+
 export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    const now = new Date();
-    const nieuw = await prisma.overdracht.create({
-      data: {
-        auteur: body.auteur ?? "Onbekend",
-        bericht: String(body.bericht ?? "").slice(0, 2000),
-        datumISO: now,
-        tijd: now.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }),
-        belangrijk: Boolean(body.belangrijk) || false,
-      },
-    });
-    return NextResponse.json(nieuw, { status: 201 });
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: "Kan niet toevoegen" }, { status: 500 });
+  const b = await req.json().catch(() => ({}));
+  const bericht = (b.bericht ?? "").toString().trim();
+  const auteur  = (b.auteur ?? "").toString().trim() || undefined;
+  const belangrijk = Boolean(b.belangrijk);
+
+  if (!bericht) {
+    return NextResponse.json({ error: "Bericht is verplicht." }, { status: 400 });
   }
+
+  const now = new Date();
+  const pad2 = (n:number)=>String(n).padStart(2,"0");
+  const datumISO = `${now.getFullYear()}-${pad2(now.getMonth()+1)}-${pad2(now.getDate())}`;
+  const tijd     = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+
+  const rows = await load();
+  const row: Overdracht = {
+    id: crypto.randomUUID(),
+    datumISO,
+    tijd,
+    auteur,
+    bericht,
+    belangrijk,
+    createdAt: now.toISOString(),
+  };
+  rows.push(row);
+  await save(rows);
+  return NextResponse.json(row, { status: 201 });
 }

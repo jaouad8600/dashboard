@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { loadGroepen } from "@/lib/fsdb";
+import { getRodeGroepen } from "@/lib/groepen.data";
 
 export async function GET() {
-  const rows = await loadGroepen();
-  return NextResponse.json(rows.filter(g => g.kleur === "red"));
+  return NextResponse.json(getRodeGroepen());
 }

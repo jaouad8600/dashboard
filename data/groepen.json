@@ -2,8 +2,15 @@
   {
     "id": "f0026c6b-ceb8-4980-bc79-b598df3150a3",
     "naam": "Poel",
-    "kleur": "red",
-    "notities": []
+    "kleur": "ORANGE",
+    "notities": [
+      {
+        "id": "1759697964020-5fsbp9",
+        "tekst": "test",
+        "auteur": "edfesf",
+        "createdAt": "2025-10-05T20:59:24.020Z"
+      }
+    ]
   },
   {
     "id": "70b45aa2-0ca1-48b3-bf9a-95871cfaa8b0",

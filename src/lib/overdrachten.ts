@@ -1,14 +1,42 @@
 export type Overdracht = {
   id: string;
-  auteur: string;
-  bericht: string;
   datumISO: string;
-  tijd: string;
-  belangrijk: boolean;
+  tijd?: string;
+  auteur?: string;
+  bericht: string;
+  belangrijk?: boolean;
 };
-const BASE = "/api/overdrachten";
+
+async function fx<T>(url: string, init?: RequestInit, fallback: T): Promise<T> {
+  try {
+    const r = await fetch(url, { cache: "no-store", ...init });
+    if (!r.ok) return fallback;
+    return (await r.json()) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function listOverdrachten(): Promise<Overdracht[]> {
-  const r = await fetch(BASE, { cache: "no-store" });
-  if (!r.ok) return [];
-  return r.json();
+  return fx<Overdracht[]>("/api/overdrachten", undefined, []);
+}
+
+export async function addOverdracht(input: Partial<Overdracht>) {
+  return fx<Overdracht>("/api/overdrachten", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  }, null as any);
+}
+
+export async function patchOverdracht(id: string, data: Partial<Overdracht>) {
+  return fx<Overdracht>(`/api/overdrachten/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  }, null as any);
+}
+
+export async function deleteOverdracht(id: string) {
+  return fx<{ ok: true }>(`/api/overdrachten/${id}`, { method: "DELETE" }, { ok: true } as any);
 }

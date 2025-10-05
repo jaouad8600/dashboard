@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-// Later kun je hier prisma.indicatie tellen per categorie
+import { prisma } from "@/lib/db";
+
 export async function GET() {
-  return NextResponse.json({ total: 0 });
+  const [open, inBehandeling, afgerond, totaal] = await Promise.all([
+    prisma.indicatie.count({ where: { status: "OPEN" } }),
+    prisma.indicatie.count({ where: { status: "IN_BEHANDELING" } }),
+    prisma.indicatie.count({ where: { status: "AFGEROND" } }),
+    prisma.indicatie.count(),
+  ]);
+  return NextResponse.json({ open, inBehandeling, afgerond, totaal });
 }

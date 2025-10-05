@@ -9,8 +9,9 @@ datasource db {
 
 model Groep {
   id        String     @id @default(uuid())
-  naam      String
+  naam      String @unique
   kleur     String     @default("gray")
+  afdeling   String?
   notities  Notitie[]
   createdAt DateTime   @default(now())
 }
@@ -50,4 +51,41 @@ model Planning {
   eind      DateTime
   notitie   String?
   createdAt DateTime @default(now())
+}
+
+
+enum SportMutatieStatus {
+  OPEN
+  IN_BEHANDELING
+  AFGEROND
+}
+
+
+model Sportmutatie {
+  id         String             @id @default(cuid())
+  titel      String
+  opmerking  String?
+  status     SportMutatieStatus @default(OPEN)
+  groepNaam  String?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+}
+
+// ========== Indicaties (sport) ==========
+enum IndicatieStatus {
+  OPEN
+  IN_BEHANDELING
+  AFGEROND
+}
+
+model Indicatie {
+  id        String           @id @default(cuid())
+  naam      String
+  type      String           @default("Sport")
+  start     DateTime?
+  eind      DateTime?
+  status    IndicatieStatus  @default(OPEN)
+  opmerking String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 }

@@ -1,49 +1,51 @@
 "use client";
+
 import { useEffect, useMemo, useState } from "react";
+import type { Groep, Kleur } from "@/lib/groepen.data";
+import { KLEUR_LABELS } from "@/lib/groepen.data";
 
-type Notitie = { id: string; tekst: string; auteur?: string; createdAt?: string };
-type Groep   = { id: string; naam: string; kleur: "gray"|"green"|"yellow"|"orange"|"red"; notities: Notitie[] };
+type ResGroep = Groep;
 
-const KLEUREN: Array<{ key: Groep["kleur"]; label: string }> = [
-  { key: "green",  label: "Groen" },
-  { key: "yellow", label: "Geel" },
-  { key: "orange", label: "Oranje" },
-  { key: "red",    label: "Rood" },
-  { key: "gray",   label: "Onbekend" },
-];
-
-function badgeClass(k: Groep["kleur"]) {
-  const map: Record<Groep["kleur"], string> = {
-    red:    "bg-red-50 text-red-700 ring-red-200",
-    orange: "bg-orange-50 text-orange-700 ring-orange-200",
-    yellow: "bg-yellow-50 text-yellow-700 ring-yellow-200",
-    green:  "bg-green-50 text-green-700 ring-green-200",
-    gray:   "bg-zinc-50 text-zinc-700 ring-zinc-200",
-  };
-  return map[k] || map.gray;
-}
+const KLEUREN: Kleur[] = ["GREEN", "YELLOW", "ORANGE", "RED"];
+const BG: Record<Kleur, string> = {
+  GREEN: "bg-emerald-600",
+  YELLOW: "bg-amber-500",
+  ORANGE: "bg-orange-500",
+  RED: "bg-rose-600",
+};
+const SOFT_BG: Record<Kleur, string> = {
+  GREEN: "bg-emerald-50",
+  YELLOW: "bg-amber-50",
+  ORANGE: "bg-orange-50",
+  RED: "bg-rose-50",
+};
+const TEXT: Record<Kleur, string> = {
+  GREEN: "text-emerald-700",
+  YELLOW: "text-amber-700",
+  ORANGE: "text-orange-700",
+  RED: "text-rose-700",
+};
 
 export default function GroepenPage() {
-  const [raw, setRaw] = useState<any>([]);
-  const groepen: Groep[] = useMemo(() => Array.isArray(raw) ? raw : [], [raw]);
-  const [filter, setFilter] = useState<Groep["kleur"] | "alle">("alle");
+  const [groepen, setGroepen] = useState<ResGroep[]>([]);
+  const [loading, setLoading] = useState(true);
 
   async function load() {
-    const res = await fetch("/api/groepen", { cache: "no-store" });
-    const data = await res.json();
-    setRaw(Array.isArray(data) ? data : []);
+    setLoading(true);
+    const r = await fetch("/api/groepen", { cache: "no-store" });
+    const data = (await r.json()) as ResGroep[];
+    setGroepen(data);
+    setLoading(false);
   }
-  useEffect(()=>{ load(); }, []);
 
-  const zichtbaar = useMemo(()=>{
-    if (filter === "alle") return groepen;
-    return groepen.filter(g => g.kleur === filter);
-  }, [groepen, filter]);
+  useEffect(() => {
+    load();
+  }, []);
 
-  async function setKleur(id: string, kleur: Groep["kleur"]) {
-    await fetch(`/api/groepen/${id}/kleur`, {
+  async function changeKleur(id: string, kleur: Kleur) {
+    await fetch(`/api/groepen/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kleur }),
     });
     await load();
@@ -52,129 +54,96 @@ export default function GroepenPage() {
   async function addNote(id: string, tekst: string, auteur?: string) {
     await fetch(`/api/groepen/${id}/notities`, {
       method: "POST",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tekst, auteur }),
     });
     await load();
   }
-  async function updateNote(id: string, noteId: string, patch: Partial<Pick<Notitie,"tekst"|"auteur">>) {
-    await fetch(`/api/groepen/${id}/notities/${noteId}`, {
-      method: "PATCH",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify(patch),
-    });
-    await load();
-  }
+
   async function removeNote(id: string, noteId: string) {
     await fetch(`/api/groepen/${id}/notities/${noteId}`, { method: "DELETE" });
     await load();
   }
 
+  const sorted = useMemo(
+    () => [...groepen].sort((a, b) => a.naam.localeCompare(b.naam)),
+    [groepen]
+  );
+
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Groepen</h1>
-        <div className="flex items-center gap-2">
-          <select value={filter} onChange={(e)=>setFilter(e.target.value as any)}
-                  className="rounded-lg border px-3 py-2 text-sm">
-            <option value="alle">Alle kleuren</option>
-            {KLEUREN.map(k => <option key={k.key} value={k.key}>{k.label}</option>)}
-          </select>
-          <a href="/dashboard" className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50">Terug naar dashboard</a>
-        </div>
-      </div>
+      <h1 className="text-2xl font-bold">Groepen</h1>
+      <p className="text-sm text-zinc-500">Beheer kleurstatus en notities per groep.</p>
 
-      {zichtbaar.length === 0 ? (
-        <div className="rounded-2xl border bg-white p-6 shadow-sm text-sm text-zinc-500">
-          Geen groepen gevonden.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {zichtbaar.map(g => (
-            <div key={g.id} className="rounded-2xl border bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1 ${badgeClass(g.kleur)}`}>
-                    <span className="h-2 w-2 rounded-full bg-current"></span>
-                    {g.kleur}
-                  </span>
-                  <div className="text-lg font-semibold">{g.naam}</div>
+      {/* Grid van kaarten */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        {loading && (
+          <div className="col-span-full text-sm text-zinc-500">Laden…</div>
+        )}
+
+        {!loading && sorted.map((g) => (
+          <div key={g.id} className={`rounded-2xl border bg-white p-4 shadow-sm`}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-lg font-semibold">{g.naam}</div>
+                <div className={`mt-1 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ${SOFT_BG[g.kleur]} ${TEXT[g.kleur]} border`}>
+                  <span className={`inline-block h-2 w-2 rounded-full ${BG[g.kleur]}`} />
+                  <span>{KLEUR_LABELS[g.kleur]}</span>
                 </div>
-                <select value={g.kleur} onChange={(e)=>setKleur(g.id, e.target.value as Groep["kleur"])}
-                        className="rounded-md border px-2 py-1 text-sm">
-                  {KLEUREN.map(k => <option key={k.key} value={k.key}>{k.label}</option>)}
-                </select>
               </div>
 
-              {/* Notities lijst */}
-              <div className="mt-3 space-y-2">
-                {(g.notities || []).slice(0, 6).map(n => (
-                  <div key={n.id} className="rounded-md border px-3 py-2 text-sm">
-                    <div className="text-zinc-800 break-words">{n.tekst}</div>
-                    <div className="mt-1 flex items-center justify-between text-xs text-zinc-500">
-                      <div>{n.auteur ? `${n.auteur} • ` : ""}{n.createdAt ? new Date(n.createdAt).toLocaleString() : ""}</div>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={()=>{
-                            const nieuw = prompt("Tekst aanpassen:", n.tekst || "");
-                            if (nieuw !== null) updateNote(g.id, n.id, { tekst: nieuw });
-                          }}
-                          className="rounded border px-2 py-0.5 hover:bg-zinc-50"
-                        >Bewerk</button>
-                        <button
-                          onClick={()=> removeNote(g.id, n.id)}
-                          className="rounded border px-2 py-0.5 hover:bg-zinc-50 text-red-600"
-                        >Verwijder</button>
-                      </div>
-                    </div>
-                  </div>
+              {/* kleurkeuze */}
+              <div className="flex gap-2">
+                {KLEUREN.map((k) => (
+                  <button
+                    key={k}
+                    title={KLEUR_LABELS[k]}
+                    onClick={() => changeKleur(g.id, k)}
+                    className={`h-6 w-6 rounded-full border ${BG[k]} ${g.kleur === k ? "ring-2 ring-black" : ""}`}
+                  />
                 ))}
-                {g.notities?.length > 6 && (
-                  <div className="text-xs text-zinc-500">+{g.notities.length - 6} meer…</div>
-                )}
               </div>
-
-              {/* Nieuwe notitie */}
-              <NieuweNotitie onAdd={(tekst, auteur)=>addNote(g.id, tekst, auteur)} />
             </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
-function NieuweNotitie({ onAdd }: { onAdd: (tekst: string, auteur?: string)=>void }) {
-  const [tekst, setTekst] = useState("");
-  const [auteur, setAuteur] = useState("");
+            {/* notities */}
+            <div className="mt-4 space-y-3">
+              <form
+                className="flex items-center gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const form = e.currentTarget as HTMLFormElement & { note: HTMLInputElement; auteur: HTMLInputElement; };
+                  const note = form.note.value.trim();
+                  const auteur = form.auteur.value.trim();
+                  if (note) addNote(g.id, note, auteur || undefined);
+                  form.reset();
+                }}
+              >
+                <input name="note" className="flex-1 rounded-lg border p-2" placeholder="Nieuwe notitie…" />
+                <input name="auteur" className="w-36 rounded-lg border p-2" placeholder="Auteur" />
+                <button className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50">Toevoegen</button>
+              </form>
 
-  return (
-    <div className="mt-3 rounded-md border bg-zinc-50 p-3">
-      <div className="text-sm mb-2 font-medium">Nieuwe notitie</div>
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_220px_auto] gap-2">
-        <input
-          className="rounded-md border px-2 py-1 text-sm"
-          placeholder="Notitietekst"
-          value={tekst}
-          onChange={(e)=>setTekst(e.target.value)}
-        />
-        <input
-          className="rounded-md border px-2 py-1 text-sm"
-          placeholder="Auteur (optioneel)"
-          value={auteur}
-          onChange={(e)=>setAuteur(e.target.value)}
-        />
-        <button
-          className="rounded-md bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700"
-          onClick={()=>{
-            const t = tekst.trim();
-            if (!t) return;
-            onAdd(t, auteur.trim() || undefined);
-            setTekst(""); setAuteur("");
-          }}
-        >
-          Toevoegen
-        </button>
+              {g.notities.length === 0 && (
+                <div className="text-xs text-zinc-500">Nog geen notities.</div>
+              )}
+
+              {g.notities.map((n) => (
+                <div key={n.id} className="rounded-xl border bg-zinc-50 p-3">
+                  <div className="text-xs text-zinc-500">
+                    {new Date(n.createdAt).toLocaleString()}
+                    {n.auteur ? ` • ${n.auteur}` : ""}
+                  </div>
+                  <div className="mt-1 text-sm">{n.tekst}</div>
+                  <div className="mt-2 text-right">
+                    <button onClick={() => removeNote(g.id, n.id)} className="text-xs text-red-600 hover:underline">
+                      Verwijderen
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

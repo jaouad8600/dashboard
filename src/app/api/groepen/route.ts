@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { loadGroepen } from "@/lib/fsdb";
+import { listGroepen } from "@/lib/groepen.data";
 
 export async function GET() {
-  const rows = await loadGroepen();
-  // Sorteer op naam voor consistentie
-  rows.sort((a,b)=>a.naam.localeCompare(b.naam,"nl"));
-  return NextResponse.json(rows);
+  return NextResponse.json(listGroepen());
 }

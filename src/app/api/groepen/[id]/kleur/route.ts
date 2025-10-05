@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { setGroepKleur } from "@/lib/fsdb";
-
-export async function PATCH(req: Request, { params }: { params: { id: string }}) {
-  const b = await req.json().catch(()=>({}));
-  const kleur = b?.kleur;
-  const allowed = ["gray","green","yellow","orange","red"];
-  if (!allowed.includes(kleur)) {
+import { setGroepKleur, getById, type Kleur } from "@/lib/groepen.data";
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const { id } = params;
+  const body = await req.json().catch(() => ({}));
+  const kleur = body?.kleur as Kleur | undefined;
+  if (!kleur || !["GREEN","YELLOW","ORANGE","RED"].includes(kleur)) {
     return NextResponse.json({ error: "Ongeldige kleur" }, { status: 400 });
   }
-  const row = await setGroepKleur(params.id, kleur);
-  if (!row) return NextResponse.json({ error: "Groep niet gevonden" }, { status: 404 });
-  return NextResponse.json(row);
+  const g = getById(id);
+  if (!g) return NextResponse.json({ error: "Groep niet gevonden" }, { status: 404 });
+  setGroepKleur(id, kleur);
+  return NextResponse.json({ ok: true, id, kleur });
 }

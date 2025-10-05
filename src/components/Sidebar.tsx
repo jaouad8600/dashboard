@@ -23,3 +23,9 @@ export default function Sidebar() {
     </aside>
   );
 }
+
+// --- AUTO-ADD: menu item Indicatie sport ---
+/* Als je Sidebar een items-array gebruikt, voeg daar dit item in.
+   Of, als je handmatig <Link>s rendert, voeg er eentje toe:
+   <Link href="/indicatie-sport" className="...">Indicatie sport</Link>
+*/

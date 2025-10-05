@@ -1,20 +1,10 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { setGroepKleur, type Kleur } from "@/lib/groepen.data";
 
-export async function PATCH(req: Request, { params }: { params: { id: string }}) {
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const { id } = params;
-  try {
-    const body = await req.json();
-    const updated = await prisma.groep.update({
-      where: { id },
-      data: {
-        kleur: typeof body.kleur === "string" ? body.kleur : undefined,
-        naam: typeof body.naam === "string" ? body.naam : undefined,
-      },
-    });
-    return NextResponse.json({ id: updated.id, naam: updated.naam, kleur: updated.kleur });
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: "Kan groep niet bijwerken" }, { status: 500 });
-  }
+  const b = await req.json().catch(() => ({}));
+  if (!b.kleur) return NextResponse.json({ error: "kleur ontbreekt" }, { status: 400 });
+  const updated = setGroepKleur(id, b.kleur as Kleur);
+  return NextResponse.json(updated);
 }

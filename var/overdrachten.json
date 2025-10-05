@@ -1,0 +1,20 @@
+[
+  {
+    "id": "8807424a-66e2-4415-ba9c-947db0c8b493",
+    "datumISO": "2025-10-05",
+    "tijd": "20:56",
+    "auteur": "kjefkwejfnkwejnfkwjenf",
+    "bericht": "jaouad",
+    "belangrijk": false,
+    "createdAt": "2025-10-05T20:56:15.429Z"
+  },
+  {
+    "id": "a84aeba6-0b16-4560-ac4f-692c245a8b32",
+    "datumISO": "2025-10-05",
+    "tijd": "20:56",
+    "auteur": "ewfwef",
+    "bericht": "ewfwef",
+    "belangrijk": true,
+    "createdAt": "2025-10-05T20:56:19.394Z"
+  }
+]
