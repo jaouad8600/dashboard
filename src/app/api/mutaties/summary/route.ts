@@ -1,18 +1,13 @@
+export const runtime = "nodejs";
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { listMutaties } from "@/lib/mutaties.store";
 
-// Optioneel: als je later een Mutatie model hebt:
-// model Mutatie { id String @id @default(uuid()) type String status String }
 export async function GET() {
-  try {
-    // Probeer te tellen; als tabel niet bestaat, val terug op 0
-    // Prisma kan hier een fout gooien bij niet-bestaande model; opvangen:
-    const total = 0;
-    const fitness = 0;
-    const verbod = 0;
-    return NextResponse.json({ total, fitnessAlleen: fitness, sportverbodTotaal: verbod });
-  } catch (e) {
-    console.warn("mutaties summary fallback 0", e);
-    return NextResponse.json({ total: 0, fitnessAlleen: 0, sportverbodTotaal: 0 });
-  }
+  const all = await listMutaties();
+  const open = all.filter(m => m.status === "Open").length;
+  const inBehandeling = all.filter(m => m.status === "In behandeling").length;
+  const afgerond = all.filter(m => m.status === "Afgerond").length;
+  const totaal = all.length;
+  const laatste = all.slice(0, 5); // voor dashboard lijstje
+  return NextResponse.json({ open, inBehandeling, afgerond, totaal, laatste });
 }
