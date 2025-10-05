@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 
 export type Indicatie = {
   id: string;
-  naam: string;           // jongere / casus
-  type: string;           // bijv. Sportindicatie, Intake, etc.
+  naam: string;
+  type: string;
   status: "Open" | "In behandeling" | "Afgerond";
-  start?: string;         // ISO-datum
-  eind?: string;          // ISO-datum
+  start?: string;
+  eind?: string;
   opmerking?: string;
 };
 
@@ -19,16 +19,15 @@ function seed(): Indicatie[] {
   const today = new Date().toISOString().slice(0,10);
   return [
     { id: crypto.randomUUID(), naam: "Tidiane Kamara", type: "Sportindicatie", status: "Open", start: today, opmerking: "Aanvraag binnen" },
-    { id: crypto.randomUUID(), naam: "M. Janssen", type: "Begeleiding", status: "In behandeling", start: today },
-    { id: crypto.randomUUID(), naam: "A. de Vries", type: "Sportindicatie", status: "Afgerond", start: today, eind: today },
+    { id: crypto.randomUUID(), naam: "M. Janssen",       type: "Begeleiding",    status: "In behandeling", start: today },
+    { id: crypto.randomUUID(), naam: "A. de Vries",      type: "Sportindicatie", status: "Afgerond", start: today, eind: today },
   ];
 }
 
-const store: Indicatie[] = (globalThis as any).__INDICATIES__ ?? seed();
+const store = (globalThis as any).__INDICATIES__ ?? seed();
 (globalThis as any).__INDICATIES__ = store;
 
 export async function GET() {
-  // Altijd verse data (geen caching)
   return NextResponse.json(store, { status: 200 });
 }
 
@@ -39,7 +38,7 @@ export async function POST(req: Request) {
   if (!naam || !type) {
     return NextResponse.json({ error: "naam en type zijn verplicht" }, { status: 400 });
   }
-  const item: Indicatie = {
+  const item = {
     id: crypto.randomUUID(),
     naam,
     type,
@@ -47,7 +46,7 @@ export async function POST(req: Request) {
     start: b.start ? String(b.start) : new Date().toISOString().slice(0,10),
     eind: b.eind ? String(b.eind) : undefined,
     opmerking: b.opmerking ? String(b.opmerking) : undefined,
-  };
+  } satisfies Indicatie;
   store.unshift(item);
   return NextResponse.json(item, { status: 201 });
 }

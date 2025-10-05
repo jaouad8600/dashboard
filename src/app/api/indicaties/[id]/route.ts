@@ -5,7 +5,6 @@ declare global {
   // eslint-disable-next-line no-var
   var __INDICATIES__: Indicatie[] | undefined;
 }
-
 const store: Indicatie[] = (globalThis as any).__INDICATIES__ ?? [];
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {

@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useMemo, useState } from "react";
 
 type Indicatie = {
@@ -27,10 +26,7 @@ export default function IndicatiesPage() {
     setItems(Array.isArray(data) ? data : []);
     setLoading(false);
   }
-
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
   const filtered = useMemo(() => {
     const s = (q || "").toLowerCase();
@@ -86,7 +82,6 @@ export default function IndicatiesPage() {
         </form>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         {(["Alle", ...STATI] as const).map(s => (
           <button
@@ -105,7 +100,6 @@ export default function IndicatiesPage() {
         />
       </div>
 
-      {/* Tabel */}
       <div className="overflow-x-auto rounded-2xl border bg-white">
         <table className="min-w-[720px] w-full text-sm">
           <thead className="bg-zinc-50 text-zinc-600">
@@ -120,12 +114,8 @@ export default function IndicatiesPage() {
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-zinc-500">Laden…</td></tr>
-            )}
-            {!loading && filtered.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-zinc-500">Geen resultaten.</td></tr>
-            )}
+            {loading && <tr><td colSpan={7} className="px-4 py-6 text-center text-zinc-500">Laden…</td></tr>}
+            {!loading && filtered.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-zinc-500">Geen resultaten.</td></tr>}
             {!loading && filtered.map((i) => (
               <tr key={i.id} className="border-t">
                 <td className="px-4 py-3">{i.naam}</td>
@@ -142,16 +132,13 @@ export default function IndicatiesPage() {
                 <td className="px-4 py-3">{i.start ?? "-"}</td>
                 <td className="px-4 py-3">{i.eind ?? "-"}</td>
                 <td className="px-4 py-3">{i.opmerking ?? "-"}</td>
-                <td className="px-4 py-3 text-right">
-                  {/* ruimte voor extra acties */}
-                </td>
+                <td className="px-4 py-3 text-right"></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      {/* Mobiel formulier */}
       <div className="md:hidden">
         <form
           className="flex flex-col gap-2"
