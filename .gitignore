@@ -12,3 +12,7 @@ backups/
 *.bundle
 *.7z
 *.tar
+
+# lokale data opslag
+data/
+node_modules/
