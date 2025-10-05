@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "dev:3040": "next dev -p 3040"
   },
   "dependencies": {
     "@fullcalendar/common": "^5.11.5",
@@ -51,5 +52,10 @@
     "prisma": "^6.16.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
+  },
+  "overrides": {
+    "core-js": "3.37.1",
+    "jspdf": "2.5.1",
+    "canvg": "3.0.10"
   }
 }
