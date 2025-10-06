@@ -31,19 +31,19 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.18",
-    "jspdf": "^3.0.3",
+    "docx-preview": "^0.3.7",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.542.0",
-    "mammoth": "^1.10.0",
-    "next": "14.2.5",
-    "react": "^18",
+    "mammoth": "^1.11.0",
+    "next": "^15.5.4",
+    "react": "^18.3.1",
     "react-big-calendar": "^1.19.4",
-    "react-dom": "^18",
+    "react-dom": "^18.3.1",
     "recharts": "^3.2.0"
   },
   "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^18",
+    "@types/node": "^20.19.19",
+    "@types/react": "^18.3.25",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.4.21",
     "eslint": "^8",
@@ -51,11 +51,6 @@
     "postcss": "^8.5.6",
     "prisma": "^6.16.3",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5"
-  },
-  "overrides": {
-    "core-js": "3.37.1",
-    "jspdf": "2.5.1",
-    "canvg": "3.0.10"
+    "typescript": "^5.9.3"
   }
 }

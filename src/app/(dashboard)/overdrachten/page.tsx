@@ -1,166 +1,119 @@
 "use client";
-import { useEffect, useState } from "react";
-import {
-  listOverdrachten,
-  addOverdracht,
-  patchOverdracht,
-  deleteOverdracht,
-  type Overdracht
-} from "@/lib/overdrachten";
+import { useEffect, useState } from 'react';
+
+type Overdracht = {
+  id: string;
+  titel: string;
+  inhoud: string;
+  auteur?: string;
+  createdAt: string;
+  updatedAt?: string;
+  status?: 'open' | 'afgerond';
+};
 
 export default function OverdrachtenPage() {
   const [items, setItems] = useState<Overdracht[]>([]);
   const [loading, setLoading] = useState(true);
-  const [auteur, setAuteur] = useState("");
-  const [bericht, setBericht] = useState("");
-  const [belangrijk, setBelangrijk] = useState(false);
+  const [form, setForm] = useState({ titel: '', inhoud: '', auteur: '' });
 
-  const [editId, setEditId] = useState<string | null>(null);
-  const [editAuteur, setEditAuteur] = useState("");
-  const [editBericht, setEditBericht] = useState("");
-  const [editBelangrijk, setEditBelangrijk] = useState(false);
-
-  async function refresh() {
+  async function load() {
     setLoading(true);
-    try {
-      const data = await listOverdrachten();
-      setItems(Array.isArray(data) ? data : []);
-    } finally {
-      setLoading(false);
+    const res = await fetch('/api/overdrachten', { cache: 'no-store' });
+    const data = await res.json();
+    setItems(Array.isArray(data) ? data : []);
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    const res = await fetch('/api/overdrachten', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...form, status: 'open' }),
+    });
+    if (res.ok) {
+      setForm({ titel: '', inhoud: '', auteur: '' });
+      await load();
     }
   }
 
-  useEffect(() => { refresh(); }, []);
-
-  async function handleAdd() {
-    if (!bericht.trim()) return;
-    await addOverdracht(auteur.trim() || "Onbekend", bericht.trim(), belangrijk);
-    setAuteur(""); setBericht(""); setBelangrijk(false);
-    await refresh();
-  }
-
-  function startEdit(o: Overdracht) {
-    setEditId(o.id);
-    setEditAuteur(o.auteur || "");
-    setEditBericht(o.bericht || "");
-    setEditBelangrijk(Boolean(o.belangrijk));
-  }
-
-  async function saveEdit() {
-    if (!editId) return;
-    await patchOverdracht(editId, {
-      auteur: editAuteur,
-      bericht: editBericht,
-      belangrijk: editBelangrijk
+  async function setStatus(id: string, status: 'open' | 'afgerond') {
+    await fetch(`/api/overdrachten/${id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status }),
     });
-    setEditId(null);
-    await refresh();
-  }
-
-  async function toggleBelangrijk(id: string, cur: boolean) {
-    await patchOverdracht(id, { belangrijk: !cur });
-    await refresh();
+    await load();
   }
 
   async function remove(id: string) {
-    if (!confirm("Weet je zeker dat je deze overdracht wilt verwijderen?")) return;
-    await deleteOverdracht(id);
-    await refresh();
+    await fetch(`/api/overdrachten/${id}`, { method: 'DELETE' });
+    await load();
   }
 
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">Overdrachten</h1>
 
-      {/* Toevoegen */}
-      <div className="rounded-2xl border bg-white p-4 shadow-sm">
-        <div className="grid gap-3 sm:grid-cols-[1fr_3fr_auto_auto] items-center">
-          <input
-            className="rounded-lg border px-3 py-2"
-            placeholder="Auteur"
-            value={auteur}
-            onChange={(e)=>setAuteur(e.target.value)}
-          />
+      <form onSubmit={add} className="grid gap-3 max-w-2xl bg-white p-4 rounded-xl border">
         <input
-            className="rounded-lg border px-3 py-2"
-            placeholder="Bericht"
-            value={bericht}
-            onChange={(e)=>setBericht(e.target.value)}
-          />
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={belangrijk} onChange={(e)=>setBelangrijk(e.target.checked)} />
-            Belangrijk
-          </label>
-          <button
-            onClick={handleAdd}
-            className="rounded-lg bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700"
-          >
-            Toevoegen
-          </button>
-        </div>
-      </div>
+          className="border rounded px-3 py-2"
+          placeholder="Titel"
+          value={form.titel}
+          onChange={(e) => setForm({ ...form, titel: e.target.value })}
+        />
+        <textarea
+          className="border rounded px-3 py-2 min-h-[120px]"
+          placeholder="Inhoud"
+          value={form.inhoud}
+          onChange={(e) => setForm({ ...form, inhoud: e.target.value })}
+        />
+        <input
+          className="border rounded px-3 py-2"
+          placeholder="Auteur (optioneel)"
+          value={form.auteur}
+          onChange={(e) => setForm({ ...form, auteur: e.target.value })}
+        />
+        <button className="bg-black text-white rounded px-4 py-2 w-fit">Toevoegen</button>
+      </form>
 
-      {/* Lijst */}
-      <div className="space-y-3">
+      <div className="grid gap-3">
         {loading ? (
-          <div className="text-sm text-zinc-500">Laden…</div>
+          <div>Laden…</div>
         ) : items.length === 0 ? (
-          <div className="text-sm text-zinc-500">Nog geen overdrachten</div>
+          <div className="text-zinc-500">Geen overdrachten.</div>
         ) : (
-          items.map((o) => (
-            <div key={o.id} className="rounded-2xl border bg-white p-4 shadow-sm">
-              {editId === o.id ? (
-                <div className="grid gap-3 sm:grid-cols-[1fr_3fr_auto_auto] items-start">
-                  <input
-                    className="rounded-lg border px-3 py-2"
-                    value={editAuteur}
-                    onChange={(e)=>setEditAuteur(e.target.value)}
-                  />
-                  <textarea
-                    className="rounded-lg border px-3 py-2 min-h-[60px]"
-                    value={editBericht}
-                    onChange={(e)=>setEditBericht(e.target.value)}
-                  />
-                  <label className="inline-flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={editBelangrijk} onChange={(e)=>setEditBelangrijk(e.target.checked)} />
-                    Belangrijk
-                  </label>
-                  <div className="flex gap-2 justify-end">
-                    <button onClick={()=>setEditId(null)} className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50">Annuleer</button>
-                    <button onClick={saveEdit} className="rounded-lg bg-green-600 px-3 py-2 text-white text-sm hover:bg-green-700">Opslaan</button>
-                  </div>
+          items.map((it) => (
+            <div key={it.id} className="bg-white p-4 rounded-xl border">
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-semibold">{it.titel}</div>
+                <div className="text-xs text-zinc-500">
+                  {new Date(it.createdAt).toLocaleString()}
                 </div>
-              ) : (
-                <div className="flex items-start gap-3">
-                  <span className={`mt-1 h-2 w-2 rounded-full ${o.belangrijk ? "bg-red-500" : "bg-zinc-300"}`} />
-                  <div className="flex-1">
-                    <div className="text-sm text-zinc-500">
-                      {new Date(o.datumISO).toISOString().slice(0,10)} • {o.tijd}{o.auteur ? ` • ${o.auteur}` : ""}
-                    </div>
-                    <div className="mt-1">{o.bericht}</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={()=>toggleBelangrijk(o.id, o.belangrijk)}
-                      className="rounded-lg border px-3 py-1 text-sm hover:bg-zinc-50"
-                    >
-                      {o.belangrijk ? "Markeer normaal" : "Markeer belangrijk"}
-                    </button>
-                    <button
-                      onClick={()=>startEdit(o)}
-                      className="rounded-lg border px-3 py-1 text-sm hover:bg-zinc-50"
-                    >
-                      Bewerk
-                    </button>
-                    <button
-                      onClick={()=>remove(o.id)}
-                      className="rounded-lg border px-3 py-1 text-sm hover:bg-zinc-50 text-red-600"
-                    >
-                      Verwijderen
-                    </button>
-                  </div>
-                </div>
-              )}
+              </div>
+              <p className="mt-2 whitespace-pre-wrap">{it.inhoud}</p>
+              <div className="mt-3 flex items-center gap-2 text-sm">
+                <span
+                  className={`px-2 py-1 rounded ${
+                    it.status === 'afgerond'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-amber-100 text-amber-800'
+                  }`}
+                >
+                  {it.status ?? 'open'}
+                </span>
+                {it.auteur ? <span className="text-zinc-500">• {it.auteur}</span> : null}
+                <button
+                  onClick={() => setStatus(it.id, it.status === 'afgerond' ? 'open' : 'afgerond')}
+                  className="ml-auto underline"
+                >
+                  Markeer {it.status === 'afgerond' ? 'open' : 'afgerond'}
+                </button>
+                <button onClick={() => remove(it.id)} className="text-rose-600 underline">
+                  Verwijderen
+                </button>
+              </div>
             </div>
           ))
         )}

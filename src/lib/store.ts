@@ -1,123 +1,32 @@
-"use client";
-import { Group, Note } from "./types";
+import fs from "fs/promises";
+import path from "path";
 
-const KEY_GROUPS = "groups";
+const DATA_DIR = path.join(process.cwd(), "data");
 
-/** Hulp: haal groepen op uit localStorage */
-export function getGroups(): Group[] {
+export async function ensureDataDir() {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  return DATA_DIR;
+}
+
+export async function readJSON<T>(file: string, fallback: T): Promise<T> {
+  const dir = await ensureDataDir();
+  const p = path.join(dir, file);
   try {
-    const raw = localStorage.getItem(KEY_GROUPS);
-    return raw ? (JSON.parse(raw) as Group[]) : [];
+    const raw = await fs.readFile(p, "utf8");
+    return JSON.parse(raw) as T;
   } catch {
-    return [];
+    return fallback;
   }
 }
 
-/** Hulp: sla groepen op naar localStorage */
-export function saveGroups(groups: Group[]) {
-  localStorage.setItem(KEY_GROUPS, JSON.stringify(groups));
+export async function writeJSON<T>(file: string, data: T): Promise<void> {
+  const dir = await ensureDataDir();
+  const p = path.join(dir, file);
+  const tmp = p + ".tmp";
+  await fs.writeFile(tmp, JSON.stringify(data, null, 2), "utf8");
+  await fs.rename(tmp, p);
 }
 
-/** Voeg een groep toe */
-export function addGroup(name: string): Group[] {
-  const groups = getGroups();
-  const newGroup: Group = {
-    id: String(Date.now()),
-    name,
-    state: "Groen",
-    notes: [],
-  };
-  const updated = [...groups, newGroup];
-  saveGroups(updated);
-  return updated;
-}
-
-/** Verwijder een groep */
-export function removeGroup(groupId: string): Group[] {
-  const updated = getGroups().filter((g) => g.id !== groupId);
-  saveGroups(updated);
-  return updated;
-}
-
-/** Hernoem een groep */
-export function renameGroup(groupId: string, newName: string): Group[] {
-  const updated = getGroups().map((g) =>
-    g.id === groupId ? { ...g, name: newName } : g
-  );
-  saveGroups(updated);
-  return updated;
-}
-
-/** Voeg een notitie toe aan een groep */
-export function addNote(groupId: string, text: string, author?: string): Group[] {
-  const updated = getGroups().map((g) => {
-    if (g.id === groupId) {
-      const newNote: Note = {
-        id: String(Date.now()),
-        text,
-        author,
-        createdAt: new Date().toISOString(),
-        starred: false,
-      };
-      return { ...g, notes: [...(g.notes || []), newNote] };
-    }
-    return g;
-  });
-  saveGroups(updated);
-  return updated;
-}
-
-/** Bewerk een notitie */
-export function editNote(groupId: string, noteId: string, text: string): Group[] {
-  const updated = getGroups().map((g) => {
-    if (g.id === groupId) {
-      return {
-        ...g,
-        notes: (g.notes || []).map((n) =>
-          n.id === noteId ? { ...n, text } : n
-        ),
-      };
-    }
-    return g;
-  });
-  saveGroups(updated);
-  return updated;
-}
-
-/** Verwijder een notitie */
-export function removeNote(groupId: string, noteId: string): Group[] {
-  const updated = getGroups().map((g) => {
-    if (g.id === groupId) {
-      return {
-        ...g,
-        notes: (g.notes || []).filter((n) => n.id !== noteId),
-      };
-    }
-    return g;
-  });
-  saveGroups(updated);
-  return updated;
-}
-
-/** Toggle ster bij een notitie */
-export function toggleNoteStar(groupId: string, noteId: string): Group[] {
-  const updated = getGroups().map((g) => {
-    if (g.id === groupId) {
-      return {
-        ...g,
-        notes: (g.notes || []).map((n) =>
-          n.id === noteId ? { ...n, starred: !n.starred } : n
-        ),
-      };
-    }
-    return g;
-  });
-  saveGroups(updated);
-  return updated;
-}
-
-/** Exporteer alle groepen met notities als JSON */
-export function exportGroupsAsJson(): string {
-  const data = getGroups();
-  return JSON.stringify(data, null, 2);
+export function uid(prefix = "id"): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,8)}`;
 }

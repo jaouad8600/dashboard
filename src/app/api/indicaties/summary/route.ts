@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
-import type { Indicatie } from "../route";
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __INDICATIES__: Indicatie[] | undefined;
-}
-const store: Indicatie[] = (globalThis as any).__INDICATIES__ ?? [];
+import { readDB } from "@/lib/serverStore";
 
 export async function GET() {
-  const open = store.filter(i => i.status === "Open").length;
-  const inBehandeling = store.filter(i => i.status === "In behandeling").length;
-  const afgerond = store.filter(i => i.status === "Afgerond").length;
-  const totaal = store.length;
+  const db = await readDB();
+  const items = db.indicaties || [];
+  const open = items.filter(i => (i.status||"").toLowerCase().includes("open")).length;
+  const inBehandeling = items.filter(i => (i.status||"").toLowerCase().includes("behandel")).length;
+  const afgerond = items.filter(i => (i.status||"").toLowerCase().includes("afgerond")).length;
+  const totaal = items.length;
   return NextResponse.json({ open, inBehandeling, afgerond, totaal });
 }

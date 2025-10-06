@@ -1,3 +1,5 @@
+import { readJSON, writeJSON, uid } from "./store";
+
 export type Kleur = "GREEN" | "YELLOW" | "ORANGE" | "RED";
 
 export type GroepNote = {
@@ -14,83 +16,71 @@ export type Groep = {
   notities: GroepNote[];
 };
 
-const LABELS: Record<Kleur, string> = {
-  GREEN: "Groen",
-  YELLOW: "Geel",
-  ORANGE: "Oranje",
-  RED: "Rood",
-};
-export const KLEUR_LABELS = LABELS;
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __GROEP_STORE__: Groep[] | undefined;
-}
+const FILE = "groepen.json";
 
 const DEFAULT_NAMEN = [
   "Poel","Lier","Zijl","Nes","Vliet","Gaag","Kust","Golf",
   "Zift","Lei","Kade","Kreek","Duin","Rak","Bron","Dijk"
 ];
 
-function makeId(s: string) {
-  return s.toLowerCase().replace(/\s+/g, "-");
+export async function loadGroepen(): Promise<Groep[]> {
+  let data = await readJSON<Groep[]>(FILE, []);
+  if (data.length === 0) {
+    data = DEFAULT_NAMEN.map((n) => ({ id: uid("grp"), naam: n, kleur: "GREEN", notities: [] }));
+    await writeJSON(FILE, data);
+  }
+  return data;
 }
 
-const initial: Groep[] = DEFAULT_NAMEN.map((naam) => ({
-  id: makeId(naam),
-  naam,
-  kleur: "GREEN",
-  notities: [],
-}));
-
-const store: Groep[] = (globalThis as any).__GROEP_STORE__ ?? initial;
-(globalThis as any).__GROEP_STORE__ = store;
-
-export function listGroepen(): Groep[] {
-  return store.map((g) => ({ ...g, notities: [...g.notities] }));
+export async function saveGroepen(list: Groep[]) {
+  await writeJSON(FILE, list);
 }
 
-export function getGroep(id: string): Groep | undefined {
-  return store.find((g) => g.id === id);
-}
-
-export function setGroepKleur(id: string, kleur: Kleur): Groep {
-  const g = getGroep(id);
+export async function setKleur(groepId: string, kleur: Kleur) {
+  const list = await loadGroepen();
+  const g = list.find(x => x.id === groepId);
   if (!g) throw new Error("Groep niet gevonden");
   g.kleur = kleur;
-  return { ...g, notities: [...g.notities] };
+  await saveGroepen(list);
+  return g;
 }
 
-export function addGroepNotitie(id: string, tekst: string, auteur?: string): Groep {
-  const g = getGroep(id);
+export async function addNotitie(groepId: string, tekst: string, auteur?: string) {
+  const list = await loadGroepen();
+  const g = list.find(x => x.id === groepId);
   if (!g) throw new Error("Groep niet gevonden");
-  const note: GroepNote = {
-    id: crypto.randomUUID(),
-    tekst: tekst.trim(),
-    auteur: auteur?.trim() || undefined,
-    createdAt: new Date().toISOString(),
-  };
+  const note: GroepNote = { id: uid("note"), tekst, auteur, createdAt: new Date().toISOString() };
   g.notities.unshift(note);
-  return { ...g, notities: [...g.notities] };
+  await saveGroepen(list);
+  return note;
 }
 
-export function updateGroepNotitie(id: string, noteId: string, data: Partial<Pick<GroepNote, "tekst" | "auteur">>): Groep {
-  const g = getGroep(id);
+export async function updateNotitie(groepId: string, noteId: string, tekst?: string, auteur?: string) {
+  const list = await loadGroepen();
+  const g = list.find(x => x.id === groepId);
   if (!g) throw new Error("Groep niet gevonden");
-  const n = g.notities.find((n) => n.id === noteId);
+  const n = g.notities.find(nn => nn.id === noteId);
   if (!n) throw new Error("Notitie niet gevonden");
-  if (typeof data.tekst === "string") n.tekst = data.tekst;
-  if (typeof data.auteur === "string") n.auteur = data.auteur || undefined;
-  return { ...g, notities: [...g.notities] };
+  if (typeof tekst === "string") n.tekst = tekst;
+  if (typeof auteur === "string") n.auteur = auteur;
+  await saveGroepen(list);
+  return n;
 }
 
-export function removeGroepNotitie(id: string, noteId: string): Groep {
-  const g = getGroep(id);
+export async function removeNotitie(groepId: string, noteId: string) {
+  const list = await loadGroepen();
+  const g = list.find(x => x.id === groepId);
   if (!g) throw new Error("Groep niet gevonden");
-  g.notities = g.notities.filter((n) => n.id !== noteId);
-  return { ...g, notities: [...g.notities] };
+  g.notities = g.notities.filter(n => n.id !== noteId);
+  await saveGroepen(list);
+  return true;
 }
 
-export function getRodeGroepen(): Groep[] {
-  return listGroepen().filter((g) => g.kleur === "RED");
+export async function getRodeGroepen() {
+  const list = await loadGroepen();
+  const rode = list.filter(g => g.kleur === "RED");
+  return {
+    count: rode.length,
+    items: rode.map(g => ({ id: g.id, naam: g.naam, kleur: g.kleur }))
+  };
 }

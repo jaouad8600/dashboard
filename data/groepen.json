@@ -2,7 +2,7 @@
   {
     "id": "f0026c6b-ceb8-4980-bc79-b598df3150a3",
     "naam": "Poel",
-    "kleur": "ORANGE",
+    "kleur": "RED",
     "notities": [
       {
         "id": "1759697964020-5fsbp9",
@@ -15,7 +15,7 @@
   {
     "id": "70b45aa2-0ca1-48b3-bf9a-95871cfaa8b0",
     "naam": "Vloed",
-    "kleur": "green",
+    "kleur": "YELLOW",
     "notities": []
   },
   {

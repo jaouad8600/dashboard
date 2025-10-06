@@ -2,124 +2,107 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type Overdracht = { id?:string; bericht?:string; auteur?:string; datumISO?:string; tijd?:string; belangrijk?:boolean };
-type PlanningItem = { id?:string; tijd?:string; activiteit?:string; locatie?:string; groep?:string };
-type IndicatieSum = { open:number; inBehandeling:number; afgerond:number; totaal:number };
+type Groep = { id: string; naam: string; kleur: "GREEN"|"YELLOW"|"ORANGE"|"RED" };
+type MutSummary = { open: number; totaal: number };
+type IndSummary = { open: number; inBehandeling: number; afgerond: number; totaal: number };
+type PlanItem = { tijd?: string; titel?: string; locatie?: string };
 
-export default function DashboardPage() {
-  const [rodeCount, setRodeCount] = useState<number>(0);
-  const [mutatiesCount, setMutatiesCount] = useState<number>(0);
-  const [indicatie, setIndicatie] = useState<IndicatieSum | null>(null);
-  const [laatste, setLaatste] = useState<Overdracht | null>(null);
-  const [planning, setPlanning] = useState<PlanningItem[]>([]);
+function usePoll<T>(url: string, intervalMs = 5000, init?: T) {
+  const [data, setData] = useState<T | undefined>(init);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>("");
 
-  function todayISO() {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,"0");
-    const day = String(d.getDate()).padStart(2,"0");
-    return `${y}-${m}-${day}`;
+  async function fetchOnce() {
+    try {
+      setError("");
+      const r = await fetch(`${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`, { cache: "no-store" });
+      const j = await r.json();
+      setData(j);
+    } catch (e: any) {
+      setError(e?.message || "Fout");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(() => {
-    let stop = false;
-    (async () => {
-      try {
-        const [rRood, rMut, rInd, rOvd, rPlan] = await Promise.all([
-          fetch(`/api/groepen/rode?t=${Date.now()}`, { cache: "no-store" }),
-          fetch(`/api/mutaties/summary?t=${Date.now()}`, { cache: "no-store" }),
-          fetch(`/api/indicaties/summary?t=${Date.now()}`, { cache: "no-store" }),
-          fetch(`/api/overdrachten?t=${Date.now()}`, { cache: "no-store" }),
-          fetch(`/api/planning?date=${todayISO()}&t=${Date.now()}`, { cache: "no-store" }),
-        ]);
+  useEffect(()=> {
+    fetchOnce();
+    const h = setInterval(fetchOnce, intervalMs);
+    return ()=> clearInterval(h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url, intervalMs]);
 
-        if (!stop) {
-          const rood = rRood.ok ? await rRood.json() : [];
-          setRodeCount(Array.isArray(rood) ? rood.length : 0);
+  return { data, loading, error, refetch: fetchOnce };
+}
 
-          const mut = rMut.ok ? await rMut.json() : null;
-          // Probeer wat veelvoorkomende vormen (open/totaal) — val terug op 0
-          setMutatiesCount(mut?.open ?? mut?.totaal ?? 0);
+export default function DashboardPage() {
+  const mut = usePoll<MutSummary>("/api/mutaties/summary", 5000, { open: 0, totaal: 0 });
+  const ind = usePoll<IndSummary>("/api/indicaties/summary", 5000, { open: 0, inBehandeling: 0, afgerond: 0, totaal: 0 });
+  const rode = usePoll<Groep[]>("/api/groepen/rode", 5000, []);
+  const today = new Date().toISOString().slice(0,10);
+  const plan = usePoll<PlanItem[]>(`/api/planning?date=${today}`, 5000, []);
 
-          const ind = rInd.ok ? await rInd.json() : null;
-          setIndicatie(ind);
-
-          const ov = rOvd.ok ? await rOvd.json() : [];
-          setLaatste(Array.isArray(ov) && ov.length ? ov[0] : null);
-
-          const pl = rPlan.ok ? await rPlan.json() : [];
-          setPlanning(Array.isArray(pl) ? pl : []);
-        }
-      } finally {
-        if (!stop) setLoading(false);
-      }
-    })();
-
-    return () => { stop = true; };
-  }, []);
-
-  const dateNL = useMemo(() => new Date().toLocaleDateString("nl-NL", {
-    weekday: "long", day: "2-digit", month: "2-digit"
-  }), []);
-
-  const Tile = ({title, value, href}:{title:string; value:number|string; href:string}) => (
-    <a href={href} className="rounded-2xl border bg-white p-4 shadow-sm hover:bg-zinc-50 transition">
-      <div className="text-xs text-zinc-500">{title}</div>
-      <div className="text-2xl font-semibold">{value}</div>
-    </a>
-  );
+  const rodeNamen = useMemo(()=> (rode.data ?? []).map(g => g.naam).slice(0,8), [rode.data]);
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Vandaag</h1>
-          <div className="text-sm text-zinc-500">{dateNL}</div>
-        </div>
-      </div>
+      <h1 className="text-2xl font-bold">Dashboard</h1>
 
-      {/* Tegels */}
-      <div className="grid gap-3 sm:grid-cols-4">
-        <Tile title="Rode groepen" value={loading ? "…" : rodeCount} href="/groepen" />
-        <Tile title="Sportmutaties" value={loading ? "…" : mutatiesCount} href="/sportmutaties" />
-        <Tile title="Indicaties (open)" value={loading ? "…" : (indicatie?.open ?? 0)} href="/indicatie-sport" />
-        <Tile title="Indicaties (totaal)" value={loading ? "…" : (indicatie?.totaal ?? 0)} href="/indicatie-sport" />
-      </div>
-
-      {/* Onderste rij: Laatste overdracht & Dagplanning */}
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-2xl border bg-white p-4 shadow-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-sm font-medium">Laatste overdracht</div>
-            <a className="text-xs text-zinc-600 hover:underline" href="/overdrachten">naar Overdrachten</a>
-          </div>
-          {laatste ? (
-            <div className="space-y-1 text-sm">
-              <div className="text-zinc-500">{laatste.datumISO} • {laatste.tijd} {laatste.auteur ? `• ${laatste.auteur}` : ""}</div>
-              <div>{laatste.bericht}</div>
+      {/* Tegelrij */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Rode groepen */}
+        <div className="rounded-xl border bg-white p-4">
+          <div className="text-sm text-zinc-500">Rode groepen</div>
+          <div className="mt-1 text-3xl font-bold">{Array.isArray(rode.data) ? rode.data.length : (rode.loading ? "…" : 0)}</div>
+          <div className="mt-2 text-xs text-zinc-500">({rode.loading ? "verversen…" : "live"})</div>
+          {rodeNamen.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {rodeNamen.map(n => <span key={n} className="text-xs px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200">{n}</span>)}
             </div>
-          ) : (
-            <div className="text-sm text-zinc-400">{loading ? "Laden…" : "Geen overdrachten gevonden."}</div>
           )}
         </div>
 
-        <div className="rounded-2xl border bg-white p-4 shadow-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-sm font-medium">Dagplanning</div>
-            <a className="text-xs text-zinc-600 hover:underline" href="/kalender">naar Kalender</a>
+        {/* Sportmutaties */}
+        <div className="rounded-xl border bg-white p-4">
+          <div className="text-sm text-zinc-500">Open sportmutaties</div>
+          <div className="mt-1 text-3xl font-bold">{mut.data?.open ?? (mut.loading ? "…" : 0)}</div>
+          <div className="mt-2 text-xs text-zinc-500">Totaal: {mut.data?.totaal ?? 0}</div>
+        </div>
+
+        {/* Indicaties */}
+        <div className="rounded-xl border bg-white p-4">
+          <div className="text-sm text-zinc-500">Indicaties</div>
+          <div className="mt-1 flex gap-6">
+            <div><div className="text-xs text-zinc-500">Open</div><div className="text-2xl font-semibold">{ind.data?.open ?? 0}</div></div>
+            <div><div className="text-xs text-zinc-500">In beh.</div><div className="text-2xl font-semibold">{ind.data?.inBehandeling ?? 0}</div></div>
+            <div><div className="text-xs text-zinc-500">Afgerond</div><div className="text-2xl font-semibold">{ind.data?.afgerond ?? 0}</div></div>
           </div>
-          {planning.length ? (
-            <div className="space-y-2">
-              {planning.map((p,i)=>(
-                <div key={p.id ?? i} className="rounded-lg border p-2 text-sm">
-                  <div className="text-xs text-zinc-500">{p.tijd} • {p.locatie ?? "—"} {p.groep ? `• ${p.groep}` : ""}</div>
-                  <div>{p.activiteit ?? "Activiteit"}</div>
-                </div>
+        </div>
+      </div>
+
+      {/* Onderste rij */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Laatste overdracht (placeholder: toon lijst uit bestaande API indien aanwezig) */}
+        <div className="rounded-xl border bg-white p-4">
+          <div className="text-sm text-zinc-500">Laatste overdracht</div>
+          <div className="mt-2 text-sm text-zinc-400">Koppel eventueel /api/overdrachten voor details.</div>
+        </div>
+
+        {/* Dagplanning: altijd tonen (ook als leeg) */}
+        <div className="rounded-xl border bg-white p-4">
+          <div className="text-sm text-zinc-500">Dagplanning — {today}</div>
+          {Array.isArray(plan.data) && plan.data.length > 0 ? (
+            <ul className="mt-2 space-y-2 text-sm">
+              {plan.data.map((p, i) => (
+                <li key={i} className="flex gap-2">
+                  <span className="text-zinc-500 w-16">{p.tijd || ""}</span>
+                  <span className="font-medium">{p.titel || ""}</span>
+                  <span className="text-zinc-500">{p.locatie ? `· ${p.locatie}` : ""}</span>
+                </li>
               ))}
-            </div>
+            </ul>
           ) : (
-            <div className="text-sm text-zinc-400">{loading ? "Laden…" : "Geen planning gevonden voor vandaag."}</div>
+            <div className="mt-2 text-sm text-zinc-400">Geen planning gevonden voor vandaag.</div>
           )}
         </div>
       </div>

@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
-import { listGroepen } from "@/lib/groepen.data";
+import { readDB, writeDB, seedGroepen } from "@/lib/serverStore";
 
 export async function GET() {
-  return NextResponse.json(listGroepen());
+  const db = await readDB();
+  if (!db.groepen?.length) {
+    db.groepen = seedGroepen();
+    await writeDB(db);
+  }
+  return NextResponse.json(db.groepen);
 }

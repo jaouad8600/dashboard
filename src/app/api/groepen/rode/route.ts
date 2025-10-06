@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { getRodeGroepen } from "@/lib/groepen.data";
+import { readDB } from "@/lib/serverStore";
 
 export async function GET() {
-  return NextResponse.json(getRodeGroepen());
+  const db = await readDB();
+  const reds = db.groepen.filter(g => g.kleur === "RED").map(g => ({ id:g.id, naam:g.naam, afdeling:g.afdeling }));
+  return NextResponse.json(reds);
 }

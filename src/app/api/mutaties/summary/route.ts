@@ -1,13 +1,12 @@
-export const runtime = "nodejs";
 import { NextResponse } from "next/server";
-import { listMutaties } from "@/lib/mutaties.store";
+import { readDB } from "@/lib/serverStore";
 
 export async function GET() {
-  const all = await listMutaties();
-  const open = all.filter(m => m.status === "Open").length;
-  const inBehandeling = all.filter(m => m.status === "In behandeling").length;
-  const afgerond = all.filter(m => m.status === "Afgerond").length;
-  const totaal = all.length;
-  const laatste = all.slice(0, 5); // voor dashboard lijstje
-  return NextResponse.json({ open, inBehandeling, afgerond, totaal, laatste });
+  const db = await readDB();
+  const lijst = db.mutaties || [];
+  const totaal = lijst.length;
+  // simpele categorisatie optioneel:
+  const vandaag = new Date().toISOString().slice(0,10);
+  const vandaagCount = lijst.filter(m => (m.datumISO||"").startsWith(vandaag)).length;
+  return NextResponse.json({ totaal, vandaag: vandaagCount });
 }

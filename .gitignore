@@ -16,3 +16,5 @@ backups/
 # lokale data opslag
 data/
 node_modules/
+
+.data/

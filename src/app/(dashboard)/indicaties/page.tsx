@@ -1,154 +1,125 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 type Indicatie = {
-  id: string;
-  naam: string;
-  type: string;
-  status: "Open" | "In behandeling" | "Afgerond";
-  start?: string;
-  eind?: string;
-  opmerking?: string;
+  id: string; naam: string; type?: string; status?: string; start?: string; eind?: string; opmerking?: string;
 };
-
-const STATI: Indicatie["status"][] = ["Open","In behandeling","Afgerond"];
 
 export default function IndicatiesPage() {
   const [items, setItems] = useState<Indicatie[]>([]);
+  const [sel, setSel] = useState<Indicatie|null>(null);
   const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState("");
-  const [flt, setFlt] = useState<Indicatie["status"] | "Alle">("Alle");
 
   async function load() {
     setLoading(true);
-    const r = await fetch(`/api/indicaties?t=${Date.now()}`, { cache: "no-store" });
-    const data = await r.json();
-    setItems(Array.isArray(data) ? data : []);
+    const r = await fetch("/api/indicaties", { cache:"no-store" });
+    const data = r.ok ? await r.json() as Indicatie[] : [];
+    setItems(data);
+    if (data.length && !sel) setSel(data[0]);
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(()=>{ load(); }, []);
 
-  const filtered = useMemo(() => {
-    const s = (q || "").toLowerCase();
-    return items.filter(i => {
-      const passStatus = flt === "Alle" ? true : i.status === flt;
-      const passSearch =
-        !s ||
-        i.naam.toLowerCase().includes(s) ||
-        i.type.toLowerCase().includes(s) ||
-        (i.opmerking ?? "").toLowerCase().includes(s);
-      return passStatus && passSearch;
+  async function add(form: FormData) {
+    const payload = Object.fromEntries(form.entries());
+    const r = await fetch("/api/indicaties", {
+      method:"POST", headers:{ "content-type":"application/json" },
+      body: JSON.stringify(payload)
     });
-  }, [items, q, flt]);
-
-  async function addIndicatie(form: HTMLFormElement & { naam: HTMLInputElement; type: HTMLInputElement; opmerking: HTMLInputElement; }) {
-    const naam = form.naam.value.trim();
-    const type = form.type.value.trim();
-    const opmerking = form.opmerking.value.trim();
-    if (!naam || !type) return;
-    await fetch("/api/indicaties", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ naam, type, opmerking }),
-    });
-    form.reset();
-    await load();
+    if (r.ok) {
+      const it = await r.json() as Indicatie;
+      setItems([it, ...items]);
+      setSel(it);
+    } else { alert("Toevoegen mislukt"); }
   }
 
-  async function updateStatus(id: string, status: Indicatie["status"]) {
-    await fetch(`/api/indicaties/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+  async function save(id: string, form: FormData) {
+    const payload = Object.fromEntries(form.entries());
+    const r = await fetch(`/api/indicaties/${id}`, {
+      method:"PATCH", headers:{ "content-type":"application/json" },
+      body: JSON.stringify(payload)
     });
-    await load();
+    if (r.ok) {
+      const it = await r.json() as Indicatie;
+      setItems(items.map(x=>x.id===id?it:x));
+      setSel(it);
+    } else { alert("Opslaan mislukt"); }
+  }
+
+  async function remove(id: string) {
+    if (!confirm("Verwijderen?")) return;
+    const r = await fetch(`/api/indicaties/${id}`, { method:"DELETE" });
+    if (r.ok) {
+      const rest = items.filter(x=>x.id!==id);
+      setItems(rest);
+      setSel(rest[0] || null);
+    } else { alert("Verwijderen mislukt"); }
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Indicaties</h1>
-          <p className="text-sm text-zinc-500">Overzicht van (sport)indicaties.</p>
+    <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-1">
+        <div className="mb-3 flex items-center justify-between">
+          <h1 className="text-xl font-semibold">Indicaties</h1>
+          <details className="relative">
+            <summary className="cursor-pointer rounded-lg border px-3 py-1 text-sm">Nieuwe indicatie</summary>
+            <div className="absolute right-0 z-10 mt-2 w-80 rounded-xl border bg-white p-3 shadow">
+              <form className="space-y-2" onSubmit={async (e)=>{ e.preventDefault(); await add(new FormData(e.currentTarget)); (e.currentTarget as HTMLFormElement).reset(); }}>
+                <input name="naam" required placeholder="Naam" className="w-full rounded-lg border px-3 py-2 text-sm" />
+                <input name="type" placeholder="Type" className="w-full rounded-lg border px-3 py-2 text-sm" />
+                <input name="status" placeholder="Status (bv. Open)" className="w-full rounded-lg border px-3 py-2 text-sm" />
+                <div className="flex gap-2">
+                  <input name="start" type="date" className="flex-1 rounded-lg border px-3 py-2 text-sm" />
+                  <input name="eind" type="date" className="flex-1 rounded-lg border px-3 py-2 text-sm" />
+                </div>
+                <textarea name="opmerking" placeholder="Opmerking" className="w-full rounded-lg border px-3 py-2 text-sm" />
+                <button className="w-full rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50">Toevoegen</button>
+              </form>
+            </div>
+          </details>
         </div>
-        <form
-          className="hidden md:flex items-center gap-2"
-          onSubmit={(e) => { e.preventDefault(); addIndicatie(e.currentTarget as any); }}
-        >
-          <input name="naam" className="rounded-lg border p-2" placeholder="Naam…" />
-          <input name="type" className="rounded-lg border p-2" placeholder="Type (bv. Sportindicatie)…" />
-          <input name="opmerking" className="rounded-lg border p-2 w-64" placeholder="Opmerking (optioneel)…" />
-          <button className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50">Toevoegen</button>
-        </form>
+
+        <div className="rounded-xl border bg-white divide-y max-h-[70vh] overflow-y-auto">
+          {loading && <div className="p-3 text-sm text-zinc-500">Laden…</div>}
+          {!loading && items.length===0 && <div className="p-3 text-sm text-zinc-500">Nog geen indicaties.</div>}
+          {items.map(i=>(
+            <button key={i.id}
+              onClick={()=>setSel(i)}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-50 ${sel?.id===i.id?"bg-zinc-50":""}`}>
+              <div className="font-medium">{i.naam}</div>
+              <div className="text-xs text-zinc-500">{i.type||"—"} {i.status?`• ${i.status}`:""}</div>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {(["Alle", ...STATI] as const).map(s => (
-          <button
-            key={s}
-            onClick={() => setFlt(s as any)}
-            className={`rounded-full border px-3 py-1 text-sm ${flt===s ? "bg-black text-white" : "bg-white hover:bg-zinc-50"}`}
-          >
-            {s}
-          </button>
-        ))}
-        <input
-          value={q}
-          onChange={(e)=>setQ(e.target.value)}
-          className="ml-auto rounded-lg border p-2 w-[220px]"
-          placeholder="Zoek naam / type / opm…"
-        />
-      </div>
-
-      <div className="overflow-x-auto rounded-2xl border bg-white">
-        <table className="min-w-[720px] w-full text-sm">
-          <thead className="bg-zinc-50 text-zinc-600">
-            <tr>
-              <th className="text-left px-4 py-3">Naam</th>
-              <th className="text-left px-4 py-3">Type</th>
-              <th className="text-left px-4 py-3">Status</th>
-              <th className="text-left px-4 py-3">Start</th>
-              <th className="text-left px-4 py-3">Eind</th>
-              <th className="text-left px-4 py-3">Opmerking</th>
-              <th className="text-right px-4 py-3">Acties</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && <tr><td colSpan={7} className="px-4 py-6 text-center text-zinc-500">Laden…</td></tr>}
-            {!loading && filtered.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-zinc-500">Geen resultaten.</td></tr>}
-            {!loading && filtered.map((i) => (
-              <tr key={i.id} className="border-t">
-                <td className="px-4 py-3">{i.naam}</td>
-                <td className="px-4 py-3">{i.type}</td>
-                <td className="px-4 py-3">
-                  <select
-                    value={i.status}
-                    onChange={(e)=>updateStatus(i.id, e.target.value as any)}
-                    className="rounded-md border px-2 py-1"
-                  >
-                    {STATI.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </td>
-                <td className="px-4 py-3">{i.start ?? "-"}</td>
-                <td className="px-4 py-3">{i.eind ?? "-"}</td>
-                <td className="px-4 py-3">{i.opmerking ?? "-"}</td>
-                <td className="px-4 py-3 text-right"></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="md:hidden">
-        <form
-          className="flex flex-col gap-2"
-          onSubmit={(e) => { e.preventDefault(); addIndicatie(e.currentTarget as any); }}
-        >
-          <input name="naam" className="rounded-lg border p-2" placeholder="Naam…" />
-          <input name="type" className="rounded-lg border p-2" placeholder="Type (bv. Sportindicatie)…" />
-          <input name="opmerking" className="rounded-lg border p-2" placeholder="Opmerking (optioneel)…" />
-          <button className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50">Toevoegen</button>
-        </form>
+      <div className="lg:col-span-2">
+        {!sel ? (
+          <div className="rounded-xl border bg-white p-6 text-sm text-zinc-500">Selecteer links een indicatie.</div>
+        ) : (
+          <div className="rounded-xl border bg-white p-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">{sel.naam}</h2>
+              <button onClick={()=>remove(sel.id)} className="text-sm rounded-lg border px-3 py-1 hover:bg-rose-50">Verwijderen</button>
+            </div>
+            <form className="grid gap-3"
+              onSubmit={async (e)=>{ e.preventDefault(); await save(sel.id, new FormData(e.currentTarget)); }}>
+              <input name="naam" defaultValue={sel.naam} className="rounded-lg border px-3 py-2 text-sm" />
+              <div className="grid grid-cols-2 gap-2">
+                <input name="type" defaultValue={sel.type||""} placeholder="Type" className="rounded-lg border px-3 py-2 text-sm" />
+                <input name="status" defaultValue={sel.status||""} placeholder="Status" className="rounded-lg border px-3 py-2 text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input name="start" type="date" defaultValue={sel.start||""} className="rounded-lg border px-3 py-2 text-sm" />
+                <input name="eind" type="date" defaultValue={sel.eind||""} className="rounded-lg border px-3 py-2 text-sm" />
+              </div>
+              <textarea name="opmerking" defaultValue={sel.opmerking||""} placeholder="Opmerking" className="min-h-28 rounded-lg border px-3 py-2 text-sm" />
+              <div className="flex gap-2">
+                <button className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50">Opslaan</button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );
