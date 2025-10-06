@@ -1,24 +1,17 @@
-import { NextResponse } from "next/server";
-import { readDB, writeDB } from "@/lib/serverStore";
+import { NextResponse } from 'next/server';
+import { addMutatie, listMutaties } from '@/lib/stores/db';
 
 export async function GET() {
-  const db = await readDB();
-  return NextResponse.json(db.mutaties || []);
+  return NextResponse.json(await listMutaties(), { headers: { 'cache-control': 'no-store' }});
 }
-
 export async function POST(req: Request) {
-  const b = await req.json().catch(()=>({}));
-  if (!b.titel) return NextResponse.json({ error:"titel verplicht" }, { status:400 });
-  const db = await readDB();
-  const m = {
-    id: crypto.randomUUID(),
-    titel: String(b.titel),
-    type: b.type ? String(b.type) : undefined,
-    datumISO: b.datumISO ? String(b.datumISO) : new Date().toISOString(),
-    groepId: b.groepId ? String(b.groepId) : undefined,
-    details: b.details ? String(b.details) : undefined,
-  };
-  db.mutaties.unshift(m);
-  await writeDB(db);
-  return NextResponse.json(m, { status:201 });
+  const b = await req.json();
+  if (!b?.titel) return NextResponse.json({ error: 'titel verplicht' }, { status: 400 });
+  const row = await addMutatie({
+    titel: String(b.titel).trim(),
+    omschrijving: b.omschrijving ? String(b.omschrijving).trim() : undefined,
+    datum: b.datum || new Date().toISOString(),
+    status: (['open','in-behandeling','afgerond'] as const).includes(b.status) ? b.status : 'open'
+  });
+  return NextResponse.json(row, { status: 201 });
 }

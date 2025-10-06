@@ -1,11 +1,10 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import { readDB, writeDB, seedGroepen } from "@/lib/serverStore";
+import { readDB } from "@/server/fsdb";
 
 export async function GET() {
   const db = await readDB();
-  if (!db.groepen?.length) {
-    db.groepen = seedGroepen();
-    await writeDB(db);
-  }
-  return NextResponse.json(db.groepen);
+  return NextResponse.json({ list: db.groepen.list });
 }

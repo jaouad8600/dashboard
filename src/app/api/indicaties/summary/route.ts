@@ -1,12 +1,14 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import { readDB } from "@/lib/serverStore";
+import { readDB } from "@/server/fsdb";
 
 export async function GET() {
   const db = await readDB();
-  const items = db.indicaties || [];
-  const open = items.filter(i => (i.status||"").toLowerCase().includes("open")).length;
-  const inBehandeling = items.filter(i => (i.status||"").toLowerCase().includes("behandel")).length;
-  const afgerond = items.filter(i => (i.status||"").toLowerCase().includes("afgerond")).length;
-  const totaal = items.length;
+  const totaal = db.indicaties.length;
+  const open = db.indicaties.filter((i: any) => i?.status === "OPEN").length;
+  const inBehandeling = db.indicaties.filter((i: any) => i?.status === "BUSY").length;
+  const afgerond = db.indicaties.filter((i: any) => i?.status === "DONE").length;
   return NextResponse.json({ open, inBehandeling, afgerond, totaal });
 }

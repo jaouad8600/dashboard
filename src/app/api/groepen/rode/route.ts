@@ -1,8 +1,11 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import { readDB } from "@/lib/serverStore";
+import { readDB } from "@/server/fsdb";
 
 export async function GET() {
   const db = await readDB();
-  const reds = db.groepen.filter(g => g.kleur === "RED").map(g => ({ id:g.id, naam:g.naam, afdeling:g.afdeling }));
-  return NextResponse.json(reds);
+  const rood = db.groepen.list.filter((g) => g.kleur === "RED").map((g) => g.naam);
+  return NextResponse.json({ list: rood });
 }

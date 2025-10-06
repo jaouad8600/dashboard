@@ -1,12 +1,13 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import { readDB } from "@/lib/serverStore";
+import { readDB } from "@/server/fsdb";
 
 export async function GET() {
   const db = await readDB();
-  const lijst = db.mutaties || [];
-  const totaal = lijst.length;
-  // simpele categorisatie optioneel:
-  const vandaag = new Date().toISOString().slice(0,10);
-  const vandaagCount = lijst.filter(m => (m.datumISO||"").startsWith(vandaag)).length;
-  return NextResponse.json({ totaal, vandaag: vandaagCount });
+  const totaal = db.mutaties.length;
+  // optioneel: tel 'open' per status
+  const open = db.mutaties.filter((m: any) => m?.status === "OPEN").length;
+  return NextResponse.json({ open, totaal });
 }

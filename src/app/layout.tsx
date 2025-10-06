@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./globals.css";
 import type { ReactNode } from "react";
 import ClientOnly from "@/components/ClientOnly";
 

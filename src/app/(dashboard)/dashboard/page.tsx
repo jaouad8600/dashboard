@@ -1,109 +1,67 @@
 "use client";
+import { useEffect, useState } from "react";
+import { toArray } from "@/lib/toArray";
 
-import { useEffect, useMemo, useState } from "react";
-
-type Groep = { id: string; naam: string; kleur: "GREEN"|"YELLOW"|"ORANGE"|"RED" };
 type MutSummary = { open: number; totaal: number };
 type IndSummary = { open: number; inBehandeling: number; afgerond: number; totaal: number };
-type PlanItem = { tijd?: string; titel?: string; locatie?: string };
 
-function usePoll<T>(url: string, intervalMs = 5000, init?: T) {
-  const [data, setData] = useState<T | undefined>(init);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>("");
-
-  async function fetchOnce() {
-    try {
-      setError("");
-      const r = await fetch(`${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`, { cache: "no-store" });
-      const j = await r.json();
-      setData(j);
-    } catch (e: any) {
-      setError(e?.message || "Fout");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(()=> {
+function usePoll<T>(url: string, intervalMs = 5000, init: T): T {
+  const [data, setData] = useState<T>(init);
+  useEffect(() => {
+    let stop = false;
+    const fetchOnce = async () => {
+      try {
+        const r = await fetch(url, { cache: "no-store" });
+        const j = await r.json();
+        if (!stop) setData(j as T);
+      } catch {}
+    };
     fetchOnce();
     const h = setInterval(fetchOnce, intervalMs);
-    return ()=> clearInterval(h);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      stop = true;
+      clearInterval(h);
+    };
   }, [url, intervalMs]);
-
-  return { data, loading, error, refetch: fetchOnce };
+  return data;
 }
 
 export default function DashboardPage() {
-  const mut = usePoll<MutSummary>("/api/mutaties/summary", 5000, { open: 0, totaal: 0 });
-  const ind = usePoll<IndSummary>("/api/indicaties/summary", 5000, { open: 0, inBehandeling: 0, afgerond: 0, totaal: 0 });
-  const rode = usePoll<Groep[]>("/api/groepen/rode", 5000, []);
-  const today = new Date().toISOString().slice(0,10);
-  const plan = usePoll<PlanItem[]>(`/api/planning?date=${today}`, 5000, []);
-
-  const rodeNamen = useMemo(()=> (rode.data ?? []).map(g => g.naam).slice(0,8), [rode.data]);
+  const mut = usePoll<MutSummary>("/api/mutaties/summary", 4000, { open: 0, totaal: 0 });
+  const ind = usePoll<IndSummary>("/api/indicaties/summary", 4000, {
+    open: 0,
+    inBehandeling: 0,
+    afgerond: 0,
+    totaal: 0,
+  });
+  const roodResp = usePoll<any>("/api/groepen/rode", 4000, { list: [] });
+  const rodeNamen = toArray<string>(roodResp);
 
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">Dashboard</h1>
 
-      {/* Tegelrij */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Rode groepen */}
-        <div className="rounded-xl border bg-white p-4">
-          <div className="text-sm text-zinc-500">Rode groepen</div>
-          <div className="mt-1 text-3xl font-bold">{Array.isArray(rode.data) ? rode.data.length : (rode.loading ? "…" : 0)}</div>
-          <div className="mt-2 text-xs text-zinc-500">({rode.loading ? "verversen…" : "live"})</div>
-          {rodeNamen.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {rodeNamen.map(n => <span key={n} className="text-xs px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200">{n}</span>)}
-            </div>
-          )}
+      {/* Tegels */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="rounded-lg border bg-white p-4">
+          <div className="text-sm text-zinc-500">Mutaties (open)</div>
+          <div className="text-3xl font-semibold">{mut.open ?? 0}</div>
+          <div className="text-xs text-zinc-400">Totaal: {mut.totaal ?? 0}</div>
         </div>
-
-        {/* Sportmutaties */}
-        <div className="rounded-xl border bg-white p-4">
-          <div className="text-sm text-zinc-500">Open sportmutaties</div>
-          <div className="mt-1 text-3xl font-bold">{mut.data?.open ?? (mut.loading ? "…" : 0)}</div>
-          <div className="mt-2 text-xs text-zinc-500">Totaal: {mut.data?.totaal ?? 0}</div>
-        </div>
-
-        {/* Indicaties */}
-        <div className="rounded-xl border bg-white p-4">
-          <div className="text-sm text-zinc-500">Indicaties</div>
-          <div className="mt-1 flex gap-6">
-            <div><div className="text-xs text-zinc-500">Open</div><div className="text-2xl font-semibold">{ind.data?.open ?? 0}</div></div>
-            <div><div className="text-xs text-zinc-500">In beh.</div><div className="text-2xl font-semibold">{ind.data?.inBehandeling ?? 0}</div></div>
-            <div><div className="text-xs text-zinc-500">Afgerond</div><div className="text-2xl font-semibold">{ind.data?.afgerond ?? 0}</div></div>
+        <div className="rounded-lg border bg-white p-4">
+          <div className="text-sm text-zinc-500">Indicaties (open)</div>
+          <div className="text-3xl font-semibold">{ind.open ?? 0}</div>
+          <div className="text-xs text-zinc-400">
+            In behandeling: {ind.inBehandeling ?? 0} • Afgerond: {ind.afgerond ?? 0}
           </div>
         </div>
-      </div>
-
-      {/* Onderste rij */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Laatste overdracht (placeholder: toon lijst uit bestaande API indien aanwezig) */}
-        <div className="rounded-xl border bg-white p-4">
-          <div className="text-sm text-zinc-500">Laatste overdracht</div>
-          <div className="mt-2 text-sm text-zinc-400">Koppel eventueel /api/overdrachten voor details.</div>
+        <div className="rounded-lg border bg-white p-4">
+          <div className="text-sm text-zinc-500">Rood (groepen)</div>
+          <div className="text-sm">{rodeNamen.length ? rodeNamen.join(", ") : "—"}</div>
         </div>
-
-        {/* Dagplanning: altijd tonen (ook als leeg) */}
-        <div className="rounded-xl border bg-white p-4">
-          <div className="text-sm text-zinc-500">Dagplanning — {today}</div>
-          {Array.isArray(plan.data) && plan.data.length > 0 ? (
-            <ul className="mt-2 space-y-2 text-sm">
-              {plan.data.map((p, i) => (
-                <li key={i} className="flex gap-2">
-                  <span className="text-zinc-500 w-16">{p.tijd || ""}</span>
-                  <span className="font-medium">{p.titel || ""}</span>
-                  <span className="text-zinc-500">{p.locatie ? `· ${p.locatie}` : ""}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="mt-2 text-sm text-zinc-400">Geen planning gevonden voor vandaag.</div>
-          )}
+        <div className="rounded-lg border bg-white p-4">
+          <div className="text-sm text-zinc-500">Planning vandaag</div>
+          <div className="text-sm text-zinc-400">Bekijk kalender voor details</div>
         </div>
       </div>
     </div>

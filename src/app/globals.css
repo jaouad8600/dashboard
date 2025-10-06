@@ -2,19 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Globale opmaak voor leesbare, strakke UI */
+/* Kleine resets */
 :root { color-scheme: light; }
-html, body { min-height: 100%; }
-body { @apply bg-zinc-100 text-zinc-900 antialiased; }
-.card { @apply rounded-2xl border bg-white p-4; }
-.tile-title { @apply text-sm text-zinc-500; }
-.tile-value { @apply mt-1 text-2xl font-bold; }
-.link { @apply text-sm text-blue-700 hover:underline; }
-
-/* === SportDash: groepsnaam badge-typografie === */
-.group-title{
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  font-weight: 700;
-  font-size: 0.95rem;
-}
+html, body { height: 100%; margin: 0; }
+* { box-sizing: border-box; }

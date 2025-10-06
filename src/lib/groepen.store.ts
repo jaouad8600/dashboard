@@ -1,66 +1,111 @@
-export type Kleur = "GREEN" | "YELLOW" | "ORANGE" | "RED";
-export type GroepNote = { id: string; tekst: string; auteur?: string; createdAt: string };
+import 'server-only';
+import { readJSON, writeJSON } from './fsjson';
+import { randomUUID } from 'node:crypto';
+
+export type Kleur = 'GREEN'|'YELLOW'|'ORANGE'|'RED';
+export type Note = { id: string; tekst: string; auteur?: string; createdAt: string };
 export type Groep = {
   id: string;
   naam: string;
-  afdeling: "EB" | "VLOED";
+  afdeling?: 'EB'|'VLOED';         // optioneel; UI toont secties als aanwezig
   kleur: Kleur;
-  notities: GroepNote[];
+  notities: Note[];
 };
 
-let _groups: Groep[] | null = null;
+type DB = {
+  groepen: { list: Groep[] };
+  indicaties: any[];
+  mutaties: any[];
+  overdrachten: any[];
+  planning: any;
+};
 
-// Jouw definitieve sets
-const EB: string[]    = ["Poel","Lier","Zijl","Nes","Vliet","Gaag","Kust","Golf"];
-const VLOED: string[] = ["Zift","Lei","Kade","Kreek","Duin","Rak","Bron","Dijk"];
+const SEED_EB = ["Poel","Lier","Zijl","Nes","Vliet","Gaag","Kust","Golf"];
+const SEED_VLOED = ["Zift","Lei","Kade","Kreek","Duin","Rak","Bron","Dijk"];
 
-function slug(s: string) { return s.toLowerCase().replace(/\s+/g,"-").replace(/[^a-z0-9\-]/g,""); }
-
-function init(): Groep[] {
-  if (_groups) return _groups;
-  _groups = [
-    ...EB.map(n => ({ id: slug(n), naam: n, afdeling: "EB" as const, kleur: "GREEN" as Kleur, notities: [] })),
-    ...VLOED.map(n => ({ id: slug(n), naam: n, afdeling: "VLOED" as const, kleur: "GREEN" as Kleur, notities: [] })),
-  ];
-  return _groups;
+export async function listGroepen(): Promise<Groep[]> {
+  const db = await readJSON<DB>();
+  if (!db.groepen) db.groepen = { list: [] };
+  // seed als leeg
+  if (!db.groepen.list || db.groepen.list.length === 0) {
+    const seeded: Groep[] = [
+      ...SEED_EB.map(n => ({ id: randomUUID(), naam: n, afdeling: 'EB', kleur: 'GREEN' as Kleur, notities: [] })),
+      ...SEED_VLOED.map(n => ({ id: randomUUID(), naam: n, afdeling: 'VLOED', kleur: 'GREEN' as Kleur, notities: [] }))
+    ];
+    db.groepen.list = seeded;
+    await writeJSON(db);
+  }
+  return db.groepen.list;
 }
 
-export function allGroepen(): Groep[] { return init(); }
-export function getGroep(id: string): Groep | undefined { return init().find(g => g.id === id); }
-
-export function setKleur(id: string, kleur: Kleur): Groep | undefined {
-  const g = getGroep(id);
-  if (g) g.kleur = kleur;
-  return g;
+export async function getGroep(id: string): Promise<Groep | undefined> {
+  const list = await listGroepen();
+  return list.find(g => g.id === id);
 }
 
-export function addNote(id: string, tekst: string, auteur?: string): GroepNote | undefined {
-  const g = getGroep(id);
-  if (!g) return;
-  const note: GroepNote = { id: crypto.randomUUID(), tekst, auteur, createdAt: new Date().toISOString() };
+export async function addGroep(input: { naam: string; afdeling?: 'EB'|'VLOED'; kleur?: Kleur }): Promise<Groep> {
+  const db = await readJSON<DB>();
+  if (!db.groepen) db.groepen = { list: [] };
+  const nieuw: Groep = {
+    id: randomUUID(),
+    naam: String(input.naam ?? '').trim(),
+    afdeling: input.afdeling,
+    kleur: input.kleur ?? 'GREEN',
+    notities: []
+  };
+  if (!nieuw.naam) throw new Error('naam verplicht');
+  db.groepen.list.push(nieuw);
+  await writeJSON(db);
+  return nieuw;
+}
+
+export async function patchGroep(id: string, patch: Partial<Pick<Groep,'naam'|'afdeling'|'kleur'>>): Promise<Groep> {
+  const db = await readJSON<DB>();
+  const idx = db.groepen.list.findIndex(g => g.id === id);
+  if (idx === -1) throw new Error('groep niet gevonden');
+  const cur = db.groepen.list[idx];
+  db.groepen.list[idx] = { ...cur, ...patch };
+  await writeJSON(db);
+  return db.groepen.list[idx];
+}
+
+export async function removeGroep(id: string): Promise<void> {
+  const db = await readJSON<DB>();
+  db.groepen.list = db.groepen.list.filter(g => g.id !== id);
+  await writeJSON(db);
+}
+
+export async function addNote(groepId: string, tekst: string, auteur?: string): Promise<Note> {
+  const db = await readJSON<DB>();
+  const g = db.groepen.list.find(x => x.id === groepId);
+  if (!g) throw new Error('groep niet gevonden');
+  const note: Note = { id: randomUUID(), tekst: String(tekst ?? '').trim(), auteur, createdAt: new Date().toISOString() };
+  if (!note.tekst) throw new Error('tekst verplicht');
   g.notities.unshift(note);
+  await writeJSON(db);
   return note;
 }
 
-export function updateNote(id: string, noteId: string, tekst?: string, auteur?: string): GroepNote | undefined {
-  const g = getGroep(id);
-  if (!g) return;
-  const n = g.notities.find(x => x.id === noteId);
-  if (!n) return;
-  if (typeof tekst === "string") n.tekst = tekst;
-  if (typeof auteur === "string") n.auteur = auteur;
-  return n;
+export async function updateNote(groepId: string, noteId: string, patch: Partial<Pick<Note,'tekst'|'auteur'>>): Promise<Note> {
+  const db = await readJSON<DB>();
+  const g = db.groepen.list.find(x => x.id === groepId);
+  if (!g) throw new Error('groep niet gevonden');
+  const i = g.notities.findIndex(n => n.id === noteId);
+  if (i === -1) throw new Error('notitie niet gevonden');
+  g.notities[i] = { ...g.notities[i], ...patch };
+  await writeJSON(db);
+  return g.notities[i];
 }
 
-export function removeNote(id: string, noteId: string): boolean {
-  const g = getGroep(id);
-  if (!g) return false;
-  const before = g.notities.length;
+export async function removeNote(groepId: string, noteId: string): Promise<void> {
+  const db = await readJSON<DB>();
+  const g = db.groepen.list.find(x => x.id === groepId);
+  if (!g) throw new Error('groep niet gevonden');
   g.notities = g.notities.filter(n => n.id !== noteId);
-  return g.notities.length !== before;
+  await writeJSON(db);
 }
 
-export function rodeGroepen() {
-  const list = allGroepen().filter(g => g.kleur === "RED");
-  return { count: list.length, items: list.map(g => ({ id: g.id, naam: g.naam, kleur: g.kleur })) };
+export async function listRodeGroepen(): Promise<Groep[]> {
+  const list = await listGroepen();
+  return list.filter(g => g.kleur === 'RED');
 }

@@ -1,126 +1,199 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
+import { broadcast } from "@/lib/live";
 
 type Indicatie = {
-  id: string; naam: string; type?: string; status?: string; start?: string; eind?: string; opmerking?: string;
+  id: string;
+  naam: string;
+  type?: string;
+  status: 'open' | 'in-behandeling' | 'afgerond';
+  start?: string;
+  eind?: string;
+  opmerking?: string;
+  inhoud?: string;
+  createdAt: string;
 };
 
+async function apiJSON<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  const r = await fetch(input, { ...init, headers: { "content-type": "application/json", ...(init?.headers||{}) } });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
 export default function IndicatiesPage() {
-  const [items, setItems] = useState<Indicatie[]>([]);
-  const [sel, setSel] = useState<Indicatie|null>(null);
+  const [rows, setRows] = useState<Indicatie[]>([]);
   const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Partial<Indicatie>>({ status: "open" });
 
   async function load() {
     setLoading(true);
-    const r = await fetch("/api/indicaties", { cache:"no-store" });
-    const data = r.ok ? await r.json() as Indicatie[] : [];
-    setItems(data);
-    if (data.length && !sel) setSel(data[0]);
-    setLoading(false);
+    try {
+      const data = await apiJSON<Indicatie[]>("/api/indicaties");
+      setRows(data);
+    } finally { setLoading(false); }
   }
   useEffect(()=>{ load(); }, []);
 
-  async function add(form: FormData) {
-    const payload = Object.fromEntries(form.entries());
-    const r = await fetch("/api/indicaties", {
-      method:"POST", headers:{ "content-type":"application/json" },
-      body: JSON.stringify(payload)
-    });
-    if (r.ok) {
-      const it = await r.json() as Indicatie;
-      setItems([it, ...items]);
-      setSel(it);
-    } else { alert("Toevoegen mislukt"); }
-  }
+  const filtered = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    if (!t) return rows;
+    return rows.filter(r =>
+      (r.naam||'').toLowerCase().includes(t) ||
+      (r.type||'').toLowerCase().includes(t) ||
+      (r.opmerking||'').toLowerCase().includes(t) ||
+      (r.inhoud||'').toLowerCase().includes(t)
+    );
+  }, [rows, q]);
 
-  async function save(id: string, form: FormData) {
-    const payload = Object.fromEntries(form.entries());
-    const r = await fetch(`/api/indicaties/${id}`, {
-      method:"PATCH", headers:{ "content-type":"application/json" },
-      body: JSON.stringify(payload)
-    });
-    if (r.ok) {
-      const it = await r.json() as Indicatie;
-      setItems(items.map(x=>x.id===id?it:x));
-      setSel(it);
-    } else { alert("Opslaan mislukt"); }
+  function beginNew() {
+    setOpenId(null);
+    setDraft({ status: "open" });
   }
+  function beginEdit(item: Indicatie) {
+    setOpenId(item.id);
+    setDraft(item);
+  }
+  async function save() {
+    const payload = {
+      naam: (draft.naam||"").trim(),
+      type: draft.type?.trim() || undefined,
+      status: (['open','in-behandeling','afgerond'] as const).includes(draft.status as any) ? draft.status : 'open',
+      start: draft.start || undefined,
+      eind: draft.eind || undefined,
+      opmerking: draft.opmerking?.trim() || undefined,
+      inhoud: draft.inhoud || undefined
+    };
+    if (!payload.naam) return alert("Naam is verplicht");
 
+    if (openId) {
+      await apiJSON(`/api/indicaties/${openId}`, { method: "PATCH", body: JSON.stringify(payload) });
+    } else {
+      await apiJSON(`/api/indicaties`, { method: "POST", body: JSON.stringify(payload) });
+    }
+    setOpenId(null);
+    setDraft({ status: "open" });
+    broadcast("indicaties-changed");
+    await load();
+  }
   async function remove(id: string) {
     if (!confirm("Verwijderen?")) return;
-    const r = await fetch(`/api/indicaties/${id}`, { method:"DELETE" });
-    if (r.ok) {
-      const rest = items.filter(x=>x.id!==id);
-      setItems(rest);
-      setSel(rest[0] || null);
-    } else { alert("Verwijderen mislukt"); }
+    await apiJSON(`/api/indicaties/${id}`, { method: "DELETE" });
+    if (openId === id) { setOpenId(null); setDraft({ status: "open" }); }
+    broadcast("indicaties-changed");
+    await load();
   }
 
   return (
-    <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-1">
-        <div className="mb-3 flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Indicaties</h1>
-          <details className="relative">
-            <summary className="cursor-pointer rounded-lg border px-3 py-1 text-sm">Nieuwe indicatie</summary>
-            <div className="absolute right-0 z-10 mt-2 w-80 rounded-xl border bg-white p-3 shadow">
-              <form className="space-y-2" onSubmit={async (e)=>{ e.preventDefault(); await add(new FormData(e.currentTarget)); (e.currentTarget as HTMLFormElement).reset(); }}>
-                <input name="naam" required placeholder="Naam" className="w-full rounded-lg border px-3 py-2 text-sm" />
-                <input name="type" placeholder="Type" className="w-full rounded-lg border px-3 py-2 text-sm" />
-                <input name="status" placeholder="Status (bv. Open)" className="w-full rounded-lg border px-3 py-2 text-sm" />
-                <div className="flex gap-2">
-                  <input name="start" type="date" className="flex-1 rounded-lg border px-3 py-2 text-sm" />
-                  <input name="eind" type="date" className="flex-1 rounded-lg border px-3 py-2 text-sm" />
-                </div>
-                <textarea name="opmerking" placeholder="Opmerking" className="w-full rounded-lg border px-3 py-2 text-sm" />
-                <button className="w-full rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50">Toevoegen</button>
-              </form>
-            </div>
-          </details>
+    <div className="p-6 space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold">Indicaties</h1>
+          <p className="text-sm text-zinc-500">Klik op de naam om te bekijken/bewerken. Je kunt tekst rechtstreeks plakken in de inhoud.</p>
         </div>
-
-        <div className="rounded-xl border bg-white divide-y max-h-[70vh] overflow-y-auto">
-          {loading && <div className="p-3 text-sm text-zinc-500">Laden…</div>}
-          {!loading && items.length===0 && <div className="p-3 text-sm text-zinc-500">Nog geen indicaties.</div>}
-          {items.map(i=>(
-            <button key={i.id}
-              onClick={()=>setSel(i)}
-              className={`w-full text-left px-3 py-2 text-sm hover:bg-zinc-50 ${sel?.id===i.id?"bg-zinc-50":""}`}>
-              <div className="font-medium">{i.naam}</div>
-              <div className="text-xs text-zinc-500">{i.type||"—"} {i.status?`• ${i.status}`:""}</div>
-            </button>
-          ))}
+        <div className="flex gap-2">
+          <input
+            value={q} onChange={e=>setQ(e.target.value)}
+            className="border rounded-md px-3 py-2 text-sm" placeholder="Zoeken…"
+          />
+          <button onClick={beginNew} className="rounded-md bg-black text-white px-3 py-2 text-sm">Nieuwe indicatie</button>
         </div>
       </div>
 
-      <div className="lg:col-span-2">
-        {!sel ? (
-          <div className="rounded-xl border bg-white p-6 text-sm text-zinc-500">Selecteer links een indicatie.</div>
-        ) : (
-          <div className="rounded-xl border bg-white p-6 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">{sel.naam}</h2>
-              <button onClick={()=>remove(sel.id)} className="text-sm rounded-lg border px-3 py-1 hover:bg-rose-50">Verwijderen</button>
+      <div className="bg-white rounded-xl shadow overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="border-b bg-zinc-50">
+              <th className="text-left px-3 py-2">Naam</th>
+              <th className="text-left px-3 py-2">Type</th>
+              <th className="text-left px-3 py-2">Status</th>
+              <th className="text-left px-3 py-2">Start</th>
+              <th className="text-left px-3 py-2">Eind</th>
+              <th className="px-3 py-2">Acties</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && <tr><td colSpan={6} className="px-3 py-6 text-center text-zinc-500">Laden…</td></tr>}
+            {!loading && filtered.length === 0 && (
+              <tr><td colSpan={6} className="px-3 py-6 text-center text-zinc-500">Geen resultaten.</td></tr>
+            )}
+            {filtered.map(r => (
+              <tr key={r.id} className="border-b">
+                <td className="px-3 py-2">
+                  <button onClick={()=>beginEdit(r)} className="text-left text-blue-700 hover:underline">{r.naam}</button>
+                </td>
+                <td className="px-3 py-2">{r.type || '-'}</td>
+                <td className="px-3 py-2">
+                  <span className={
+                    r.status==='open' ? 'text-amber-700 bg-amber-100 px-2 py-0.5 rounded' :
+                    r.status==='in-behandeling' ? 'text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded' :
+                    'text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded'
+                  }>
+                    {r.status}
+                  </span>
+                </td>
+                <td className="px-3 py-2">{(r.start||'').slice(0,10) || '-'}</td>
+                <td className="px-3 py-2">{(r.eind||'').slice(0,10) || '-'}</td>
+                <td className="px-3 py-2">
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={()=>beginEdit(r)} className="text-blue-600 hover:underline">Bewerken</button>
+                    <button onClick={()=>remove(r.id)} className="text-rose-600 hover:underline">Verwijderen</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Drawer / Editor */}
+      {(openId !== null || draft.naam || draft.type || draft.opmerking || draft.inhoud) && (
+        <div className="fixed inset-0 z-40 bg-black/30" onClick={()=>{ setOpenId(null); setDraft({ status:'open' }); }}>
+          <div className="absolute right-0 top-0 h-full w-full max-w-xl bg-white shadow-xl p-4 overflow-y-auto"
+               onClick={(e)=>e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold">{openId ? "Indicatie bewerken" : "Nieuwe indicatie"}</h2>
+              <button onClick={()=>{ setOpenId(null); setDraft({ status:'open' }); }} className="text-zinc-500 hover:text-zinc-800">✕</button>
             </div>
-            <form className="grid gap-3"
-              onSubmit={async (e)=>{ e.preventDefault(); await save(sel.id, new FormData(e.currentTarget)); }}>
-              <input name="naam" defaultValue={sel.naam} className="rounded-lg border px-3 py-2 text-sm" />
-              <div className="grid grid-cols-2 gap-2">
-                <input name="type" defaultValue={sel.type||""} placeholder="Type" className="rounded-lg border px-3 py-2 text-sm" />
-                <input name="status" defaultValue={sel.status||""} placeholder="Status" className="rounded-lg border px-3 py-2 text-sm" />
+
+            <div className="grid gap-3">
+              <input className="border rounded-md px-3 py-2" placeholder="Naam *"
+                     value={draft.naam || ''} onChange={e=>setDraft(d=>({...d, naam:e.target.value}))}/>
+              <input className="border rounded-md px-3 py-2" placeholder="Type (optioneel)"
+                     value={draft.type || ''} onChange={e=>setDraft(d=>({...d, type:e.target.value}))}/>
+              <div className="grid grid-cols-3 gap-3">
+                <select className="border rounded-md px-3 py-2 col-span-3 sm:col-span-1"
+                        value={draft.status || 'open'}
+                        onChange={e=>setDraft(d=>({...d, status: e.target.value as any}))}>
+                  <option value="open">Open</option>
+                  <option value="in-behandeling">In behandeling</option>
+                  <option value="afgerond">Afgerond</option>
+                </select>
+                <input type="date" className="border rounded-md px-3 py-2 col-span-3 sm:col-span-1"
+                       value={(draft.start||'').slice(0,10)}
+                       onChange={e=>setDraft(d=>({...d, start: e.target.value ? new Date(e.target.value+'T00:00:00').toISOString() : undefined}))}/>
+                <input type="date" className="border rounded-md px-3 py-2 col-span-3 sm:col-span-1"
+                       value={(draft.eind||'').slice(0,10)}
+                       onChange={e=>setDraft(d=>({...d, eind: e.target.value ? new Date(e.target.value+'T00:00:00').toISOString() : undefined}))}/>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input name="start" type="date" defaultValue={sel.start||""} className="rounded-lg border px-3 py-2 text-sm" />
-                <input name="eind" type="date" defaultValue={sel.eind||""} className="rounded-lg border px-3 py-2 text-sm" />
+              <input className="border rounded-md px-3 py-2" placeholder="Korte opmerking (optioneel)"
+                     value={draft.opmerking || ''} onChange={e=>setDraft(d=>({...d, opmerking:e.target.value}))}/>
+              <label className="text-xs text-zinc-500">Inhoud (plak hier tekst uit Word/e-mail)</label>
+              <textarea className="border rounded-md px-3 py-2 min-h-[200px]"
+                        value={draft.inhoud || ''} onChange={e=>setDraft(d=>({...d, inhoud:e.target.value}))}/>
+              <div className="flex gap-2 pt-2">
+                <button onClick={save} className="rounded-md bg-black text-white px-3 py-2 text-sm">Opslaan</button>
+                <button onClick={()=>{ setOpenId(null); setDraft({ status:'open' }); }} className="rounded-md border px-3 py-2 text-sm">Annuleren</button>
+                {!!openId && (
+                  <button onClick={()=>remove(openId)} className="ml-auto rounded-md bg-rose-600 text-white px-3 py-2 text-sm">Verwijderen</button>
+                )}
               </div>
-              <textarea name="opmerking" defaultValue={sel.opmerking||""} placeholder="Opmerking" className="min-h-28 rounded-lg border px-3 py-2 text-sm" />
-              <div className="flex gap-2">
-                <button className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50">Opslaan</button>
-              </div>
-            </form>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,18 +1,19 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-
-export async function GET(_: Request, { params }: { params: { id: string } }) {
-  const notes = await prisma.groepNotitie.findMany({
-    where: { groepId: params.id },
-    orderBy: { createdAt: "desc" },
-  });
-  return NextResponse.json(notes);
-}
+import { NextResponse } from 'next/server';
+import { readDB, writeDB } from '@/server/fsdb';
+import { randomUUID } from 'crypto';
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const { tekst, auteur } = await req.json();
-  const note = await prisma.groepNotitie.create({
-    data: { groepId: params.id, tekst, auteur },
-  });
-  return NextResponse.json(note, { status: 201 });
+  const b = await req.json().catch(()=> ({}));
+  const tekst = (b?.tekst ?? '').toString().trim();
+  const auteur = (b?.auteur ?? '').toString().trim() || undefined;
+  if (!tekst) return NextResponse.json({ error: 'tekst verplicht' }, { status: 400 });
+
+  const db = await readDB();
+  const g = db.groepen.list.find(x => x.id === params.id);
+  if (!g) return NextResponse.json({ error: 'groep niet gevonden' }, { status: 404 });
+
+  const note = { id: randomUUID(), tekst, auteur, createdAt: new Date().toISOString() };
+  g.notities.unshift(note);
+  await writeDB(db);
+  return NextResponse.json({ ok: true, data: note }, { status: 201 });
 }
