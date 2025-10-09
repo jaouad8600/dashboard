@@ -1,11 +1,6 @@
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
 import { NextResponse } from "next/server";
-import { readDB } from "@/server/fsdb";
-
+import { getRodeGroepen } from "@/server/store";
 export async function GET() {
-  const db = await readDB();
-  const rood = db.groepen.list.filter((g) => g.kleur === "RED").map((g) => g.naam);
-  return NextResponse.json({ list: rood });
+  const data = await getRodeGroepen();
+  return NextResponse.json(data, { headers:{ 'cache-control':'no-store' }});
 }

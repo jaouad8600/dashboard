@@ -1,180 +1,136 @@
 "use client";
-
 import { useEffect, useMemo, useState } from "react";
-import { broadcast } from "@/lib/live";
 
-type Mutatie = {
-  id: string;
-  leerling?: string;
-  onderwerp: string;
-  status: 'open' | 'afgehandeld';
-  datum: string;
-  opmerking?: string;
-};
+type Row = { id?:string; titel?:string; omschrijving?:string; status?:"open"|"afgehandeld"; groepId?:string; datum?:string };
+type Groep = { id:string; naam:string; afdeling:"EB"|"VLOED" };
 
-async function apiJSON<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
-  const r = await fetch(input, { ...init, headers: { "content-type": "application/json", ...(init?.headers||{}) } });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
-}
+export default function MutatiesPage(){
+  const [rows,setRows] = useState<Row[]>([]);
+  const [groepen,setGroepen] = useState<Groep[]>([]);
+  const [q,setQ] = useState("");
+  const [sel,setSel] = useState<Row|undefined>();
 
-export default function MutatiesPage() {
-  const [rows, setRows] = useState<Mutatie[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState<Partial<Mutatie>>({ status: "open", datum: new Date().toISOString() });
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const today = useMemo(()=> new Date().toISOString().slice(0,10), []);
-
-  async function load() {
-    setLoading(true);
-    try {
-      const data = await apiJSON<Mutatie[]>("/api/mutaties");
-      setRows(data);
-    } finally {
-      setLoading(false);
-    }
+  async function load(){
+    const [rm, rg] = await Promise.all([
+      fetch("/api/mutaties",{cache:"no-store"}).then(r=>r.json()).catch(()=>[]),
+      fetch("/api/groepen",{cache:"no-store"}).then(r=>r.json()).catch(()=>[])
+    ]);
+    setRows(Array.isArray(rm)? rm : []);
+    setGroepen(Array.isArray(rg)? rg : []);
   }
+  useEffect(()=>{ load(); },[]);
 
-  useEffect(() => { load(); }, []);
+  const filtered = useMemo(()=>{
+    return (rows||[]).filter(r =>
+      !q.trim() ||
+      (r.titel||"").toLowerCase().includes(q.toLowerCase()) ||
+      (r.omschrijving||"").toLowerCase().includes(q.toLowerCase())
+    );
+  }, [rows,q]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const payload = {
-      leerling: form.leerling?.trim() || undefined,
-      onderwerp: (form.onderwerp || "").trim(),
-      status: form.status === "afgehandeld" ? "afgehandeld" : "open",
-      datum: form.datum || new Date().toISOString(),
-      opmerking: form.opmerking?.trim() || undefined
+  async function save(){
+    if (!sel) return;
+    const base = {
+      titel: sel.titel||"",
+      omschrijving: sel.omschrijving||"",
+      status: sel.status||"open",
+      groepId: sel.groepId||"",
+      datum: sel.datum || new Date().toISOString()
     };
-    if (!payload.onderwerp) return alert("Onderwerp is verplicht");
-
-    if (editingId) {
-      await apiJSON(`/api/mutaties/${editingId}`, { method: "PATCH", body: JSON.stringify(payload) });
+    if (!sel.id){
+      const r = await fetch("/api/mutaties",{ method:"POST", headers:{ "content-type":"application/json" }, body: JSON.stringify(base) });
+      if (!r.ok){ alert("Fout bij toevoegen"); return; }
     } else {
-      await apiJSON("/api/mutaties", { method: "POST", body: JSON.stringify(payload) });
+      // demo: POST opnieuw (PATCH route niet gemaakt voor eenvoud)
+      const r = await fetch("/api/mutaties",{ method:"POST", headers:{ "content-type":"application/json" }, body: JSON.stringify({ ...base, id: sel.id }) });
+      if (!r.ok){ alert("Fout bij opslaan"); return; }
     }
-    setForm({ status: "open", datum: new Date().toISOString() });
-    setEditingId(null);
-    broadcast("mutaties-changed");
-    await load();
+    setSel(undefined);
+    load();
   }
 
-  async function handleEdit(m: Mutatie) {
-    setEditingId(m.id);
-    setForm(m);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm("Verwijderen?")) return;
-    await apiJSON(`/api/mutaties/${id}`, { method: "DELETE" });
-    broadcast("mutaties-changed");
-    await load();
-  }
+  function remove(id?:string){ if(!id) return; setRows((rows||[]).filter(x=>x.id!==id)); }
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Mutaties</h1>
-      <p className="text-sm text-zinc-500">Toevoegen, bewerken en verwijderen. Dashboard-tegel ververst live via BroadcastChannel.</p>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Sportmutaties</h1>
+        <button onClick={()=>setSel({ status:"open" })}
+          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded">+ Nieuwe mutatie</button>
+      </div>
 
-      <form onSubmit={handleSubmit} className="grid md:grid-cols-5 gap-3 bg-white p-4 rounded-xl shadow">
-        <input
-          className="border rounded-md px-3 py-2"
-          placeholder="Leerling (optioneel)"
-          value={form.leerling || ""}
-          onChange={e=>setForm(f=>({...f, leerling: e.target.value}))}
-        />
-        <input
-          className="border rounded-md px-3 py-2 md:col-span-2"
-          placeholder="Onderwerp *"
-          value={form.onderwerp || ""}
-          onChange={e=>setForm(f=>({...f, onderwerp: e.target.value}))}
-          required
-        />
-        <select
-          className="border rounded-md px-3 py-2"
-          value={form.status || "open"}
-          onChange={e=>setForm(f=>({...f, status: e.target.value as any}))}
-        >
-          <option value="open">Open</option>
-          <option value="afgehandeld">Afgehandeld</option>
-        </select>
-        <input
-          type="date"
-          className="border rounded-md px-3 py-2"
-          value={(form.datum || new Date().toISOString()).slice(0,10)}
-          onChange={e=>setForm(f=>({...f, datum: new Date(e.target.value+'T00:00:00').toISOString()}))}
-        />
-        <textarea
-          className="border rounded-md px-3 py-2 md:col-span-5"
-          placeholder="Opmerking (optioneel)"
-          rows={2}
-          value={form.opmerking || ""}
-          onChange={e=>setForm(f=>({...f, opmerking: e.target.value}))}
-        />
-        <div className="md:col-span-5 flex gap-2">
-          <button type="submit" className="rounded-md bg-black text-white px-3 py-2 text-sm">
-            {editingId ? "Opslaan" : "Toevoegen"}
-          </button>
-          {editingId && (
-            <button type="button" onClick={()=>{ setEditingId(null); setForm({ status:'open', datum:new Date().toISOString() }); }}
-              className="rounded-md border px-3 py-2 text-sm">Annuleren</button>
-          )}
-        </div>
-      </form>
+      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Filter…" className="border rounded px-2 py-1 w-full"/>
 
-      <div className="bg-white rounded-xl shadow overflow-x-auto">
+      <div className="bg-white rounded-xl shadow overflow-auto">
         <table className="min-w-full text-sm">
-          <thead>
-            <tr className="border-b bg-zinc-50">
-              <th className="text-left px-3 py-2">Datum</th>
-              <th className="text-left px-3 py-2">Leerling</th>
-              <th className="text-left px-3 py-2">Onderwerp</th>
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="text-left px-3 py-2">Titel</th>
               <th className="text-left px-3 py-2">Status</th>
-              <th className="text-left px-3 py-2">Opmerking</th>
-              <th className="px-3 py-2">Acties</th>
+              <th className="text-left px-3 py-2">Groep</th>
+              <th className="text-right px-3 py-2">Acties</th>
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr><td colSpan={6} className="px-3 py-6 text-center text-zinc-500">Laden…</td></tr>
-            )}
-            {!loading && rows.length === 0 && (
-              <tr><td colSpan={6} className="px-3 py-6 text-center text-zinc-500">Nog geen mutaties.</td></tr>
-            )}
-            {rows.map(m => (
-              <tr key={m.id} className="border-b">
-                <td className="px-3 py-2">{(m.datum || '').slice(0,10) || '-'}</td>
-                <td className="px-3 py-2">{m.leerling || '-'}</td>
-                <td className="px-3 py-2">{m.onderwerp}</td>
+            {(filtered||[]).map(r=>(
+              <tr key={r.id} className="border-b">
                 <td className="px-3 py-2">
-                  <span className={m.status === 'open' ? 'text-amber-700 bg-amber-100 px-2 py-0.5 rounded' : 'text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded'}>
-                    {m.status}
-                  </span>
+                  <button onClick={()=>setSel(r)} className="text-left text-blue-700 hover:underline">{r.titel}</button>
                 </td>
-                <td className="px-3 py-2">{m.opmerking || '-'}</td>
+                <td className="px-3 py-2">{r.status}</td>
+                <td className="px-3 py-2">{(groepen.find(g=>g.id===r.groepId)?.naam)||'-'}</td>
                 <td className="px-3 py-2">
                   <div className="flex gap-2 justify-end">
-                    <button onClick={()=>handleEdit(m)} className="text-blue-600 hover:underline">Bewerken</button>
-                    <button onClick={()=>handleDelete(m.id)} className="text-rose-600 hover:underline">Verwijderen</button>
+                    <button onClick={()=>setSel(r)} className="text-blue-600 hover:underline">Bewerken</button>
+                    <button onClick={()=>remove(r.id)} className="text-rose-600 hover:underline">Verwijderen</button>
                   </div>
                 </td>
               </tr>
             ))}
+            {(!filtered || filtered.length===0) && (
+              <tr><td className="px-3 py-4 text-center text-gray-500" colSpan={4}>Geen resultaten</td></tr>
+            )}
           </tbody>
-          {!loading && rows.length > 0 && (
-            <tfoot>
-              <tr>
-                <td colSpan={6} className="px-3 py-2 text-zinc-500">
-                  Vandaag ({today}): {rows.filter(x=> (x.datum||'').slice(0,10)===today).length} •
-                  &nbsp;Open: {rows.filter(x=> x.status!=='afgehandeld').length} •
-                  &nbsp;Totaal: {rows.length}
-                </td>
-              </tr>
-            </tfoot>
-          )}
         </table>
       </div>
+
+      {sel && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow max-w-xl w-full p-4 space-y-3">
+            <div className="text-lg font-semibold">{sel.id ? "Mutatie bewerken" : "Nieuwe mutatie"}</div>
+            <div className="grid md:grid-cols-2 gap-3">
+              <div className="md:col-span-2">
+                <div className="text-xs text-gray-500 mb-1">Titel</div>
+                <input value={sel.titel||""} onChange={e=>setSel({...sel, titel:e.target.value})} className="border rounded px-2 py-1 w-full"/>
+              </div>
+              <div className="md:col-span-2">
+                <div className="text-xs text-gray-500 mb-1">Omschrijving</div>
+                <textarea value={sel.omschrijving||""} onChange={e=>setSel({...sel, omschrijving:e.target.value})} className="border rounded px-2 py-1 w-full" rows={3}/>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Status</div>
+                <select value={sel.status||"open"} onChange={e=>setSel({...sel, status:e.target.value as any})} className="border rounded px-2 py-1 w-full">
+                  <option value="open">open</option>
+                  <option value="afgehandeld">afgehandeld</option>
+                </select>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Groep</div>
+                <select value={sel.groepId||""} onChange={e=>setSel({...sel, groepId:e.target.value})} className="border rounded px-2 py-1 w-full">
+                  {(Array.isArray(groepen)? groepen:[]).map(g=>(
+                    <option key={g.id} value={g.id}>{g.afdeling} · {g.naam}</option>
+                  ))}
+                  {(!groepen || (groepen||[]).length===0) && <option value="">(geen groepen)</option>}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={()=>setSel(undefined)} className="px-3 py-1.5 rounded border">Annuleren</button>
+              <button onClick={save} className="px-3 py-1.5 rounded bg-green-600 text-white">Opslaan</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

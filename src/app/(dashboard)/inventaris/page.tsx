@@ -1,146 +1,220 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import {
-  listMaterialen,
-  addMateriaal,
-  duplicateMateriaal,
-  deleteMateriaal,
-  updateMateriaal,
-  type Materiaal
-} from "@/lib/materialen";
 
-const LOCATIES = ["Eb Fitness","Fitness Vloed","Gymzaal Vloed","Gymzaal Eb","Sportveld","Dojo"];
-const STATUSSEN = ["Beschikbaar","Uitgeleend","Kapot"];
+import { useEffect, useMemo, useState } from "react";
+import TableFilter from "@/components/TableFilter";
+import { toArray } from "@/lib/toArray";
+
+type Materiaal = {
+  id: string;
+  naam: string;
+  categorie?: string;
+  status?: "Beschikbaar"|"Uitgeleend"|"In bestelling"|"Defect";
+  locatie?: string;
+  opmerking?: string;
+};
+
+async function apiList(): Promise<Materiaal[]> {
+  const res = await fetch("/api/materialen", { cache: "no-store" });
+  if (!res.ok) return [];
+  const json = await res.json().catch(()=>[]);
+  return toArray<Materiaal>(json);
+}
+async function apiCreate(row: Partial<Materiaal>): Promise<Materiaal|null> {
+  const res = await fetch("/api/materialen", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(row)
+  });
+  if (!res.ok) return null;
+  return await res.json().catch(()=>null);
+}
+async function apiUpdate(id: string, patch: Partial<Materiaal>): Promise<Materiaal|null> {
+  const res = await fetch(`/api/materialen/${encodeURIComponent(id)}`, {
+    method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(patch)
+  });
+  if (!res.ok) return null;
+  return await res.json().catch(()=>null);
+}
+async function apiRemove(id: string): Promise<boolean> {
+  const res = await fetch(`/api/materialen/${encodeURIComponent(id)}`, { method: "DELETE" });
+  return res.ok;
+}
+
+const STATUSSEN = ["Beschikbaar","Uitgeleend","In bestelling","Defect"];
+const LOCATIES  = ["Eb Fitness","Fitness Vloed","Gymzaal Vloed","Gymzaal Eb","Sportveld","Dojo"];
 
 export default function InventarisPage() {
-  const safeList = () => (Array.isArray(listMaterialen()) ? listMaterialen() : []);
-  const [items, setItems] = useState<Materiaal[]>(safeList());
+  const [rows, setRows] = useState<Materiaal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+  const [editing, setEditing] = useState<Materiaal|null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const [naam, setNaam] = useState("");
-  const [aantal, setAantal] = useState<number>(1);
-  const [locatie, setLocatie] = useState(LOCATIES[0]);
-  const [status, setStatus] = useState(STATUSSEN[0]);
+  useEffect(()=> {
+    let active = true;
+    (async()=>{
+      setLoading(true);
+      try {
+        const list = await apiList();
+        if (active) setRows(toArray(list));
+      } catch { if (active) setRows([]); }
+      finally { if (active) setLoading(false); }
+    })();
+    return ()=>{ active = false; };
+  }, []);
 
-  const [fltLocatie, setFltLocatie] = useState<string>("ALLE");
-  const [fltStatus, setFltStatus] = useState<string>("ALLE");
-  const [query, setQuery] = useState("");
+  const filtered = useMemo(()=> {
+    const list = toArray<Materiaal>(rows);
+    const term = q.trim().toLowerCase();
+    if (!term) return list;
+    return list.filter(r =>
+      (r.naam||"").toLowerCase().includes(term) ||
+      (r.categorie||"").toLowerCase().includes(term) ||
+      (r.status||"").toLowerCase().includes(term) ||
+      (r.locatie||"").toLowerCase().includes(term) ||
+      (r.opmerking||"").toLowerCase().includes(term)
+    );
+  }, [rows, q]);
 
-  useEffect(()=>{ setItems(safeList()); },[]);
-
-  const gefilterd = useMemo(()=>{
-    let rows = items.slice();
-    if (fltLocatie !== "ALLE") rows = rows.filter(r => r.locatie === fltLocatie);
-    if (fltStatus !== "ALLE") rows = rows.filter(r => r.status === fltStatus);
-    if (query.trim()) {
-      const q = query.trim().toLowerCase();
-      rows = rows.filter(r =>
-        (r.naam||"").toLowerCase().includes(q) ||
-        (r.locatie||"").toLowerCase().includes(q) ||
-        (r.status||"").toLowerCase().includes(q)
-      );
-    }
-    return rows;
-  }, [items, fltLocatie, fltStatus, query]);
-
-  async function handleAdd() {
-    const n = naam.trim(); if (!n) return;
-    await addMateriaal({ naam: n, aantal, locatie, status });
-    setItems(safeList());
-    setNaam(""); setAantal(1); setLocatie(LOCATIES[0]); setStatus(STATUSSEN[0]);
+  function beginNew() {
+    setEditing({ id:"", naam:"", categorie:"", status:"Beschikbaar", locatie:"", opmerking:"" });
   }
-  async function handleDup(id: string) { await duplicateMateriaal(id); setItems(safeList()); }
-  async function handleDel(id: string) { await deleteMateriaal(id); setItems(safeList()); }
-  async function handleUpdate(m: Materiaal, patch: Partial<Materiaal>) {
-    await updateMateriaal(m.id, patch); setItems(safeList());
+  function beginEdit(r: Materiaal) { setEditing({ ...r }); }
+
+  async function save() {
+    if (!editing) return;
+    if (!editing.naam?.trim()) { setError("Naam is verplicht."); return; }
+    setSaving(true);
+    try {
+      if (!editing.id) {
+        const created = await apiCreate(editing);
+        if (created) setRows(prev => [created, ...toArray(prev)]);
+      } else {
+        const updated = await apiUpdate(editing.id, editing);
+        if (updated) setRows(prev => toArray(prev).map(x => x.id === updated.id ? updated : x));
+      }
+      setEditing(null);
+    } catch { setError("Opslaan mislukt."); }
+    finally { setSaving(false); }
+  }
+  async function remove(id: string) {
+    if (!confirm("Verwijderen?")) return;
+    const ok = await apiRemove(id);
+    if (ok) setRows(prev => toArray(prev).filter(x => x.id !== id));
   }
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Inventaris</h1>
-        <span className="text-sm text-zinc-500">PDF export staat uit. Rest werkt.</span>
-      </div>
-
-      <div className="rounded-2xl border bg-white p-4 shadow-sm overflow-x-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
-          <input className="rounded-lg border px-3 py-2" placeholder="Naam"
-                 value={naam} onChange={(e)=>setNaam(e.target.value)} />
-          <input className="rounded-lg border px-3 py-2" type="number" min={0}
-                 value={aantal} onChange={(e)=>setAantal(parseInt(e.target.value||"0",10))} />
-          <select className="rounded-lg border px-3 py-2" value={locatie} onChange={(e)=>setLocatie(e.target.value)}>
-            {LOCATIES.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
-          <select className="rounded-lg border px-3 py-2" value={status} onChange={(e)=>setStatus(e.target.value)}>
-            {STATUSSEN.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <button onClick={handleAdd}
-                  className="rounded-lg bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700">
-            Toevoegen
-          </button>
-
-          <input className="rounded-lg border px-3 py-2 sm:col-span-2" placeholder="Zoeken…"
-                 value={query} onChange={(e)=>setQuery(e.target.value)} />
-          <select className="rounded-lg border px-3 py-2" value={fltLocatie} onChange={(e)=>setFltLocatie(e.target.value)}>
-            <option value="ALLE">Alle locaties</option>
-            {LOCATIES.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
-          <select className="rounded-lg border px-3 py-2" value={fltStatus} onChange={(e)=>setFltStatus(e.target.value)}>
-            <option value="ALLE">Alle statussen</option>
-            {STATUSSEN.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Inventaris</h1>
+          <p className="text-sm text-zinc-500">Filter op naam, categorie, status, locatie…</p>
+        </div>
+        <div className="flex gap-2">
+          <TableFilter value={q} onChange={setQ} placeholder="Filter materialen…" />
+          <button onClick={beginNew} className="rounded-md bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700">Nieuw</button>
         </div>
       </div>
 
-      <div className="rounded-2xl border bg-white p-4 shadow-sm overflow-x-auto">
-        <table className="w-full table-fixed border-separate [border-spacing:0]">
-          <thead>
-            <tr className="text-left text-sm text-zinc-500">
-              <th className="py-2 px-3">Naam</th>
-              <th className="py-2 px-3 w-24">Aantal</th>
-              <th className="py-2 px-3 w-40">Locatie</th>
-              <th className="py-2 px-3 w-40">Status</th>
-              <th className="py-2 px-3 w-56 text-right">Acties</th>
+      <div className="overflow-x-auto rounded-lg border bg-white">
+        <table className="min-w-[900px] w-full text-sm">
+          <thead className="bg-zinc-50 text-zinc-700">
+            <tr className="border-b">
+              <th className="px-3 py-2 text-left font-medium">Naam</th>
+              <th className="px-3 py-2 text-left font-medium">Categorie</th>
+              <th className="px-3 py-2 text-left font-medium">Status</th>
+              <th className="px-3 py-2 text-left font-medium">Locatie</th>
+              <th className="px-3 py-2 text-left font-medium">Opmerking</th>
+              <th className="px-3 py-2 text-right font-medium">Acties</th>
             </tr>
           </thead>
           <tbody>
-            {gefilterd.map((m)=>(
-              <tr key={m.id} className="border-b last:border-0">
-                <td className="py-2 px-3">
-                  <input className="w-full rounded-md border px-2 py-1"
-                         value={m.naam} onChange={(e)=>handleUpdate(m,{ naam: e.target.value })}/>
-                </td>
-                <td className="py-2 px-3">
-                  <input type="number" min={0} className="w-full rounded-md border px-2 py-1"
-                         value={m.aantal} onChange={(e)=>handleUpdate(m,{ aantal: parseInt(e.target.value||"0",10) })}/>
-                </td>
-                <td className="py-2 px-3">
-                  <select className="w-full rounded-md border px-2 py-1"
-                          value={m.locatie} onChange={(e)=>handleUpdate(m,{ locatie: e.target.value })}>
-                    {LOCATIES.map(l => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </td>
-                <td className="py-2 px-3">
-                  <select className="w-full rounded-md border px-2 py-1"
-                          value={m.status} onChange={(e)=>handleUpdate(m,{ status: e.target.value })}>
-                    {STATUSSEN.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </td>
-                <td className="py-2 px-3 text-right">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={()=>handleDup(m.id)}
-                            className="rounded-md bg-gray-100 px-2 py-1 text-xs hover:bg-gray-200">Dupliceer</button>
-                    <button onClick={()=>handleDel(m.id)}
-                            className="rounded-md bg-red-100 px-2 py-1 text-xs text-red-700 hover:bg-red-200">Verwijder</button>
-                  </div>
-                </td>
-              </tr>
+            {loading ? (
+              <tr><td colSpan={6} className="px-3 py-8 text-center text-zinc-500">Laden…</td></tr>
+            ) : (toArray(filtered).length === 0 ? (
+              <tr><td colSpan={6} className="px-3 py-8 text-center text-zinc-500">Geen resultaten.</td></tr>
+            ) : (
+              toArray(filtered).map(r=>(
+                <tr key={r.id} className="border-b">
+                  <td className="px-3 py-2">{r.naam}</td>
+                  <td className="px-3 py-2">{r.categorie || "-"}</td>
+                  <td className="px-3 py-2">
+                    <select className="rounded border bg-white px-2 py-1"
+                      value={r.status || "Beschikbaar"}
+                      onChange={e => setRows(prev => toArray(prev).map(x => x.id===r.id ? { ...x, status: e.target.value as any } : x))}>
+                      {STATUSSEN.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-3 py-2">{r.locatie || "-"}</td>
+                  <td className="px-3 py-2">{r.opmerking || "-"}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex gap-2 justify-end">
+                      <button className="text-blue-600 hover:underline" onClick={()=>beginEdit(r)}>Bewerken</button>
+                      <button className="text-rose-600 hover:underline" onClick={()=>remove(r.id)}>Verwijderen</button>
+                    </div>
+                  </td>
+                </tr>
+              ))
             ))}
-            {gefilterd.length === 0 && (
-              <tr><td colSpan={5} className="py-6 text-center text-zinc-500 text-sm">Geen items gevonden.</td></tr>
-            )}
           </tbody>
         </table>
       </div>
+
+      {editing && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/20" onClick={()=>setEditing(null)} />
+          <div className="absolute right-0 top-0 h-full w-full sm:w-[540px] bg-white shadow-2xl border-l p-6 overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">{editing.id ? "Materiaal bewerken" : "Nieuw materiaal"}</h2>
+              <button onClick={()=>setEditing(null)} className="text-zinc-600 hover:text-black">✕</button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              <label className="text-sm">
+                <span className="block text-zinc-700 mb-1">Naam *</span>
+                <input className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={editing.naam||""}
+                  onChange={e=>setEditing(s=>s?{...s,naam:e.target.value}:s)} />
+              </label>
+              <label className="text-sm">
+                <span className="block text-zinc-700 mb-1">Categorie</span>
+                <input className="w-full rounded-md border px-3 py-2 text-sm"
+                  value={editing.categorie||""}
+                  onChange={e=>setEditing(s=>s?{...s,categorie:e.target.value}:s)} />
+              </label>
+              <label className="text-sm">
+                <span className="block text-zinc-700 mb-1">Status</span>
+                <select className="w-full rounded-md border px-3 py-2 text-sm bg-white"
+                  value={editing.status||"Beschikbaar"}
+                  onChange={e=>setEditing(s=>s?{...s,status:e.target.value as any}:s)}>
+                  {STATUSSEN.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </label>
+              <label className="text-sm">
+                <span className="block text-zinc-700 mb-1">Locatie</span>
+                <select className="w-full rounded-md border px-3 py-2 text-sm bg-white"
+                  value={editing.locatie||""}
+                  onChange={e=>setEditing(s=>s?{...s,locatie:e.target.value}:s)}>
+                  <option value="">- kies -</option>
+                  {LOCATIES.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+              </label>
+              <label className="text-sm">
+                <span className="block text-zinc-700 mb-1">Opmerking</span>
+                <textarea className="w-full rounded-md border px-3 py-2 text-sm min-h-[80px]"
+                  value={editing.opmerking||""}
+                  onChange={e=>setEditing(s=>s?{...s,opmerking:e.target.value}:s)} />
+              </label>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button onClick={()=>setEditing(null)} className="rounded-md border px-3 py-2 text-sm" disabled={saving}>Annuleren</button>
+              <button onClick={save} className="rounded-md bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700 disabled:opacity-50" disabled={saving}>
+                {saving ? "Opslaan…" : "Opslaan"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

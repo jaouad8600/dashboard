@@ -1,54 +1,45 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
 
-type Overdracht = {
-  id: string;
-  titel: string;
-  inhoud: string;
-  auteur?: string;
-  createdAt: string;
-  updatedAt?: string;
-  status?: 'open' | 'afgerond';
-};
+type Row = { id:string; titel:string; inhoud?:string; groepId?:string; createdAt:string; updatedAt:string };
+type Groep = { id:string; naam:string; afdeling:"EB"|"VLOED" };
+const BTN = "bg-emerald-600 hover:bg-emerald-700 text-white rounded px-3 py-1.5";
 
-export default function OverdrachtenPage() {
-  const [items, setItems] = useState<Overdracht[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ titel: '', inhoud: '', auteur: '' });
+export default function OverdrachtenPage(){
+  const [rows,setRows] = useState<Row[]>([]);
+  const [groepen,setGroepen] = useState<Groep[]>([]);
+  const [q,setQ] = useState("");
+  const [form,setForm] = useState<Partial<Row>>({});
 
-  async function load() {
-    setLoading(true);
-    const res = await fetch('/api/overdrachten', { cache: 'no-store' });
-    const data = await res.json();
-    setItems(Array.isArray(data) ? data : []);
-    setLoading(false);
+  async function load(){
+    const [a,b] = await Promise.all([
+      fetch("/api/overdrachten",{cache:"no-store"}).then(r=>r.json()).catch(()=>[]),
+      fetch("/api/groepen",{cache:"no-store"}).then(r=>r.json()).catch(()=>[])
+    ]);
+    setRows(Array.isArray(a)?a:[]);
+    setGroepen(Array.isArray(b)?b:[]);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(()=>{ load(); },[]);
 
-  async function add(e: React.FormEvent) {
-    e.preventDefault();
-    const res = await fetch('/api/overdrachten', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...form, status: 'open' }),
-    });
-    if (res.ok) {
-      setForm({ titel: '', inhoud: '', auteur: '' });
-      await load();
-    }
-  }
+  const filtered = useMemo(()=>{
+    const xs = Array.isArray(rows)?rows:[];
+    if(!q.trim()) return xs;
+    const s=q.toLowerCase();
+    return xs.filter(r=> (r.titel||"").toLowerCase().includes(s) || (r.inhoud||"").toLowerCase().includes(s));
+  },[rows,q]);
 
-  async function setStatus(id: string, status: 'open' | 'afgerond') {
-    await fetch(`/api/overdrachten/${id}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
+  async function add(){
+    if(!form.titel) return alert("Titel verplicht");
+    await fetch("/api/overdrachten",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(form)});
+    setForm({});
     await load();
   }
-
-  async function remove(id: string) {
-    await fetch(`/api/overdrachten/${id}`, { method: 'DELETE' });
+  async function save(r:Row){
+    await fetch("/api/overdrachten",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify(r)});
+    await load();
+  }
+  async function remove(id:string){
+    await fetch("/api/overdrachten",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id})});
     await load();
   }
 
@@ -56,67 +47,49 @@ export default function OverdrachtenPage() {
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold">Overdrachten</h1>
 
-      <form onSubmit={add} className="grid gap-3 max-w-2xl bg-white p-4 rounded-xl border">
-        <input
-          className="border rounded px-3 py-2"
-          placeholder="Titel"
-          value={form.titel}
-          onChange={(e) => setForm({ ...form, titel: e.target.value })}
-        />
-        <textarea
-          className="border rounded px-3 py-2 min-h-[120px]"
-          placeholder="Inhoud"
-          value={form.inhoud}
-          onChange={(e) => setForm({ ...form, inhoud: e.target.value })}
-        />
-        <input
-          className="border rounded px-3 py-2"
-          placeholder="Auteur (optioneel)"
-          value={form.auteur}
-          onChange={(e) => setForm({ ...form, auteur: e.target.value })}
-        />
-        <button className="bg-black text-white rounded px-4 py-2 w-fit">Toevoegen</button>
-      </form>
+      <div className="flex flex-wrap items-center gap-3">
+        <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Filter..." className="rounded border px-3 py-1.5"/>
+        <input value={form.titel||""} onChange={e=>setForm(s=>({...s,titel:e.target.value}))} placeholder="Nieuwe overdracht" className="rounded border px-3 py-1.5"/>
+        <select value={form.groepId||""} onChange={e=>setForm(s=>({...s,groepId:e.target.value||undefined}))} className="rounded border px-2 py-1.5">
+          <option value="">– koppel groep –</option>
+          {(Array.isArray(groepen)?groepen:[]).map(g=>(
+            <option key={g.id} value={g.id}>{g.afdeling} · {g.naam}</option>
+          ))}
+        </select>
+        <button onClick={add} className={BTN}>Toevoegen</button>
+      </div>
 
-      <div className="grid gap-3">
-        {loading ? (
-          <div>Laden…</div>
-        ) : items.length === 0 ? (
-          <div className="text-zinc-500">Geen overdrachten.</div>
-        ) : (
-          items.map((it) => (
-            <div key={it.id} className="bg-white p-4 rounded-xl border">
-              <div className="flex items-center justify-between gap-3">
-                <div className="font-semibold">{it.titel}</div>
-                <div className="text-xs text-zinc-500">
-                  {new Date(it.createdAt).toLocaleString()}
-                </div>
-              </div>
-              <p className="mt-2 whitespace-pre-wrap">{it.inhoud}</p>
-              <div className="mt-3 flex items-center gap-2 text-sm">
-                <span
-                  className={`px-2 py-1 rounded ${
-                    it.status === 'afgerond'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-amber-100 text-amber-800'
-                  }`}
-                >
-                  {it.status ?? 'open'}
-                </span>
-                {it.auteur ? <span className="text-zinc-500">• {it.auteur}</span> : null}
-                <button
-                  onClick={() => setStatus(it.id, it.status === 'afgerond' ? 'open' : 'afgerond')}
-                  className="ml-auto underline"
-                >
-                  Markeer {it.status === 'afgerond' ? 'open' : 'afgerond'}
-                </button>
-                <button onClick={() => remove(it.id)} className="text-rose-600 underline">
-                  Verwijderen
-                </button>
-              </div>
-            </div>
-          ))
-        )}
+      <div className="rounded-xl border bg-white overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-zinc-50">
+            <tr>
+              <th className="text-left px-3 py-2">Titel</th>
+              <th className="text-left px-3 py-2">Inhoud</th>
+              <th className="text-left px-3 py-2">Acties</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(Array.isArray(filtered)?filtered:[]).map(r=>(
+              <tr key={r.id} className="border-b">
+                <td className="px-3 py-2">
+                  <input value={r.titel} onChange={e=>setRows(xs=>xs.map(x=>x.id===r.id?{...x,titel:e.target.value}:x))}
+                    className="rounded border px-2 py-1 w-full"/>
+                </td>
+                <td className="px-3 py-2">
+                  <textarea value={r.inhoud||""} onChange={e=>setRows(xs=>xs.map(x=>x.id===r.id?{...x,inhoud:e.target.value}:x))}
+                    className="rounded border px-2 py-1 w-full h-20"/>
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex gap-2">
+                    <button onClick={()=>save(r)} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded px-3 py-1.5 text-xs">Opslaan</button>
+                    <button onClick={()=>remove(r.id)} className="text-rose-600 text-xs hover:underline">Verwijderen</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {filtered.length===0 && <tr><td colSpan={3} className="text-center text-zinc-500 py-6">Geen overdrachten.</td></tr>}
+          </tbody>
+        </table>
       </div>
     </div>
   );

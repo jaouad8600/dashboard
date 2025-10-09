@@ -2,7 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Kleine resets */
-:root { color-scheme: light; }
-html, body { height: 100%; margin: 0; }
-* { box-sizing: border-box; }
+/* Huisstijl: Teylingereind groen */
+:root {
+  --brand: 16 185 129; /* emerald-500 */
+  --brand-600: 5 150 105; /* emerald-600 */
+  --brand-700: 4 120 87;  /* emerald-700 */
+}
+
+/* Globale button-styling (alle knoppen groen) */
+button, .btn {
+  @apply inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium bg-emerald-600 text-white shadow-sm;
+}
+button:hover, .btn:hover { @apply bg-emerald-700; }
+button:disabled, .btn:disabled { @apply opacity-50 cursor-not-allowed; }
+
+/* Subtle card + titel */
+.page-wrap { @apply p-6 space-y-6; }
+.page-title {
+  @apply text-2xl font-bold;
+  letter-spacing: -0.01em;
+}
+.page-sub { @apply text-sm text-zinc-500; }
+
+/* Chips (kleuren-selector op groepen) – laten eigen kleur zien */
+.chip { @apply px-2 py-1 rounded text-xs border shadow-sm bg-white; }
+
+/* Extra huisstijl Teylingereind */
+.btn-green {
+  @apply bg-green-700 hover:bg-green-800 text-white font-medium py-1.5 px-3 rounded;
+}
+
+/* Overdrachten stijl */
+textarea, input {
+  @apply focus:ring-2 focus:ring-green-700 outline-none;
+}

@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
-import { deleteMutatie, patchMutatie } from '@/lib/stores/db';
-
-export async function PATCH(req: Request, { params }: { params: { id: string }}) {
-  const row = await patchMutatie(params.id, await req.json());
-  if (!row) return NextResponse.json({ error: 'not found' }, { status: 404 });
-  return NextResponse.json(row);
+import { NextResponse } from "next/server";
+import { updateMutatie, deleteMutatie } from "@/server/store";
+export async function PATCH(req:Request,{params}:{params:{id:string}}){
+  const body = await req.json().catch(()=>({}));
+  await updateMutatie(params.id, body||{});
+  return NextResponse.json({ ok:true });
 }
-export async function DELETE(_req: Request, { params }: { params: { id: string }}) {
-  return NextResponse.json({ ok: await deleteMutatie(params.id) });
+export async function DELETE(_:Request,{params}:{params:{id:string}}){
+  await deleteMutatie(params.id);
+  return NextResponse.json({ ok:true });
 }

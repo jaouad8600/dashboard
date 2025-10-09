@@ -1,25 +1,20 @@
 import { NextResponse } from "next/server";
+import { listPlanningByDate, addPlanning } from "@/server/store";
 
-function todayISO() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,"0");
-  const day = String(d.getDate()).padStart(2,"0");
-  return `${y}-${m}-${day}`;
+export async function GET(req:Request) {
+  const u = new URL(req.url);
+  const date = u.searchParams.get("date");
+  if (!date) return NextResponse.json({ error:"date=YYYY-MM-DD verplicht" }, { status:400 });
+  const data = await listPlanningByDate(date);
+  return NextResponse.json(data, { headers:{ 'cache-control':'no-store' }});
 }
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const date = searchParams.get("date") || todayISO();
-
-  // TODO: later uit DB/JSON halen; nu altijd fallback-schedule
-  const items = [
-    { tijd: "09:00", activiteit: "Ochtendronde / opening gym" },
-    { tijd: "10:30", activiteit: "Groepstraining" },
-    { tijd: "12:00", activiteit: "Pauze" },
-    { tijd: "13:30", activiteit: "Individuele activiteiten" },
-    { tijd: "15:00", activiteit: "Balans / afsluiting" },
-  ];
-
-  return NextResponse.json({ date, items });
+export async function POST(req:Request) {
+  try {
+    const body = await req.json();
+    const it = await addPlanning(body);
+    return NextResponse.json(it, { headers:{ 'cache-control':'no-store' }});
+  } catch (e:any) {
+    return NextResponse.json({ error: e?.message || "Kon niet toevoegen" }, { status:400 });
+  }
 }

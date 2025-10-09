@@ -1,17 +1,17 @@
-import { NextResponse } from 'next/server';
-import { addMutatie, listMutaties } from '@/lib/stores/db';
+import { NextResponse } from "next/server";
+import { listMutaties, addMutatie } from "@/server/store";
 
 export async function GET() {
-  return NextResponse.json(await listMutaties(), { headers: { 'cache-control': 'no-store' }});
+  const data = await listMutaties();
+  return NextResponse.json(data, { headers:{ 'cache-control':'no-store' }});
 }
-export async function POST(req: Request) {
-  const b = await req.json();
-  if (!b?.titel) return NextResponse.json({ error: 'titel verplicht' }, { status: 400 });
-  const row = await addMutatie({
-    titel: String(b.titel).trim(),
-    omschrijving: b.omschrijving ? String(b.omschrijving).trim() : undefined,
-    datum: b.datum || new Date().toISOString(),
-    status: (['open','in-behandeling','afgerond'] as const).includes(b.status) ? b.status : 'open'
-  });
-  return NextResponse.json(row, { status: 201 });
+
+export async function POST(req:Request) {
+  try {
+    const body = await req.json();
+    const it = await addMutatie(body);
+    return NextResponse.json(it, { headers:{ 'cache-control':'no-store' }});
+  } catch (e:any) {
+    return NextResponse.json({ error: e?.message || "Kon niet toevoegen" }, { status:400 });
+  }
 }
