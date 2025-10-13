@@ -3,19 +3,31 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 
+export const dynamic = "force-dynamic";
+
 const DB_PATH = path.join(process.cwd(), "data", "app-data.json");
 
 function readDb() {
-  if (!fs.existsSync(DB_PATH)) {
-    return { groepen: [], planning: { items: [] }, extraMoments: [] as any[] };
-  }
+  if (!fs.existsSync(DB_PATH))
+    return { groepen: [], planning: { items: [] }, extraSportmomenten: [] };
   const raw = fs.readFileSync(DB_PATH, "utf8");
   const db = JSON.parse(raw || "{}");
-  db.groepen ||= [];
-  db.planning ||= { items: [] };
-  db.planning.items ||= [];
-  db.extraMoments ||= [];
-  return db;
+  // normaliseer
+  let groepen: any[] = [];
+  if (Array.isArray(db.groepen)) groepen = db.groepen;
+  else if (db.groepen && typeof db.groepen === "object")
+    groepen = Object.values(db.groepen);
+  let extra: any[] = Array.isArray(db.extraSportmomenten)
+    ? db.extraSportmomenten
+    : Array.isArray(db.extra_sportmomenten)
+      ? db.extra_sportmomenten
+      : [];
+  return {
+    ...db,
+    groepen,
+    extraSportmomenten: extra,
+    planning: db.planning || { items: [] },
+  };
 }
 
 function writeDb(db: any) {
@@ -23,88 +35,68 @@ function writeDb(db: any) {
 }
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const aggregate = searchParams.get("aggregate");
+  const url = new URL(req.url);
+  const aggregate = url.searchParams.get("aggregate") === "1";
   const db = readDb();
 
   if (aggregate) {
-    // aantal per groep
     const byGroup: Record<string, number> = {};
-    for (const m of db.extraMoments) {
-      byGroup[m.groepId] = (byGroup[m.groepId] || 0) + 1;
+    for (const m of db.extraSportmomenten) {
+      const gid = String(
+        m?.groepId || m?.groupId || m?.groep || m?.group || "",
+      );
+      if (!gid) continue;
+      byGroup[gid] = (byGroup[gid] || 0) + 1;
     }
-    const rows = db.groepen.map((g: any) => ({
-      groepId: g.id,
-      groepNaam: g.naam || g.name || g.title || g.id,
-      aantal: byGroup[g.id] || 0,
-    }));
-    // sort desc op aantal
-    rows.sort((a: any, b: any) => b.aantal - a.aantal);
-    return NextResponse.json({ rows });
+    const groups = Array.isArray(db.groepen) ? db.groepen : [];
+    const rows = groups
+      .map((g: any) => ({
+        groepId: g.id,
+        groepNaam: g.naam || g.name || g.title || g.id,
+        aantal: byGroup[g.id] || 0,
+      }))
+      .sort((a, b) => b.aantal - a.aantal);
+
+    const totaal = rows.reduce((s, r) => s + r.aantal, 0);
+    return NextResponse.json({ rows, totaal, byGroup });
   }
 
-  // laatste 50 items
-  const items = [...db.extraMoments]
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-    .slice(0, 50)
-    .map((m) => ({
-      ...m,
-      groepNaam:
-        db.groepen.find((g: any) => g.id === m.groepId)?.naam ||
-        db.groepen.find((g: any) => g.id === m.groepId)?.name ||
-        m.groepId,
-    }));
+  // optioneel filter op groepId
+  const groepId = url.searchParams.get("groepId");
+  const items = groepId
+    ? db.extraSportmomenten.filter(
+        (m: any) => String(m.groepId) === String(groepId),
+      )
+    : db.extraSportmomenten;
 
   return NextResponse.json({ items });
 }
 
 export async function POST(req: Request) {
-  try {
-    const body = await req.json().catch(() => ({}));
-    const { groepId, datum, duur = 60, notities = "" } = body || {};
-    if (!groepId) {
-      return NextResponse.json(
-        { error: "groepId is verplicht" },
-        { status: 400 },
-      );
-    }
-    const db = readDb();
-    const groep = db.groepen.find((g: any) => g.id === groepId);
-    if (!groep) {
-      return NextResponse.json({ error: "Onbekende groepId" }, { status: 404 });
-    }
-
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
-    const item = {
-      id,
-      groepId,
-      datum: datum || now,
-      duur,
-      notities,
-      createdAt: now,
-      isExtra: true,
-    };
-    db.extraMoments.push(item);
-    writeDb(db);
-    return NextResponse.json({ ok: true, item });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || "Onbekende fout" },
-      { status: 500 },
-    );
-  }
-}
-
-export async function DELETE(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-  if (!id)
-    return NextResponse.json({ error: "id is verplicht" }, { status: 400 });
   const db = readDb();
-  const before = db.extraMoments.length;
-  db.extraMoments = db.extraMoments.filter((m: any) => m.id !== id);
-  const removed = before - db.extraMoments.length;
+  const body = await req.json().catch(() => ({}) as any);
+  const groepId = String(body?.groepId || body?.groupId || "").trim();
+  if (!groepId)
+    return NextResponse.json(
+      { error: "groepId is verplicht" },
+      { status: 400 },
+    );
+
+  const groepBestaat =
+    Array.isArray(db.groepen) &&
+    db.groepen.some((g: any) => String(g.id) === groepId);
+  if (!groepBestaat)
+    return NextResponse.json({ error: "Groep niet gevonden" }, { status: 404 });
+
+  const item = {
+    id: body.id || crypto.randomUUID(),
+    groepId,
+    datum: body.datum || new Date().toISOString(),
+    duurMinuten: body.duurMinuten ?? 60,
+    reden: body.reden || null,
+    gebruiker: body.gebruiker || null,
+  };
+  db.extraSportmomenten.push(item);
   writeDb(db);
-  return NextResponse.json({ ok: true, removed });
+  return NextResponse.json({ ok: true, item });
 }
