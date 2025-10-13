@@ -32,7 +32,9 @@ export default function Groepen() {
           </li>
         ))}
       </ul>
-      <button onClick={() => addGroup("Nieuwe groep")}>+ Voeg toe</button>
+      <button className="btn" onClick={() => addGroup("Nieuwe groep")}>
+        + Voeg toe
+      </button>
     </div>
   );
 }

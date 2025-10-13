@@ -24,6 +24,7 @@ export default function WidgetDock({ onlyOn = "/admin" }: { onlyOn?: string }) {
         style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}
       >
         <button
+          className="btn"
           onClick={() => setOpen((o) => !o)}
           aria-label="WidgetDock aan/uit"
           style={{
@@ -63,6 +64,7 @@ export default function WidgetDock({ onlyOn = "/admin" }: { onlyOn?: string }) {
             }}
           >
             <button
+              className="btn"
               onClick={() => setTab("overdracht")}
               className="wd-tab"
               style={tabStyle(tab === "overdracht")}
@@ -70,6 +72,7 @@ export default function WidgetDock({ onlyOn = "/admin" }: { onlyOn?: string }) {
               Overdracht
             </button>
             <button
+              className="btn"
               onClick={() => setTab("rapport")}
               className="wd-tab"
               style={tabStyle(tab === "rapport")}

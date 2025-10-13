@@ -53,7 +53,7 @@ export default function GroupNotes({ groupId }: { groupId: string }) {
           onChange={(e) => setAuthor(e.target.value)}
         />
         <button
-          className="rounded-lg bg-black px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+          className="rounded-lg bg-black px-3 py-2 text-sm font-medium text-white hover:opacity-90 btn"
           type="submit"
         >
           Toevoegen
@@ -90,7 +90,7 @@ export default function GroupNotes({ groupId }: { groupId: string }) {
                 </div>
               </div>
               <button
-                className="text-[11px] text-red-600 hover:underline"
+                className="text-[11px] text-red-600 hover:underline btn"
                 onClick={() => {
                   deleteNote(groupId, n.id);
                   setNotes(getNotes(groupId));

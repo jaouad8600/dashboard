@@ -159,7 +159,7 @@ export default function InventarisPage() {
           />
           <button
             onClick={beginNew}
-            className="rounded-md bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700"
+            className="rounded-md bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700 btn"
           >
             Nieuw
           </button>
@@ -222,13 +222,13 @@ export default function InventarisPage() {
                   <td className="px-3 py-2">
                     <div className="flex gap-2 justify-end">
                       <button
-                        className="text-blue-600 hover:underline"
+                        className="text-blue-600 hover:underline btn"
                         onClick={() => beginEdit(r)}
                       >
                         Bewerken
                       </button>
                       <button
-                        className="text-rose-600 hover:underline"
+                        className="text-rose-600 hover:underline btn"
                         onClick={() => remove(r.id)}
                       >
                         Verwijderen
@@ -254,6 +254,7 @@ export default function InventarisPage() {
                 {editing.id ? "Materiaal bewerken" : "Nieuw materiaal"}
               </h2>
               <button
+                className="btn"
                 onClick={() => setEditing(null)}
                 className="text-zinc-600 hover:text-black"
               >
@@ -337,6 +338,7 @@ export default function InventarisPage() {
 
             <div className="mt-6 flex justify-end gap-2">
               <button
+                className="btn"
                 onClick={() => setEditing(null)}
                 className="rounded-md border px-3 py-2 text-sm"
                 disabled={saving}
@@ -345,7 +347,7 @@ export default function InventarisPage() {
               </button>
               <button
                 onClick={save}
-                className="rounded-md bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700 disabled:opacity-50"
+                className="rounded-md bg-emerald-600 text-white px-3 py-2 text-sm hover:bg-emerald-700 disabled:opacity-50 btn"
                 disabled={saving}
               >
                 {saving ? "Opslaan…" : "Opslaan"}

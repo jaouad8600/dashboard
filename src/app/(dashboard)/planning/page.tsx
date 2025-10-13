@@ -88,6 +88,7 @@ export default function PlanningPage() {
             className="border rounded px-2 py-1"
           />
           <button
+            className="btn"
             onClick={() => setSel({ date, titel: "", afdeling: "EB" })}
             className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded"
           >
@@ -124,12 +125,14 @@ export default function PlanningPage() {
                 <td className="px-3 py-2">
                   <div className="flex gap-2 justify-end">
                     <button
+                      className="btn"
                       onClick={() => setSel(r)}
                       className="text-blue-600 hover:underline"
                     >
                       Bewerken
                     </button>
                     <button
+                      className="btn"
                       onClick={() => remove(r.id)}
                       className="text-rose-600 hover:underline"
                     >
@@ -207,6 +210,7 @@ export default function PlanningPage() {
             </div>
             <div className="flex justify-end gap-2">
               <button
+                className="btn"
                 onClick={() => setSel(undefined)}
                 className="px-3 py-1.5 rounded border"
               >
@@ -214,7 +218,7 @@ export default function PlanningPage() {
               </button>
               <button
                 onClick={save}
-                className="px-3 py-1.5 rounded bg-green-600 text-white"
+                className="px-3 py-1.5 rounded bg-green-600 text-white btn"
               >
                 Opslaan
               </button>

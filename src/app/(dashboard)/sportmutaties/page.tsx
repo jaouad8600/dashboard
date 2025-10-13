@@ -92,6 +92,7 @@ export default function SportmutatiesPage() {
         <div className="hidden md:flex items-center gap-2">
           {(["Alle", ...STATI] as const).map((s) => (
             <button
+              className="btn"
               key={s}
               onClick={() => setFlt(s as any)}
               className={`rounded-full border px-3 py-1 text-sm ${flt === s ? "bg-black text-white" : "bg-white hover:bg-zinc-50"}`}
@@ -144,7 +145,7 @@ export default function SportmutatiesPage() {
             </option>
           ))}
         </select>
-        <button className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50">
+        <button className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50 btn">
           Toevoegen
         </button>
       </form>
@@ -200,6 +201,7 @@ export default function SportmutatiesPage() {
                   <td className="px-4 py-3">{m.omschrijving ?? "-"}</td>
                   <td className="px-4 py-3 text-right">
                     <button
+                      className="btn"
                       onClick={() => remove(m.id)}
                       className="rounded-lg border px-3 py-1 text-sm hover:bg-rose-50"
                     >

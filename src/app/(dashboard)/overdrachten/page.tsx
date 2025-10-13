@@ -150,12 +150,14 @@ export default function OverdrachtenPage() {
                 <td className="px-3 py-2">
                   <div className="flex gap-2">
                     <button
+                      className="btn"
                       onClick={() => save(r)}
                       className="bg-emerald-600 hover:bg-emerald-700 text-white rounded px-3 py-1.5 text-xs"
                     >
                       Opslaan
                     </button>
                     <button
+                      className="btn"
                       onClick={() => remove(r.id)}
                       className="text-rose-600 text-xs hover:underline"
                     >

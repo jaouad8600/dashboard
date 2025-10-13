@@ -184,16 +184,18 @@ export default function Bezoek() {
           />
         </div>
         <div className="md:col-span-6 flex gap-2">
-          <button onClick={add} className="px-3 py-2 rounded-xl border">
+          <button onClick={add} className="px-3 py-2 rounded-xl border btn">
             Toevoegen
           </button>
           <button
+            className="btn"
             onClick={() => download("bezoek.csv", csv, "text/csv")}
             className="px-3 py-2 rounded-xl border"
           >
             Exporteer CSV
           </button>
           <button
+            className="btn"
             onClick={() => download("bezoek.ics", ics, "text/calendar")}
             className="px-3 py-2 rounded-xl border"
           >
@@ -242,12 +244,14 @@ export default function Bezoek() {
                 </td>
                 <td className="p-2 text-right">
                   <button
+                    className="btn"
                     onClick={() => toggle(v.id)}
                     className="px-2 py-1 rounded-lg border mr-2"
                   >
                     Toggle
                   </button>
                   <button
+                    className="btn"
                     onClick={() => remove(v.id)}
                     className="px-2 py-1 rounded-lg border"
                   >

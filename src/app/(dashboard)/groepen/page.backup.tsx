@@ -141,6 +141,7 @@ export default function GroepenPage() {
               <div className="flex flex-wrap gap-2">
                 {(["GREEN", "YELLOW", "ORANGE", "RED"] as Kleur[]).map((k) => (
                   <button
+                    className="btn"
                     key={k}
                     onClick={() => setKleur(g, k)}
                     className={`text-xs px-2 py-1 rounded-md ring-1 transition ${
@@ -182,7 +183,7 @@ export default function GroepenPage() {
                     placeholder="Naam"
                     className="w-36 rounded-md border px-2 py-1 text-sm"
                   />
-                  <button className="rounded-md bg-black text-white px-3 py-1 text-sm">
+                  <button className="rounded-md bg-black text-white px-3 py-1 text-sm btn">
                     Toevoegen
                   </button>
                 </form>
@@ -202,6 +203,7 @@ export default function GroepenPage() {
                           </div>
                         </div>
                         <button
+                          className="btn"
                           onClick={() => delNote(g, n)}
                           className="text-xs text-rose-600 hover:underline"
                         >

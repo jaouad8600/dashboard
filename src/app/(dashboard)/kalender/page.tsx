@@ -110,6 +110,7 @@ export default function KalenderPage() {
       <div className="mb-3 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Kalender</h1>
         <button
+          className="btn"
           onClick={() => refetch()}
           className="px-3 py-2 rounded-lg border hover:bg-gray-50"
         >

@@ -60,7 +60,7 @@ export default function Backup() {
       <div className="rounded-2xl border bg-white p-4 grid gap-3">
         <button
           onClick={exportAll}
-          className="px-3 py-2 rounded-xl border hover:bg-zinc-50"
+          className="px-3 py-2 rounded-xl border hover:bg-zinc-50 btn"
         >
           Exporteer JSON
         </button>

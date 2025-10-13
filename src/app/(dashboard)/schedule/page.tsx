@@ -95,12 +95,14 @@ export default function SchedulePage() {
       <div className="text-sm text-zinc-600">{header}</div>
       <div className="flex flex-wrap gap-2">
         <button
+          className="btn"
           onClick={() => setAnchor(addDays(anchor, -7))}
           className="px-3 py-2 rounded-xl border"
         >
           ← Vorige
         </button>
         <button
+          className="btn"
           onClick={() =>
             setAnchor(startOfWeek(new Date(), { weekStartsOn: 1 }))
           }
@@ -109,22 +111,26 @@ export default function SchedulePage() {
           Vandaag
         </button>
         <button
+          className="btn"
           onClick={() => setAnchor(addDays(anchor, 7))}
           className="px-3 py-2 rounded-xl border"
         >
           Volgende →
         </button>
         <div className="grow"></div>
-        <button onClick={autofill} className="px-3 py-2 rounded-xl border">
+        <button onClick={autofill} className="px-3 py-2 rounded-xl border btn">
           Auto-vul
         </button>
-        <button onClick={saveAll} className="px-3 py-2 rounded-xl border">
+        <button onClick={saveAll} className="px-3 py-2 rounded-xl border btn">
           Opslaan
         </button>
-        <button onClick={clearPending} className="px-3 py-2 rounded-xl border">
+        <button
+          onClick={clearPending}
+          className="px-3 py-2 rounded-xl border btn"
+        >
           Leeg
         </button>
-        <button onClick={exportICS} className="px-3 py-2 rounded-xl border">
+        <button onClick={exportICS} className="px-3 py-2 rounded-xl border btn">
           Exporteer ICS (week)
         </button>
       </div>
@@ -207,7 +213,10 @@ export default function SchedulePage() {
           />
         </div>
         <div className="md:col-span-5">
-          <button onClick={addBlock} className="px-3 py-2 rounded-xl border">
+          <button
+            onClick={addBlock}
+            className="px-3 py-2 rounded-xl border btn"
+          >
             + Voeg blok toe
           </button>
           {pending.length > 0 && (

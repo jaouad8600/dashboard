@@ -29,7 +29,7 @@ export default function Sidebar() {
         <button
           aria-label="Toggle sidebar"
           onClick={toggle}
-          className="w-8 h-8 rounded hover:bg-gray-100"
+          className="w-8 h-8 rounded hover:bg-gray-100 btn"
           title={open ? "Inklappen" : "Uitklappen"}
         >
           {open ? "«" : "»"}

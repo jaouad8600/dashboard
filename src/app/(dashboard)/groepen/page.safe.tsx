@@ -105,7 +105,7 @@ export default function GroepenPage() {
           />
           <button
             onClick={load}
-            className="rounded-md border px-3 py-2 text-sm bg-white hover:bg-zinc-50"
+            className="rounded-md border px-3 py-2 text-sm bg-white hover:bg-zinc-50 btn"
           >
             Vernieuwen
           </button>
@@ -136,6 +136,7 @@ export default function GroepenPage() {
                 <div className="mt-1 flex flex-wrap gap-2">
                   {KLEUREN.map((k) => (
                     <button
+                      className="btn"
                       key={k.value}
                       onClick={() => setKleur(g.id, k.value)}
                       className={`text-xs px-2 py-1 rounded-md border ${k.bg} ${k.text} ${g.kleur === k.value ? "ring-2 ring-offset-2 ring-black/20" : ""}`}
@@ -216,7 +217,7 @@ function AddNoteForm({
         />
         <button
           disabled={disabled}
-          className="rounded-md bg-black text-white px-3 py-1 text-xs disabled:opacity-40"
+          className="rounded-md bg-black text-white px-3 py-1 text-xs disabled:opacity-40 btn"
         >
           Toevoegen
         </button>

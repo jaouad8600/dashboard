@@ -102,10 +102,18 @@ export default function SeedPage() {
         <code>localStorage</code>.
       </p>
       <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={setDemo} style={btn("#1d4ed8", "#dbeafe")}>
+        <button
+          className="btn"
+          onClick={setDemo}
+          style={btn("#1d4ed8", "#dbeafe")}
+        >
           Zet demo-data
         </button>
-        <button onClick={clearAll} style={btn("#991b1b", "#fee2e2")}>
+        <button
+          className="btn"
+          onClick={clearAll}
+          style={btn("#991b1b", "#fee2e2")}
+        >
           Wis demo-data
         </button>
       </div>

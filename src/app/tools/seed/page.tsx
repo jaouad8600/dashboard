@@ -166,12 +166,14 @@ export default function SeedPage() {
 
         <div className="flex gap-8 flex-wrap">
           <button
+            className="btn"
             onClick={() => seedByTemplate("eb")}
             className="px-3 py-2 rounded-xl border hover:bg-zinc-50"
           >
             Seed EB (ma–vr)
           </button>
           <button
+            className="btn"
             onClick={() => seedByTemplate("vloed")}
             className="px-3 py-2 rounded-xl border hover:bg-zinc-50"
           >
