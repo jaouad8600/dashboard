@@ -1,77 +1,35 @@
-"use client";
-import { useEffect, useState } from "react";
-import Link from "next/link";
+'use client';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
-export default function Sidebar() {
-  const [open, setOpen] = useState(true);
+const links = [
+  { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Groepen', href: '/groepen' },
+  { label: 'Sportmomenten', href: '/sportmomenten' },
+  { label: 'Kalender', href: '/kalender' },
+  { label: 'Mutaties', href: '/mutaties' },
+  { label: 'Indicaties', href: '/indicaties' },
+  { label: 'Inventaris', href: '/inventaris' },
+];
 
-  useEffect(() => {
-    const saved = localStorage.getItem("sidebar-open");
-    if (saved !== null) setOpen(saved === "1");
-  }, []);
-
-  const toggle = () => {
-    const next = !open;
-    setOpen(next);
-    localStorage.setItem("sidebar-open", next ? "1" : "0");
-  };
-
+export default function Sidebar(){
+  const pathname = usePathname();
   return (
-    <aside
-      className={`h-screen border-r transition-all ${open ? "w-64" : "w-16"} sticky top-0`}
-    >
-      <div className="p-2 flex items-center justify-between">
-        <span
-          className={`font-semibold ${open ? "opacity-100" : "opacity-0"} transition-opacity`}
-        >
-          Menu
-        </span>
-        <button
-          aria-label="Toggle sidebar"
-          onClick={toggle}
-          className="w-8 h-8 rounded hover:bg-gray-100 btn"
-          title={open ? "Inklappen" : "Uitklappen"}
-        >
-          {open ? "«" : "»"}
-        </button>
-      </div>
-
-      <nav className="mt-2 space-y-1">
-        <Link
-          className="block px-3 py-2 hover:bg-gray-100 rounded"
-          href="/dashboard"
-          title="Dashboard"
-        >
-          {open ? "Dashboard" : "D"}
-        </Link>
-        <Link
-          className="block px-3 py-2 hover:bg-gray-100 rounded"
-          href="/groepen"
-          title="Groepen"
-        >
-          {open ? "Groepen" : "G"}
-        </Link>
-        <Link className="btn-ghost" href="/sportmomenten">
-          Sportmomenten
-        </Link>
-        <Link
-          className="block px-3 py-2 hover:bg-gray-100 rounded"
-          href="/kalender"
-          title="Indicaties", href:"/indicaties"},
-    { label:"Inventaris", href:"/inventaris"},
-    { label:"{ label:"Indicaties", href:"/indicaties"},
-    { label:"Inventaris", href:"/inventaris"},
-    Kalender""
-        >
-          {open ? "Kalender" : "K"}
-        </Link>
-        <Link
-          className="block px-3 py-2 hover:bg-gray-100 rounded"
-          href="/mutaties"
-          title="Mutaties"
-        >
-          {open ? "Mutaties" : "M"}
-        </Link>
+    <aside className="w-64 border-r bg-white h-full">
+      <div className="p-4 text-lg font-semibold">Menu</div>
+      <nav className="px-2 pb-6 space-y-1">
+        {links.map(l=>{
+          const active = pathname?.startsWith(l.href);
+          return (
+            <Link
+              key={l.href}
+              href={l.href}
+              className={"block px-3 py-2 rounded-xl " + (active ? "bg-gray-900 text-white" : "hover:bg-gray-100")}
+            >
+              {l.label}
+            </Link>
+          );
+        })}
       </nav>
     </aside>
   );
