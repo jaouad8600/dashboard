@@ -14,10 +14,14 @@ export type SportMutatie = {
 };
 
 // 🆕 Voeg deriveGroupStatus toe
-export function deriveGroupStatus(mutaties: SportMutatie[], group: string): string {
-  const actives = mutaties.filter(m => m.group === group && m.active);
+export function deriveGroupStatus(
+  mutaties: SportMutatie[],
+  group: string,
+): string {
+  const actives = mutaties.filter((m) => m.group === group && m.active);
   if (actives.length === 0) return "green";
-  if (actives.some(m => m.type.toLowerCase().includes("verbod"))) return "red";
+  if (actives.some((m) => m.type.toLowerCase().includes("verbod")))
+    return "red";
   return "orange"; // fallback: er is iets, maar geen verbod
 }
 

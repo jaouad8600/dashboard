@@ -62,7 +62,7 @@ export function addMaterial(partial: Omit<MaterialItem, "id">): MaterialItem {
 
 export function updateMaterial(
   id: string,
-  patch: Partial<Omit<MaterialItem, "id">>
+  patch: Partial<Omit<MaterialItem, "id">>,
 ) {
   const list = read().map((m) =>
     m.id === id
@@ -70,22 +70,21 @@ export function updateMaterial(
           ...m,
           ...patch,
           name:
-            patch.name !== undefined
-              ? String(patch.name ?? "").trim()
-              : m.name,
+            patch.name !== undefined ? String(patch.name ?? "").trim() : m.name,
           locatie:
             patch.locatie !== undefined
               ? String(patch.locatie ?? "").trim()
               : m.locatie,
           status: (patch.status as MaterialStatus) ?? m.status,
-          aantal:
-            patch.aantal !== undefined ? Number(patch.aantal) : m.aantal,
+          aantal: patch.aantal !== undefined ? Number(patch.aantal) : m.aantal,
           note:
             patch.note !== undefined
-              ? (patch.note != null ? String(patch.note).trim() : undefined)
+              ? patch.note != null
+                ? String(patch.note).trim()
+                : undefined
               : m.note,
         }
-      : m
+      : m,
   );
   write(list);
 }
@@ -100,7 +99,9 @@ export function removeMaterial(id: string) {
 
 export function onMaterialsChange(cb: () => void) {
   const h = () => cb();
-  const s = (e: StorageEvent) => { if (e.key === KEY) cb(); };
+  const s = (e: StorageEvent) => {
+    if (e.key === KEY) cb();
+  };
   window.addEventListener("materials:changed", h as EventListener);
   window.addEventListener("storage", s);
   return () => {

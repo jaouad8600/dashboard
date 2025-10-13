@@ -1,9 +1,24 @@
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 const GROEPEN = [
-  "Eb","Poel","Lier","Zijl","Nes","Vliet","Gaag",
-  "Vloed","Kust","Golf","Zift","Lei","Kade","Kreek","Duin","Rak","Bron",
+  "Eb",
+  "Poel",
+  "Lier",
+  "Zijl",
+  "Nes",
+  "Vliet",
+  "Gaag",
+  "Vloed",
+  "Kust",
+  "Golf",
+  "Zift",
+  "Lei",
+  "Kade",
+  "Kreek",
+  "Duin",
+  "Rak",
+  "Bron",
 ];
 
 async function main() {
@@ -17,4 +32,4 @@ async function main() {
   console.log("✅ Groepen ge-seed");
 }
 
-main().finally(()=>prisma.$disconnect());
+main().finally(() => prisma.$disconnect());

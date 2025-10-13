@@ -10,10 +10,16 @@ export default function KalenderPage() {
       <div className="page-head">
         <h1>Kalender</h1>
         <div className="seg">
-          <button className={`seg-btn ${tide === "eb" ? "on" : ""}`} onClick={() => setTide("eb")}>
+          <button
+            className={`seg-btn ${tide === "eb" ? "on" : ""}`}
+            onClick={() => setTide("eb")}
+          >
             Eb
           </button>
-          <button className={`seg-btn ${tide === "vloed" ? "on" : ""}`} onClick={() => setTide("vloed")}>
+          <button
+            className={`seg-btn ${tide === "vloed" ? "on" : ""}`}
+            onClick={() => setTide("vloed")}
+          >
             Vloed
           </button>
         </div>

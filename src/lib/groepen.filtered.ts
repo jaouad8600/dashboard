@@ -8,9 +8,9 @@ import { GROEPEN_BLACKLIST } from "./groepen-blacklist";
 
 export const listGroepen = (): ReturnType<typeof base.listGroepen> => {
   try {
-    return base.listGroepen().filter(
-      (g: any) => !GROEPEN_BLACKLIST.has((g as any).naam)
-    );
+    return base
+      .listGroepen()
+      .filter((g: any) => !GROEPEN_BLACKLIST.has((g as any).naam));
   } catch {
     return [];
   }

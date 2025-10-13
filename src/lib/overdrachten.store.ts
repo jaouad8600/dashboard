@@ -1,6 +1,6 @@
-import 'server-only';
-import { readJSON, writeJSON } from '@/lib/fsjson';
-import { randomUUID } from 'node:crypto';
+import "server-only";
+import { readJSON, writeJSON } from "@/lib/fsjson";
+import { randomUUID } from "node:crypto";
 
 export type Overdracht = {
   id: string;
@@ -9,17 +9,17 @@ export type Overdracht = {
   auteur?: string;
   createdAt: string;
   updatedAt?: string;
-  status?: 'open' | 'afgerond';
+  status?: "open" | "afgerond";
 };
 
 export type NewOverdracht = {
   titel: string;
   inhoud: string;
   auteur?: string;
-  status?: 'open' | 'afgerond';
+  status?: "open" | "afgerond";
 };
 
-const FILE = 'overdrachten.json';
+const FILE = "overdrachten.json";
 
 export async function listOverdrachten(): Promise<Overdracht[]> {
   return readJSON<Overdracht[]>(FILE, []);
@@ -32,7 +32,7 @@ export async function addOverdracht(input: NewOverdracht): Promise<Overdracht> {
     titel: input.titel,
     inhoud: input.inhoud,
     auteur: input.auteur,
-    status: input.status ?? 'open',
+    status: input.status ?? "open",
     createdAt: new Date().toISOString(),
   };
   items.unshift(item);
@@ -42,7 +42,7 @@ export async function addOverdracht(input: NewOverdracht): Promise<Overdracht> {
 
 export async function updateOverdracht(
   id: string,
-  patch: Partial<Overdracht>
+  patch: Partial<Overdracht>,
 ): Promise<Overdracht | null> {
   const items = await listOverdrachten();
   const idx = items.findIndex((i) => i.id === id);

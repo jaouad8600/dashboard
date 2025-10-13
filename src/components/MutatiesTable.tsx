@@ -9,7 +9,7 @@ type Mutatie = {
   titel?: string;
   title?: string;
   status?: string;
-  datum?: string;   // ISO date
+  datum?: string; // ISO date
   date?: string;
   omschrijving?: string;
   note?: string;
@@ -21,25 +21,30 @@ export default function MutatiesTable() {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(()=> {
+  useEffect(() => {
     let active = true;
-    (async()=>{
+    (async () => {
       setLoading(true);
       try {
         const res = await fetch("/api/mutaties", { cache: "no-store" });
-        const json = res.ok ? await res.json().catch(()=>[]) : [];
+        const json = res.ok ? await res.json().catch(() => []) : [];
         if (active) setRows(toArray(json));
-      } catch { if (active) setRows([]); }
-      finally { if (active) setLoading(false); }
+      } catch {
+        if (active) setRows([]);
+      } finally {
+        if (active) setLoading(false);
+      }
     })();
-    return ()=>{ active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const filtered = useMemo(()=> {
+  const filtered = useMemo(() => {
     const list = toArray<Mutatie>(rows);
     const term = q.trim().toLowerCase();
     if (!term) return list;
-    return list.filter(r => JSON.stringify(r).toLowerCase().includes(term));
+    return list.filter((r) => JSON.stringify(r).toLowerCase().includes(term));
   }, [rows, q]);
 
   return (
@@ -61,21 +66,33 @@ export default function MutatiesTable() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={4} className="px-3 py-8 text-center text-zinc-500">Laden…</td></tr>
-            ) : (toArray(filtered).length === 0 ? (
-              <tr><td colSpan={4} className="px-3 py-8 text-center text-zinc-500">Geen resultaten.</td></tr>
+              <tr>
+                <td colSpan={4} className="px-3 py-8 text-center text-zinc-500">
+                  Laden…
+                </td>
+              </tr>
+            ) : toArray(filtered).length === 0 ? (
+              <tr>
+                <td colSpan={4} className="px-3 py-8 text-center text-zinc-500">
+                  Geen resultaten.
+                </td>
+              </tr>
             ) : (
-              toArray(filtered).map(r=>(
+              toArray(filtered).map((r) => (
                 <tr key={r.id} className="border-b">
                   <td className="px-3 py-2">{r.titel || r.title || "-"}</td>
                   <td className="px-3 py-2">{r.status || "-"}</td>
-                  <td className="px-3 py-2">{(r.datum || r.date || "").slice(0,10) || "-"}</td>
                   <td className="px-3 py-2">
-                    {(r.omschrijving || r.note || "").toString().slice(0,120) || "-"}
+                    {(r.datum || r.date || "").slice(0, 10) || "-"}
+                  </td>
+                  <td className="px-3 py-2">
+                    {(r.omschrijving || r.note || "")
+                      .toString()
+                      .slice(0, 120) || "-"}
                   </td>
                 </tr>
               ))
-            ))}
+            )}
           </tbody>
         </table>
       </div>

@@ -33,7 +33,7 @@ export function getNotes(groupId: string): Note[] {
   const arr = map[groupId] || [];
   return [...arr].sort(
     (a, b) =>
-      Number(!!b.pinned) - Number(!!a.pinned) || b.createdAt - a.createdAt
+      Number(!!b.pinned) - Number(!!a.pinned) || b.createdAt - a.createdAt,
   );
 }
 
@@ -64,14 +64,16 @@ export function deleteNote(groupId: string, noteId: string) {
 export function togglePin(groupId: string, noteId: string) {
   const map = readMap();
   map[groupId] = (map[groupId] || []).map((n) =>
-    n.id === noteId ? { ...n, pinned: !n.pinned } : n
+    n.id === noteId ? { ...n, pinned: !n.pinned } : n,
   );
   writeMap(map);
 }
 
 export function onNotesChange(cb: () => void) {
   const handle = () => cb();
-  const storageHandler = (e: StorageEvent) => { if (e.key === KEY) cb(); };
+  const storageHandler = (e: StorageEvent) => {
+    if (e.key === KEY) cb();
+  };
   window.addEventListener("notes:changed", handle as EventListener);
   window.addEventListener("storage", storageHandler);
   return () => {

@@ -2,13 +2,13 @@
 
 export type Sportmutatie = {
   id: string;
-  group: string;     // bv. "Poel"
-  naam: string;      // bv. "Stefan (erick)"
-  arts?: string;     // bv. "Medische dienst"
-  soort: string;     // bv. "Niet sporten • enkel blessure"
-  notitie?: string;  // optioneel
-  ts: number;        // timestamp (ms)
-  actief: boolean;   // true = actief
+  group: string; // bv. "Poel"
+  naam: string; // bv. "Stefan (erick)"
+  arts?: string; // bv. "Medische dienst"
+  soort: string; // bv. "Niet sporten • enkel blessure"
+  notitie?: string; // optioneel
+  ts: number; // timestamp (ms)
+  actief: boolean; // true = actief
 };
 
 const KEY = "sportmutaties";
@@ -29,15 +29,16 @@ function write(list: Sportmutatie[]) {
   window.dispatchEvent(new CustomEvent(EVT));
 }
 function uid() {
-  try { // @ts-ignore
+  try {
+    // @ts-ignore
     if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   } catch {}
-  return `sm_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  return `sm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export function getSportmutaties(): Sportmutatie[] {
   // sorteer nieuwste eerst
-  return read().sort((a,b)=> b.ts - a.ts);
+  return read().sort((a, b) => b.ts - a.ts);
 }
 
 let lastSig = "";
@@ -59,10 +60,12 @@ export function addSportmutatie(input: {
   const naam = String(input.naam ?? "").trim();
   const arts = input.arts != null ? String(input.arts).trim() : undefined;
   const soort = String(input.soort ?? "").trim();
-  const notitie = input.notitie != null ? String(input.notitie).trim() : undefined;
+  const notitie =
+    input.notitie != null ? String(input.notitie).trim() : undefined;
   const ts = Number.isFinite(input.ts as any) ? Number(input.ts) : Date.now();
 
-  if (!group || !naam || !soort) throw new Error("Ontbrekende velden (group/naam/soort)");
+  if (!group || !naam || !soort)
+    throw new Error("Ontbrekende velden (group/naam/soort)");
 
   // anti-dubbel
   const sig = JSON.stringify([group, naam, arts, soort, notitie]);
@@ -70,11 +73,16 @@ export function addSportmutatie(input: {
   if (sig === lastSig && now - lastAt < 800) {
     return null; // negeer duplicaat
   }
-  lastSig = sig; lastAt = now;
+  lastSig = sig;
+  lastAt = now;
 
   const item: Sportmutatie = {
     id: uid(),
-    group, naam, arts, soort, notitie,
+    group,
+    naam,
+    arts,
+    soort,
+    notitie,
     ts,
     actief: true,
   };
@@ -85,16 +93,18 @@ export function addSportmutatie(input: {
 }
 
 export function removeSportmutatie(id: string) {
-  write(read().filter(m => m.id !== id));
+  write(read().filter((m) => m.id !== id));
 }
 
 export function setActief(id: string, actief: boolean) {
-  write(read().map(m => (m.id === id ? { ...m, actief } : m)));
+  write(read().map((m) => (m.id === id ? { ...m, actief } : m)));
 }
 
 export function onSportmutatiesChange(cb: () => void) {
   const h = () => cb();
-  const s = (e: StorageEvent) => { if (e.key === KEY) cb(); };
+  const s = (e: StorageEvent) => {
+    if (e.key === KEY) cb();
+  };
   window.addEventListener(EVT, h as EventListener);
   window.addEventListener("storage", s);
   return () => {

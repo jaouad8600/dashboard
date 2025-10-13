@@ -1,7 +1,5 @@
 export { EB_GROUPS, VLOED_GROUPS, GROUPS_OFFICIAL, normalizeGroup } from "./wk";
 
-
-
 /**
  * Client-only storage helpers voor Sportdash.
  * SSR geeft lege defaults; alle browser-API's zitten achter guards.
@@ -38,18 +36,33 @@ export type Restriction = {
 
 /** Standaard groepen (vul aan naar wens) */
 export const GROUPS = [
-  "Gaag","Golf","Kust","Lier","Nes","Vliet","Poel","Zijl",
-  "Duin","Kade","Kreek","Lei","Rak","Zift","Bron","Burcht","Balk"
+  "Gaag",
+  "Golf",
+  "Kust",
+  "Lier",
+  "Nes",
+  "Vliet",
+  "Poel",
+  "Zijl",
+  "Duin",
+  "Kade",
+  "Kreek",
+  "Lei",
+  "Rak",
+  "Zift",
+  "Bron",
+  "Burcht",
+  "Balk",
 ];
 
 const K_EVENTS = "rbc-events-v1";
-const K_GROUP  = "active-group";
-const K_SMUT   = "sportmutaties-v1";
-const K_RESTR  = "restrictions-v1";
+const K_GROUP = "active-group";
+const K_SMUT = "sportmutaties-v1";
+const K_RESTR = "restrictions-v1";
 const K_SRESTR = "sport-restrictions-v1";
 const K_VISITS = "visits-v1";
-const K_FILES  = "files-links-v1";
-const K_LOGS   = "logs-v1";
+const K_FILES = "files-links-v1";
+const K_LOGS = "logs-v1";
 
 export const isBrowser = typeof window !== "undefined";
 
@@ -59,20 +72,28 @@ function readJSON<T>(key: string, fallback: T): T {
     const raw = localStorage.getItem(key);
     if (raw == null) return fallback;
     return JSON.parse(raw) as T;
-  } catch { return fallback; }
+  } catch {
+    return fallback;
+  }
 }
 function writeJSON(key: string, value: unknown) {
   if (!isBrowser) return;
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
 }
 
 /* ===== Events ===== */
 export function loadEvents(): CalEvent[] {
   const arr = readJSON<any[]>(K_EVENTS, []);
-  return arr.map(e => ({ ...e, start: new Date(e.start), end: new Date(e.end) }));
+  return arr.map((e) => ({
+    ...e,
+    start: new Date(e.start),
+    end: new Date(e.end),
+  }));
 }
 export function saveEvents(events: CalEvent[]): void {
-  const out = events.map(e => ({
+  const out = events.map((e) => ({
     ...e,
     start: e.start instanceof Date ? e.start.toISOString() : e.start,
     end: e.end instanceof Date ? e.end.toISOString() : e.end,
@@ -87,8 +108,13 @@ export function getActiveGroup(): string | null {
 }
 export function setActiveGroup(group: string | null): void {
   if (!isBrowser) return;
-  if (group == null) { try { localStorage.removeItem(K_GROUP); } catch {} }
-  else { writeJSON(K_GROUP, group); }
+  if (group == null) {
+    try {
+      localStorage.removeItem(K_GROUP);
+    } catch {}
+  } else {
+    writeJSON(K_GROUP, group);
+  }
 }
 
 /* ===== Sportmutaties ===== */
@@ -97,7 +123,7 @@ export function loadSportmutaties(): SportMutation[] {
 }
 export function countOpenSportmutaties(): number {
   const all = loadSportmutaties();
-  return all.filter(m => (m.status || "open") !== "gesloten").length;
+  return all.filter((m) => (m.status || "open") !== "gesloten").length;
 }
 
 /* ===== Indicaties ===== */
@@ -109,9 +135,15 @@ export function loadSportRestrictions(): Restriction[] {
 }
 
 /* ===== Visits / Files / Logs ===== */
-export function loadVisits(): any[] { return readJSON<any[]>(K_VISITS, []); }
-export function loadFiles(): any[] { return readJSON<any[]>(K_FILES, []); }
-export function loadLogs(): any[] { return readJSON<any[]>(K_LOGS, []); }
+export function loadVisits(): any[] {
+  return readJSON<any[]>(K_VISITS, []);
+}
+export function loadFiles(): any[] {
+  return readJSON<any[]>(K_FILES, []);
+}
+export function loadLogs(): any[] {
+  return readJSON<any[]>(K_LOGS, []);
+}
 
 /* ===== Utils ===== */
 export function makeEvent(partial: Partial<CalEvent>): CalEvent {
@@ -121,8 +153,14 @@ export function makeEvent(partial: Partial<CalEvent>): CalEvent {
       ? (window as any).crypto.randomUUID()
       : `ev_${Date.now()}_${Math.random().toString(16).slice(2)}`);
 
-  const start = partial.start instanceof Date ? partial.start : new Date(partial.start || Date.now());
-  const end   = partial.end   instanceof Date ? partial.end   : new Date(partial.end   || Date.now());
+  const start =
+    partial.start instanceof Date
+      ? partial.start
+      : new Date(partial.start || Date.now());
+  const end =
+    partial.end instanceof Date
+      ? partial.end
+      : new Date(partial.end || Date.now());
 
   return {
     id,
@@ -130,13 +168,16 @@ export function makeEvent(partial: Partial<CalEvent>): CalEvent {
     start,
     end,
     tide: (partial.tide as Tide) || "eb",
-    group: partial.group || (getActiveGroup() || "Onbekend"),
+    group: partial.group || getActiveGroup() || "Onbekend",
     staff: partial.staff || [],
   };
 }
 // ===== Groep-states (verkeerslicht) per tide =====
 export type GroupState = "groen" | "geel" | "oranje" | "rood" | null;
-type GroupStates = { eb: Record<string, GroupState>; vloed: Record<string, GroupState> };
+type GroupStates = {
+  eb: Record<string, GroupState>;
+  vloed: Record<string, GroupState>;
+};
 const K_GSTATE = "group-states-v1";
 
 export function loadGroupStates(): GroupStates {
@@ -144,22 +185,32 @@ export function loadGroupStates(): GroupStates {
   const v = readJSON<GroupStates>(K_GSTATE, def);
   return { eb: v?.eb || {}, vloed: v?.vloed || {} };
 }
-export function saveGroupStates(s: GroupStates){ writeJSON(K_GSTATE, s); }
+export function saveGroupStates(s: GroupStates) {
+  writeJSON(K_GSTATE, s);
+}
 
 export function getGroupState(tide: Tide, group: string): GroupState {
   const s = loadGroupStates();
   return (s[tide] as Record<string, GroupState>)[group] ?? null;
 }
-export function setGroupState(tide: Tide, group: string, state: GroupState){
+export function setGroupState(tide: Tide, group: string, state: GroupState) {
   const s = loadGroupStates();
   (s[tide] as Record<string, GroupState>)[group] = state;
   saveGroupStates(s);
 }
 export function countSturing(tide: Tide): number {
   const s = loadGroupStates();
-  return Object.values((s[tide] as Record<string, GroupState>)).filter(v => v === "rood").length;
+  return Object.values(s[tide] as Record<string, GroupState>).filter(
+    (v) => v === "rood",
+  ).length;
 }
-export const GROUP_STATE_ORDER: GroupState[] = ["groen","geel","oranje","rood",null];
+export const GROUP_STATE_ORDER: GroupState[] = [
+  "groen",
+  "geel",
+  "oranje",
+  "rood",
+  null,
+];
 export function nextGroupState(cur: GroupState): GroupState {
   const i = GROUP_STATE_ORDER.indexOf(cur as any);
   const ni = i >= 0 ? (i + 1) % GROUP_STATE_ORDER.length : 0;
@@ -167,24 +218,57 @@ export function nextGroupState(cur: GroupState): GroupState {
 }
 // ===== Officiële groepen + normalisatie =====
 
-function cap1(s:string){ return s ? s.charAt(0).toUpperCase()+s.slice(1).toLowerCase() : s; }
+function cap1(s: string) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
+}
 
 /** normaliseer vrije tekst naar officiële groepsnaam, of null voor onbekend/ongewenst */
 
 // ===== Kleurenpalet voor groep-states (uniform in hele app) =====
-export const GROUP_STATE_PALETTE: Record<Exclude<GroupState,null>, {
-  bg: string; border: string; text: string; dot: string; label: string;
-}> = {
-  groen:  { bg:"#ecfdf5", border:"#22c55e", text:"#14532d", dot:"#22c55e", label:"Groen"  },
-  geel:   { bg:"#fffbeb", border:"#eab308", text:"#713f12", dot:"#eab308", label:"Geel"   },
-  oranje: { bg:"#fff7ed", border:"#f97316", text:"#7c2d12", dot:"#f97316", label:"Oranje" },
-  rood:   { bg:"#fef2f2", border:"#ef4444", text:"#7f1d1d", dot:"#ef4444", label:"Rood"   },
+export const GROUP_STATE_PALETTE: Record<
+  Exclude<GroupState, null>,
+  {
+    bg: string;
+    border: string;
+    text: string;
+    dot: string;
+    label: string;
+  }
+> = {
+  groen: {
+    bg: "#ecfdf5",
+    border: "#22c55e",
+    text: "#14532d",
+    dot: "#22c55e",
+    label: "Groen",
+  },
+  geel: {
+    bg: "#fffbeb",
+    border: "#eab308",
+    text: "#713f12",
+    dot: "#eab308",
+    label: "Geel",
+  },
+  oranje: {
+    bg: "#fff7ed",
+    border: "#f97316",
+    text: "#7c2d12",
+    dot: "#f97316",
+    label: "Oranje",
+  },
+  rood: {
+    bg: "#fef2f2",
+    border: "#ef4444",
+    text: "#7f1d1d",
+    dot: "#ef4444",
+    label: "Rood",
+  },
 };
 
 /** Haal paletinfo op voor een groep+tide; null indien geen state gezet */
-export function getGroupStatePalette(tide: Tide, group: string){
+export function getGroupStatePalette(tide: Tide, group: string) {
   const s = getGroupState(tide, group);
-  if(!s) return null;
+  if (!s) return null;
   const p = GROUP_STATE_PALETTE[s];
   return { state: s, ...p };
 }
@@ -196,6 +280,8 @@ export function uniqGroups(list: readonly string[]): string[] {
 // Tellen per state (per tide)
 export function countByState(tide: Tide, state: GroupState): number {
   const s = loadGroupStates();
-  return Object.values((s[tide] as Record<string, GroupState>)).filter(v => v === state).length;
+  return Object.values(s[tide] as Record<string, GroupState>).filter(
+    (v) => v === state,
+  ).length;
 }
 // Re-export: één bron van waarheid voor groepslijsten

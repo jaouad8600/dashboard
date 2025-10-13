@@ -7,7 +7,7 @@ export async function GET() {
   let items: string[] = [];
   try {
     const all = await fs.readdir(base);
-    items = all.filter(f => f.endsWith(".docx") || f.endsWith(".html"));
+    items = all.filter((f) => f.endsWith(".docx") || f.endsWith(".html"));
   } catch {}
   return NextResponse.json({ files: items });
 }

@@ -42,14 +42,18 @@ export function removeGroup(groupId: string): Group[] {
 /** Hernoem een groep */
 export function renameGroup(groupId: string, newName: string): Group[] {
   const updated = getGroups().map((g) =>
-    g.id === groupId ? { ...g, name: newName } : g
+    g.id === groupId ? { ...g, name: newName } : g,
   );
   saveGroups(updated);
   return updated;
 }
 
 /** Voeg een notitie toe aan een groep */
-export function addNote(groupId: string, text: string, author?: string): Group[] {
+export function addNote(
+  groupId: string,
+  text: string,
+  author?: string,
+): Group[] {
   const updated = getGroups().map((g) => {
     if (g.id === groupId) {
       const newNote: Note = {
@@ -68,13 +72,17 @@ export function addNote(groupId: string, text: string, author?: string): Group[]
 }
 
 /** Bewerk een notitie */
-export function editNote(groupId: string, noteId: string, text: string): Group[] {
+export function editNote(
+  groupId: string,
+  noteId: string,
+  text: string,
+): Group[] {
   const updated = getGroups().map((g) => {
     if (g.id === groupId) {
       return {
         ...g,
         notes: (g.notes || []).map((n) =>
-          n.id === noteId ? { ...n, text } : n
+          n.id === noteId ? { ...n, text } : n,
         ),
       };
     }
@@ -106,7 +114,7 @@ export function toggleNoteStar(groupId: string, noteId: string): Group[] {
       return {
         ...g,
         notes: (g.notes || []).map((n) =>
-          n.id === noteId ? { ...n, starred: !n.starred } : n
+          n.id === noteId ? { ...n, starred: !n.starred } : n,
         ),
       };
     }

@@ -6,7 +6,10 @@ type DocItem = { title: string; file: string };
 
 // Voeg hier je .docx-bestanden toe (liggen in /public/indicaties)
 const DOCS: DocItem[] = [
-  { title: "Tidiane Kamara – Aanmelding geïndiceerde activiteiten", file: "Tidiane-Kamara-aanvraag.docx" },
+  {
+    title: "Tidiane Kamara – Aanmelding geïndiceerde activiteiten",
+    file: "Tidiane-Kamara-aanvraag.docx",
+  },
   // { title: "Voorbeeld 2", file: "voorbeeld-2.docx" },
 ];
 
@@ -21,7 +24,7 @@ export default function IndicatieSportPage() {
       includeDefaultStyleMap: true,
       convertImage: mammothImageConverter,
     }),
-    []
+    [],
   );
 
   useEffect(() => {
@@ -40,7 +43,9 @@ export default function IndicatieSportPage() {
 
       const res = await fetch(`/indicaties/${encodeURIComponent(filename)}`);
       if (!res.ok) {
-        throw new Error(`Kon /indicaties/${filename} niet laden (HTTP ${res.status}).`);
+        throw new Error(
+          `Kon /indicaties/${filename} niet laden (HTTP ${res.status}).`,
+        );
       }
       const arrayBuffer = await res.arrayBuffer();
 

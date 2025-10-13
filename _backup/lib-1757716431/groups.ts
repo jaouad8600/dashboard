@@ -1,10 +1,25 @@
 export const GROUPS = [
-  "Poel A","Poel B","Lier","Zijl","Nes","Vliet",
-  "Gaag","Kust","Golf","Zift","Lei","Kade","Kreek",
-  "Duin","Rak","Bron","Eb","Vloed"
+  "Poel A",
+  "Poel B",
+  "Lier",
+  "Zijl",
+  "Nes",
+  "Vliet",
+  "Gaag",
+  "Kust",
+  "Golf",
+  "Zift",
+  "Lei",
+  "Kade",
+  "Kreek",
+  "Duin",
+  "Rak",
+  "Bron",
+  "Eb",
+  "Vloed",
 ] as const;
 
-export type GroupName = typeof GROUPS[number];
+export type GroupName = (typeof GROUPS)[number];
 
 export function allGroups(): string[] {
   return [...GROUPS];
@@ -15,8 +30,21 @@ export function ensureGroupsInLocalStorage() {
   if (typeof window === "undefined") return;
   const KEY = "groups";
   const FALLBACK = [
-    "Poel","Lier","Zijl","Nes","Vliet","Gaag","Kust","Golf",
-    "Zift","Lei","Kade","Kreek","Duin","Rak","Bron",
+    "Poel",
+    "Lier",
+    "Zijl",
+    "Nes",
+    "Vliet",
+    "Gaag",
+    "Kust",
+    "Golf",
+    "Zift",
+    "Lei",
+    "Kade",
+    "Kreek",
+    "Duin",
+    "Rak",
+    "Bron",
   ];
   const raw = localStorage.getItem(KEY);
   if (!raw) {

@@ -1,7 +1,13 @@
 "use client";
 import { useState } from "react";
 
-export default function FilterBar({ placeholder, onChange }: { placeholder: string; onChange: (q: string) => void }) {
+export default function FilterBar({
+  placeholder,
+  onChange,
+}: {
+  placeholder: string;
+  onChange: (q: string) => void;
+}) {
   const [query, setQuery] = useState("");
   return (
     <div className="mb-4 flex items-center gap-2">

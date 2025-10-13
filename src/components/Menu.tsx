@@ -4,7 +4,7 @@ const menuItems = [
     items: [
       {
         icon: "/home.png",
-        label: "Home",
+        label: "Start",
         href: "/",
         visible: ["admin", "teacher", "student", "parent"],
       },
@@ -70,7 +70,7 @@ const menuItems = [
       },
       {
         icon: "/calendar.png",
-        label: "Events",
+        label: "Afspraken",
         href: "/list/events",
         visible: ["admin", "teacher", "student", "parent"],
       },
@@ -93,19 +93,19 @@ const menuItems = [
     items: [
       {
         icon: "/profile.png",
-        label: "Profile",
+        label: "Profiel",
         href: "/profile",
         visible: ["admin", "teacher", "student", "parent"],
       },
       {
         icon: "/setting.png",
-        label: "Settings",
+        label: "Instellingen",
         href: "/settings",
         visible: ["admin", "teacher", "student", "parent"],
       },
       {
         icon: "/logout.png",
-        label: "Logout",
+        label: "Uitloggen",
         href: "/logout",
         visible: ["admin", "teacher", "student", "parent"],
       },

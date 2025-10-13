@@ -1,8 +1,10 @@
-'use client';
-import { useEffect, useState, type ReactNode } from 'react';
+"use client";
+import { useEffect, useState, type ReactNode } from "react";
 export default function ClientOnly({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   if (!mounted) return <div data-client-only />;
   return <>{children}</>;
 }

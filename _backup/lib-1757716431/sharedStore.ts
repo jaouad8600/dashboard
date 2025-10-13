@@ -6,9 +6,9 @@ const KEY = "sportdashDB";
 function seedGroups(): Group[] {
   // Vul hier later echte SharePoint namen in; voorlopig 12 groepen
   return Array.from({ length: 12 }, (_, i) => ({
-    id: `g${i+1}`,
-    name: `Groep ${i+1}`,
-    state: "Groen" as const
+    id: `g${i + 1}`,
+    name: `Groep ${i + 1}`,
+    state: "Groen" as const,
   }));
 }
 
@@ -41,7 +41,9 @@ export function writeDB(updater: (prev: DB) => DB): DB {
   next.lastUpdated = Date.now();
   localStorage.setItem(KEY, JSON.stringify(next));
   // sync tussen tabs & in-tab
-  window.dispatchEvent(new StorageEvent("storage", { key: KEY, newValue: JSON.stringify(next) }));
+  window.dispatchEvent(
+    new StorageEvent("storage", { key: KEY, newValue: JSON.stringify(next) }),
+  );
   window.dispatchEvent(new CustomEvent("sportdash:db", { detail: next }));
   return next;
 }
@@ -49,7 +51,9 @@ export function writeDB(updater: (prev: DB) => DB): DB {
 // Hook met live updates (storage events + periodic sanity poll)
 import { useEffect, useState } from "react";
 export function useDB() {
-  const [db, setDb] = useState<DB>(() => (typeof window === "undefined" ? defaultDB() : readDB()));
+  const [db, setDb] = useState<DB>(() =>
+    typeof window === "undefined" ? defaultDB() : readDB(),
+  );
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {

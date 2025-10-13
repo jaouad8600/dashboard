@@ -3,9 +3,24 @@
 import { useEffect, useState } from "react";
 
 const DEFAULT_GROUPS = [
-  "Poel A","Poel B","Lier","Zijl","Nes","Vliet",
-  "Gaag","Kust","Golf","Zift","Lei","Kade","Kreek",
-  "Duin","Rak","Bron","Eb","Vloed"
+  "Poel A",
+  "Poel B",
+  "Lier",
+  "Zijl",
+  "Nes",
+  "Vliet",
+  "Gaag",
+  "Kust",
+  "Golf",
+  "Zift",
+  "Lei",
+  "Kade",
+  "Kreek",
+  "Duin",
+  "Rak",
+  "Bron",
+  "Eb",
+  "Vloed",
 ];
 
 export default function MigratieToolsPage() {
@@ -16,28 +31,44 @@ export default function MigratieToolsPage() {
     try {
       const ks = Object.keys(localStorage).sort();
       setKeys(ks);
-      setPreview(ks.map(k => `${k}: ${(localStorage.getItem(k) ?? "").slice(0,120)}${(localStorage.getItem(k)?.length||0)>120?"…":""}`).join("\n"));
+      setPreview(
+        ks
+          .map(
+            (k) =>
+              `${k}: ${(localStorage.getItem(k) ?? "").slice(0, 120)}${(localStorage.getItem(k)?.length || 0) > 120 ? "…" : ""}`,
+          )
+          .join("\n"),
+      );
     } catch {
       setKeys([]);
-      setPreview("localStorage niet beschikbaar (moet client-side in browser).");
+      setPreview(
+        "localStorage niet beschikbaar (moet client-side in browser).",
+      );
     }
   };
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    refresh();
+  }, []);
 
   function migrateOverdrachten() {
-    const candidates = ["overdrachten","overdracht","handover"];
+    const candidates = ["overdrachten", "overdracht", "handover"];
     let src: string | null = null;
     for (const k of candidates) {
       const v = localStorage.getItem(k);
-      if (v) { src = v; break; }
+      if (v) {
+        src = v;
+        break;
+      }
     }
     if (src) {
       localStorage.setItem("overdrachten", src);
       alert("✅ Overdrachten gemigreerd naar key 'overdrachten'.");
       refresh();
     } else {
-      alert("⚠️ Geen brondata gevonden voor overdrachten (overdrachten/overdracht/handover).");
+      alert(
+        "⚠️ Geen brondata gevonden voor overdrachten (overdrachten/overdracht/handover).",
+      );
     }
   }
 
@@ -48,14 +79,17 @@ export default function MigratieToolsPage() {
   }
 
   function exportAll() {
-    const dump: Record<string,string|null> = {};
+    const dump: Record<string, string | null> = {};
     for (const k of Object.keys(localStorage)) {
       dump[k] = localStorage.getItem(k);
     }
-    const blob = new Blob([JSON.stringify(dump,null,2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(dump, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "localStorage-backup.json";
+    a.href = url;
+    a.download = "localStorage-backup.json";
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -66,14 +100,17 @@ export default function MigratieToolsPage() {
     const r = new FileReader();
     r.onload = () => {
       try {
-        const data = JSON.parse(String(r.result||"{}")) as Record<string,string|null>;
-        Object.entries(data).forEach(([k,v]) => {
+        const data = JSON.parse(String(r.result || "{}")) as Record<
+          string,
+          string | null
+        >;
+        Object.entries(data).forEach(([k, v]) => {
           if (v === null) localStorage.removeItem(k);
           else localStorage.setItem(k, v);
         });
         alert("✅ Import klaar.");
         refresh();
-      } catch (e:any) {
+      } catch (e: any) {
         alert("Import fout: " + (e?.message || e));
       }
     };
@@ -86,13 +123,29 @@ export default function MigratieToolsPage() {
       <h1 className="text-2xl font-bold">Tools · Migratie & Back-up</h1>
 
       <div className="flex gap-2 flex-wrap">
-        <button className="rounded-lg border px-3 py-2" onClick={refresh}>Ververs</button>
-        <button className="rounded-lg border px-3 py-2" onClick={migrateOverdrachten}>Migreer Overdrachten</button>
-        <button className="rounded-lg border px-3 py-2" onClick={seedGroups}>Seed Groepen</button>
-        <button className="rounded-lg border px-3 py-2" onClick={exportAll}>Exporteer alle localStorage</button>
+        <button className="rounded-lg border px-3 py-2" onClick={refresh}>
+          Ververs
+        </button>
+        <button
+          className="rounded-lg border px-3 py-2"
+          onClick={migrateOverdrachten}
+        >
+          Migreer Overdrachten
+        </button>
+        <button className="rounded-lg border px-3 py-2" onClick={seedGroups}>
+          Seed Groepen
+        </button>
+        <button className="rounded-lg border px-3 py-2" onClick={exportAll}>
+          Exporteer alle localStorage
+        </button>
         <label className="rounded-lg border px-3 py-2 cursor-pointer">
           Import JSON
-          <input type="file" accept="application/json" className="hidden" onChange={importAll} />
+          <input
+            type="file"
+            accept="application/json"
+            className="hidden"
+            onChange={importAll}
+          />
         </label>
       </div>
 

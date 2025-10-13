@@ -19,7 +19,9 @@ export default function ExtraSportPage() {
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   useEffect(() => {
     setGroups(getGroupsForExtra());
     setCounts(getCounts(week));
@@ -29,7 +31,7 @@ export default function ExtraSportPage() {
 
   const total = useMemo(
     () => Object.values(counts).reduce((a, b) => a + (Number(b) || 0), 0),
-    [counts]
+    [counts],
   );
 
   const prev = () => setWeek((w) => shiftWeek(w, -1));
@@ -42,9 +44,21 @@ export default function ExtraSportPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Extra sportmomenten</h1>
         <div className="flex items-center gap-2">
-          <button onClick={prev} className="rounded-lg border px-3 py-1 text-sm">← Vorige week</button>
-          <div className="px-3 py-1 text-sm rounded-lg border bg-white">{week}</div>
-          <button onClick={next} className="rounded-lg border px-3 py-1 text-sm">Volgende week →</button>
+          <button
+            onClick={prev}
+            className="rounded-lg border px-3 py-1 text-sm"
+          >
+            ← Vorige week
+          </button>
+          <div className="px-3 py-1 text-sm rounded-lg border bg-white">
+            {week}
+          </div>
+          <button
+            onClick={next}
+            className="rounded-lg border px-3 py-1 text-sm"
+          >
+            Volgende week →
+          </button>
         </div>
       </div>
 
@@ -121,7 +135,8 @@ export default function ExtraSportPage() {
       </div>
 
       <p className="text-xs text-zinc-500">
-        Opslag: lokaal in je browser (key <code>extraSport</code>). Back-up via <b>Back-up / Herstel</b>.
+        Opslag: lokaal in je browser (key <code>extraSport</code>). Back-up via{" "}
+        <b>Back-up / Herstel</b>.
       </p>
     </div>
   );

@@ -1,4 +1,1 @@
-export const GROEPEN_BLACKLIST = new Set<string>([
-  "Eb",
-  "Vloed",
-]);
+export const GROEPEN_BLACKLIST = new Set<string>(["Eb", "Vloed"]);

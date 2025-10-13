@@ -4,14 +4,27 @@ import path from "node:path";
 const DB_PATH = path.join(process.cwd(), "data", "app-data.json");
 
 export type Kleur = "GREEN" | "YELLOW" | "ORANGE" | "RED";
-export type Note = { id: string; tekst: string; auteur?: string; createdAt: string };
-export type Groep = { id: string; naam: string; afdeling?: "EB" | "VLOED"; kleur: Kleur; notities: Note[] };
+export type Note = {
+  id: string;
+  tekst: string;
+  auteur?: string;
+  createdAt: string;
+};
+export type Groep = {
+  id: string;
+  naam: string;
+  afdeling?: "EB" | "VLOED";
+  kleur: Kleur;
+  notities: Note[];
+};
 
 export type DB = {
   groepen: { list: Groep[] };
   mutaties: any[];
   indicaties: any[];
-  planning: { today: Array<{ tijd?: string; titel?: string; locatie?: string }> };
+  planning: {
+    today: Array<{ tijd?: string; titel?: string; locatie?: string }>;
+  };
 };
 
 export async function readDB(): Promise<DB> {
@@ -20,7 +33,12 @@ export async function readDB(): Promise<DB> {
     return JSON.parse(raw) as DB;
   } catch (e: any) {
     if (e?.code === "ENOENT") {
-      const seed: DB = { groepen: { list: [] }, mutaties: [], indicaties: [], planning: { today: [] } };
+      const seed: DB = {
+        groepen: { list: [] },
+        mutaties: [],
+        indicaties: [],
+        planning: { today: [] },
+      };
       await writeDB(seed);
       return seed;
     }

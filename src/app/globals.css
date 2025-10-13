@@ -6,26 +6,39 @@
 :root {
   --brand: 16 185 129; /* emerald-500 */
   --brand-600: 5 150 105; /* emerald-600 */
-  --brand-700: 4 120 87;  /* emerald-700 */
+  --brand-700: 4 120 87; /* emerald-700 */
 }
 
 /* Globale button-styling (alle knoppen groen) */
-button, .btn {
+button,
+.btn {
   @apply inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium bg-emerald-600 text-white shadow-sm;
 }
-button:hover, .btn:hover { @apply bg-emerald-700; }
-button:disabled, .btn:disabled { @apply opacity-50 cursor-not-allowed; }
+button:hover,
+.btn:hover {
+  @apply bg-emerald-700;
+}
+button:disabled,
+.btn:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
 
 /* Subtle card + titel */
-.page-wrap { @apply p-6 space-y-6; }
+.page-wrap {
+  @apply p-6 space-y-6;
+}
 .page-title {
   @apply text-2xl font-bold;
   letter-spacing: -0.01em;
 }
-.page-sub { @apply text-sm text-zinc-500; }
+.page-sub {
+  @apply text-sm text-zinc-500;
+}
 
 /* Chips (kleuren-selector op groepen) – laten eigen kleur zien */
-.chip { @apply px-2 py-1 rounded text-xs border shadow-sm bg-white; }
+.chip {
+  @apply px-2 py-1 rounded text-xs border shadow-sm bg-white;
+}
 
 /* Extra huisstijl Teylingereind */
 .btn-green {
@@ -33,6 +46,39 @@ button:disabled, .btn:disabled { @apply opacity-50 cursor-not-allowed; }
 }
 
 /* Overdrachten stijl */
-textarea, input {
+textarea,
+input {
   @apply focus:ring-2 focus:ring-green-700 outline-none;
+}
+
+/* === Design layer: buttons & badges === */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply bg-emerald-600 hover:bg-emerald-700;
+  }
+  .btn-secondary {
+    @apply bg-slate-700 hover:bg-slate-800;
+  }
+  .btn-ghost {
+    @apply bg-transparent text-slate-700 hover:bg-slate-100 border border-slate-200;
+  }
+  .btn-danger {
+    @apply bg-rose-600 hover:bg-rose-700;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 h-6 rounded-full text-xs font-medium;
+  }
+  .badge-green {
+    @apply bg-emerald-50 text-emerald-700 border border-emerald-200;
+  }
+  .badge-indigo {
+    @apply bg-indigo-50 text-indigo-700 border border-indigo-200;
+  }
+  .badge-muted {
+    @apply bg-slate-100 text-slate-600 border border-slate-200;
+  }
 }

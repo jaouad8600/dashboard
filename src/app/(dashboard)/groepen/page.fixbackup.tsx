@@ -28,7 +28,9 @@ export default function GroepenPage() {
           ))}
         </ul>
       ) : (
-        <p className="text-gray-500">Geen groepen gevonden of verkeerde data.</p>
+        <p className="text-gray-500">
+          Geen groepen gevonden of verkeerde data.
+        </p>
       )}
     </div>
   );

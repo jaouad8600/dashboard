@@ -7,7 +7,7 @@ export type Mutatie = {
   id: string;
   titel: string;
   beschrijving?: string;
-  datumISO: string;      // volledige ISO (UTC)
+  datumISO: string; // volledige ISO (UTC)
   type: MutatieType;
   status: MutatieStatus;
   groep?: string;
@@ -17,8 +17,9 @@ export type Mutatie = {
 export type SportMutatie = Mutatie;
 
 function uid(prefix = "m") {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,8)}`;
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto)
+    return crypto.randomUUID();
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 // Leeg starten om SSR/CSR mismatch te voorkomen
@@ -27,11 +28,19 @@ const DEFAULTS: Mutatie[] = [];
 const store = createLiveStore<Mutatie[]>("mutaties:v2", DEFAULTS);
 
 // Queries
-export function listMutaties(): Mutatie[] { return store.get(); }
-export function onMutatiesChange(cb: () => void) { return store.subscribe(cb); }
+export function listMutaties(): Mutatie[] {
+  return store.get();
+}
+export function onMutatiesChange(cb: () => void) {
+  return store.subscribe(cb);
+}
 
 // Commands
-export function createMutatie(input: Omit<Mutatie, "id" | "datumISO" | "status"> & { status?: MutatieStatus }) {
+export function createMutatie(
+  input: Omit<Mutatie, "id" | "datumISO" | "status"> & {
+    status?: MutatieStatus;
+  },
+) {
   const m: Mutatie = {
     id: uid(),
     datumISO: new Date().toISOString(),
@@ -42,11 +51,18 @@ export function createMutatie(input: Omit<Mutatie, "id" | "datumISO" | "status">
   return m;
 }
 
-export function patchMutatie(id: string, patch: Partial<Omit<Mutatie, "id" | "datumISO">>) {
+export function patchMutatie(
+  id: string,
+  patch: Partial<Omit<Mutatie, "id" | "datumISO">>,
+) {
   store.set((arr) => arr.map((m) => (m.id === id ? { ...m, ...patch } : m)));
 }
 export function deleteMutatie(id: string) {
   store.set((arr) => arr.filter((m) => m.id !== id));
 }
-export function setStatus(id: string, status: MutatieStatus) { patchMutatie(id, { status }); }
-export function setType(id: string, type: MutatieType) { patchMutatie(id, { type }); }
+export function setStatus(id: string, status: MutatieStatus) {
+  patchMutatie(id, { status });
+}
+export function setType(id: string, type: MutatieType) {
+  patchMutatie(id, { type });
+}

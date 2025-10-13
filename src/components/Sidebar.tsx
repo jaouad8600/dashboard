@@ -1,46 +1,71 @@
 "use client";
-import Image from "next/image";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-
-const NAV = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/groepen", label: "Groepen" },
-  { href: "/mutaties", label: "Mutaties" },
-  { href: "/overdrachten", label: "Overdrachten" },
-  { href: "/kalender", label: "Kalender" },
-  { href: "/inventaris", label: "Inventaris" },
-  { href: "/indicaties", label: "Indicaties" },
-];
 
 export default function Sidebar() {
-  const pathname = usePathname();
+  const [open, setOpen] = useState(true);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebar-open");
+    if (saved !== null) setOpen(saved === "1");
+  }, []);
+
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    localStorage.setItem("sidebar-open", next ? "1" : "0");
+  };
+
   return (
-    <aside className="hidden md:flex md:w-64 md:flex-col border-r bg-white">
-      <div className="p-4 flex items-center gap-3 border-b">
-        <Image src="/teylingereind-logo.svg" width={32} height={32} alt="Teylingereind" />
-        <div>
-          <div className="font-semibold">Sport & Activiteiten</div>
-          <div className="text-xs text-zinc-500 -mt-0.5">Teylingereind</div>
-        </div>
+    <aside
+      className={`h-screen border-r transition-all ${open ? "w-64" : "w-16"} sticky top-0`}
+    >
+      <div className="p-2 flex items-center justify-between">
+        <span
+          className={`font-semibold ${open ? "opacity-100" : "opacity-0"} transition-opacity`}
+        >
+          Menu
+        </span>
+        <button
+          aria-label="Toggle sidebar"
+          onClick={toggle}
+          className="w-8 h-8 rounded hover:bg-gray-100"
+          title={open ? "Inklappen" : "Uitklappen"}
+        >
+          {open ? "«" : "»"}
+        </button>
       </div>
-      <nav className="p-2 space-y-1">
-        {NAV.map(item => {
-          const active = pathname?.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`block px-3 py-2 rounded-md text-sm font-medium
-                ${active ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "text-zinc-700 hover:bg-zinc-50"}
-              `}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
+
+      <nav className="mt-2 space-y-1">
+        <Link
+          className="block px-3 py-2 hover:bg-gray-100 rounded"
+          href="/dashboard"
+          title="Dashboard"
+        >
+          {open ? "Dashboard" : "D"}
+        </Link>
+        <Link
+          className="block px-3 py-2 hover:bg-gray-100 rounded"
+          href="/groepen"
+          title="Groepen"
+        >
+          {open ? "Groepen" : "G"}
+        </Link>
+        <Link
+          className="block px-3 py-2 hover:bg-gray-100 rounded"
+          href="/kalender"
+          title="Kalender"
+        >
+          {open ? "Kalender" : "K"}
+        </Link>
+        <Link
+          className="block px-3 py-2 hover:bg-gray-100 rounded"
+          href="/mutaties"
+          title="Mutaties"
+        >
+          {open ? "Mutaties" : "M"}
+        </Link>
       </nav>
-      <div className="mt-auto p-3 text-xs text-zinc-400 border-t">v0.1 demo</div>
     </aside>
   );
 }

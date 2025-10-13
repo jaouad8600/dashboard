@@ -49,7 +49,7 @@ export function addNote(groupId: string, note: string) {
   if (typeof window === "undefined") return;
   const groups = loadGroups();
   const updated = groups.map((g) =>
-    g.id === groupId ? { ...g, notes: [...g.notes, note] } : g
+    g.id === groupId ? { ...g, notes: [...g.notes, note] } : g,
   );
   localStorage.setItem("groups", JSON.stringify(updated));
   return updated;
@@ -62,7 +62,7 @@ export function removeNote(groupId: string, noteIndex: number) {
   const updated = groups.map((g) =>
     g.id === groupId
       ? { ...g, notes: g.notes.filter((_, i) => i !== noteIndex) }
-      : g
+      : g,
   );
   localStorage.setItem("groups", JSON.stringify(updated));
   return updated;

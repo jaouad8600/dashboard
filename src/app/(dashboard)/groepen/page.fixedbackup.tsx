@@ -13,14 +13,13 @@ export default function GroepenPage() {
 
   const groepen = useMemo(() => {
     // Sommige API's sturen { data: [...] }, anderen gewoon [...]
-    const list =
-      Array.isArray(data)
-        ? data
-        : Array.isArray(data?.data)
+    const list = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.data)
         ? data.data
         : data?.groepen?.list
-        ? data.groepen.list
-        : [];
+          ? data.groepen.list
+          : [];
 
     return list.map((g: any, i: number) => ({
       id: g.id ?? i,

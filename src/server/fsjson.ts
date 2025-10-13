@@ -1,6 +1,6 @@
-import 'server-only';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import "server-only";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 
 const ROOT = process.cwd();
 

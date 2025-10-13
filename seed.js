@@ -5,7 +5,7 @@ const dump = {
   groups: [
     { id: "eb", name: "Eb", status: "groen" },
     { id: "vloed", name: "Vloed", status: "rood" },
-    { id: "poel", name: "Poel", status: "groen" }
+    { id: "poel", name: "Poel", status: "groen" },
   ],
   indicaties: [],
   sportmutaties: [],

@@ -26,7 +26,7 @@ export default function Groepen() {
     <div>
       <h1>Groepen</h1>
       <ul>
-        {groups.map(g => (
+        {groups.map((g) => (
           <li key={g.id}>
             {g.name} ({g.state})
           </li>

@@ -7,5 +7,5 @@ export default {
     "./src/components/**/*.{ts,tsx,js,jsx}",
   ],
   theme: { extend: {} },
-    plugins: [],
+  plugins: [],
 } satisfies Config;

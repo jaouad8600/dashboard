@@ -71,9 +71,14 @@ export default function GroupNotes({ groupId }: { groupId: string }) {
             >
               <button
                 className={`mt-0.5 text-xs rounded px-2 py-1 border ${
-                  n.pinned ? "bg-yellow-100 border-yellow-300" : "border-zinc-200"
+                  n.pinned
+                    ? "bg-yellow-100 border-yellow-300"
+                    : "border-zinc-200"
                 }`}
-                onClick={() => { togglePin(groupId, n.id); setNotes(getNotes(groupId)); }}
+                onClick={() => {
+                  togglePin(groupId, n.id);
+                  setNotes(getNotes(groupId));
+                }}
                 title={n.pinned ? "Losmaken" : "Vastzetten"}
               >
                 📌
@@ -86,7 +91,10 @@ export default function GroupNotes({ groupId }: { groupId: string }) {
               </div>
               <button
                 className="text-[11px] text-red-600 hover:underline"
-                onClick={() => { deleteNote(groupId, n.id); setNotes(getNotes(groupId)); }}
+                onClick={() => {
+                  deleteNote(groupId, n.id);
+                  setNotes(getNotes(groupId));
+                }}
               >
                 Verwijderen
               </button>

@@ -12,6 +12,6 @@ export type Group = {
   id: string;
   name: string;
   state: GroupState;
-  note?: string;    // laatste notitie tekst (samenvatting)
-  notes?: Note[];   // volledige notitielijst
+  note?: string; // laatste notitie tekst (samenvatting)
+  notes?: Note[]; // volledige notitielijst
 };

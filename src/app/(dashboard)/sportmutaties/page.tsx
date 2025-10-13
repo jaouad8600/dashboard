@@ -12,7 +12,7 @@ type Mutatie = {
   createdAt: string;
 };
 
-const STATI: Mutatie["status"][] = ["Open","In behandeling","Afgerond"];
+const STATI: Mutatie["status"][] = ["Open", "In behandeling", "Afgerond"];
 
 export default function SportmutatiesPage() {
   const [rows, setRows] = useState<Mutatie[]>([]);
@@ -22,23 +22,27 @@ export default function SportmutatiesPage() {
 
   async function load() {
     setLoading(true);
-    const r = await fetch(`/api/mutaties?t=${Date.now()}`, { cache: "no-store" });
+    const r = await fetch(`/api/mutaties?t=${Date.now()}`, {
+      cache: "no-store",
+    });
     const data = await r.json();
     setRows(Array.isArray(data) ? data : []);
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const filtered = useMemo(() => {
     const s = q.toLowerCase();
-    return rows.filter(r =>
-      (flt === "Alle" || r.status === flt) &&
-      (!s ||
-        r.titel.toLowerCase().includes(s) ||
-        (r.omschrijving ?? "").toLowerCase().includes(s) ||
-        (r.categorie ?? "").toLowerCase().includes(s) ||
-        (r.auteur ?? "").toLowerCase().includes(s)
-      )
+    return rows.filter(
+      (r) =>
+        (flt === "Alle" || r.status === flt) &&
+        (!s ||
+          r.titel.toLowerCase().includes(s) ||
+          (r.omschrijving ?? "").toLowerCase().includes(s) ||
+          (r.categorie ?? "").toLowerCase().includes(s) ||
+          (r.auteur ?? "").toLowerCase().includes(s)),
     );
   }, [rows, q, flt]);
 
@@ -53,13 +57,21 @@ export default function SportmutatiesPage() {
       datumISO: form.datumISO.value || undefined,
       status: form.status.value as Mutatie["status"],
     };
-    await fetch("/api/mutaties", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    await fetch("/api/mutaties", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
     form.reset();
     await load();
   }
 
   async function setStatus(id: string, status: Mutatie["status"]) {
-    await fetch(`/api/mutaties/${id}`, { method: "PATCH", headers: { "Content-Type":"application/json" }, body: JSON.stringify({ status }) });
+    await fetch(`/api/mutaties/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
     await load();
   }
 
@@ -73,27 +85,68 @@ export default function SportmutatiesPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Sportmutaties</h1>
-          <p className="text-sm text-zinc-500">Blijvend opgeslagen op schijf (data/mutaties.json).</p>
+          <p className="text-sm text-zinc-500">
+            Blijvend opgeslagen op schijf (data/mutaties.json).
+          </p>
         </div>
         <div className="hidden md:flex items-center gap-2">
-          {(["Alle", ...STATI] as const).map(s => (
-            <button key={s} onClick={()=>setFlt(s as any)} className={`rounded-full border px-3 py-1 text-sm ${flt===s?"bg-black text-white":"bg-white hover:bg-zinc-50"}`}>{s}</button>
+          {(["Alle", ...STATI] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setFlt(s as any)}
+              className={`rounded-full border px-3 py-1 text-sm ${flt === s ? "bg-black text-white" : "bg-white hover:bg-zinc-50"}`}
+            >
+              {s}
+            </button>
           ))}
-          <input value={q} onChange={e=>setQ(e.target.value)} className="rounded-lg border p-2 w-56" placeholder="Zoek titel / auteur / cat…" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="rounded-lg border p-2 w-56"
+            placeholder="Zoek titel / auteur / cat…"
+          />
         </div>
       </div>
 
-      <form onSubmit={(e)=>{e.preventDefault(); addMutatie(e.currentTarget as any);}}
-            className="grid grid-cols-1 md:grid-cols-6 gap-2 rounded-2xl border bg-white p-4">
-        <input name="titel" className="rounded-lg border p-2 md:col-span-2" placeholder="Titel *" required />
-        <input name="omschrijving" className="rounded-lg border p-2 md:col-span-2" placeholder="Omschrijving (opt.)" />
-        <input name="auteur" className="rounded-lg border p-2" placeholder="Auteur (opt.)" />
-        <input name="categorie" className="rounded-lg border p-2" placeholder="Categorie (opt.)" />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          addMutatie(e.currentTarget as any);
+        }}
+        className="grid grid-cols-1 md:grid-cols-6 gap-2 rounded-2xl border bg-white p-4"
+      >
+        <input
+          name="titel"
+          className="rounded-lg border p-2 md:col-span-2"
+          placeholder="Titel *"
+          required
+        />
+        <input
+          name="omschrijving"
+          className="rounded-lg border p-2 md:col-span-2"
+          placeholder="Omschrijving (opt.)"
+        />
+        <input
+          name="auteur"
+          className="rounded-lg border p-2"
+          placeholder="Auteur (opt.)"
+        />
+        <input
+          name="categorie"
+          className="rounded-lg border p-2"
+          placeholder="Categorie (opt.)"
+        />
         <input name="datumISO" type="date" className="rounded-lg border p-2" />
         <select name="status" className="rounded-lg border p-2">
-          {STATI.map(s => <option key={s} value={s}>{s}</option>)}
+          {STATI.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
         </select>
-        <button className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50">Toevoegen</button>
+        <button className="rounded-lg border px-3 py-2 text-sm hover:bg-zinc-50">
+          Toevoegen
+        </button>
       </form>
 
       <div className="overflow-x-auto rounded-2xl border bg-white">
@@ -110,29 +163,54 @@ export default function SportmutatiesPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.length===0 && !loading && <tr><td colSpan={7} className="px-4 py-6 text-center text-zinc-500">Geen mutaties.</td></tr>}
-            {loading && <tr><td colSpan={7} className="px-4 py-6 text-center text-zinc-500">Laden…</td></tr>}
-            {!loading && filtered.map(m => (
-              <tr key={m.id} className="border-t">
-                <td className="px-4 py-3 font-medium">{m.titel}</td>
-                <td className="px-4 py-3">
-                  <select value={m.status} onChange={e=>setStatus(m.id, e.target.value as any)} className="rounded-md border px-2 py-1">
-                    {STATI.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </td>
-                <td className="px-4 py-3">{m.auteur ?? "-"}</td>
-                <td className="px-4 py-3">{m.categorie ?? "-"}</td>
-                <td className="px-4 py-3">{m.datumISO}</td>
-                <td className="px-4 py-3">{m.omschrijving ?? "-"}</td>
-                <td className="px-4 py-3 text-right">
-                  <button onClick={()=>remove(m.id)} className="rounded-lg border px-3 py-1 text-sm hover:bg-rose-50">Verwijderen</button>
+            {filtered.length === 0 && !loading && (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-zinc-500">
+                  Geen mutaties.
                 </td>
               </tr>
-            ))}
+            )}
+            {loading && (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-zinc-500">
+                  Laden…
+                </td>
+              </tr>
+            )}
+            {!loading &&
+              filtered.map((m) => (
+                <tr key={m.id} className="border-t">
+                  <td className="px-4 py-3 font-medium">{m.titel}</td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={m.status}
+                      onChange={(e) => setStatus(m.id, e.target.value as any)}
+                      className="rounded-md border px-2 py-1"
+                    >
+                      {STATI.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">{m.auteur ?? "-"}</td>
+                  <td className="px-4 py-3">{m.categorie ?? "-"}</td>
+                  <td className="px-4 py-3">{m.datumISO}</td>
+                  <td className="px-4 py-3">{m.omschrijving ?? "-"}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => remove(m.id)}
+                      className="rounded-lg border px-3 py-1 text-sm hover:bg-rose-50"
+                    >
+                      Verwijderen
+                    </button>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
-
     </div>
   );
 }
