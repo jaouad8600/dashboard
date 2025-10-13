@@ -4,7 +4,11 @@ import { usePathname } from "next/navigation";
 
 const NAV = [
   { href: "/", label: "Dashboard" },
-  { href: "/kalender", label: "Kalender" },
+  { href: "/kalender", label: "Indicaties", href:"/indicaties"},
+    { label:"Inventaris", href:"/inventaris"},
+    { label:"{ label:"Indicaties", href:"/indicaties"},
+    { label:"Inventaris", href:"/inventaris"},
+    Kalender"" },
   { href: "/planner", label: "Planner" },
   { href: "/groepen", label: "Groepen" },
   { href: "/sportmutaties", label: "Sportmutaties" },

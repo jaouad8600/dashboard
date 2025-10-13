@@ -6,7 +6,11 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import nlLocale from '@fullcalendar/core/locales/nl';
 
-export default function KalenderPage() {
+export default function Indicaties", href:"/indicaties"},
+    { label:"Inventaris", href:"/inventaris"},
+    { label:"{ label:"Indicaties", href:"/indicaties"},
+    { label:"Inventaris", href:"/inventaris"},
+    Kalender"Page() {
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">

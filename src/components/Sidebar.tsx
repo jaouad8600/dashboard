@@ -57,7 +57,11 @@ export default function Sidebar() {
         <Link
           className="block px-3 py-2 hover:bg-gray-100 rounded"
           href="/kalender"
-          title="Kalender"
+          title="Indicaties", href:"/indicaties"},
+    { label:"Inventaris", href:"/inventaris"},
+    { label:"{ label:"Indicaties", href:"/indicaties"},
+    { label:"Inventaris", href:"/inventaris"},
+    Kalender""
         >
           {open ? "Kalender" : "K"}
         </Link>

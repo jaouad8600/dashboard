@@ -84,7 +84,11 @@ export default function WidgetDock({ onlyOn = "/admin" }: { onlyOn?: string }) {
               href="/kalender"
               style={{ fontSize: 12, textDecoration: "none", color: "#2563eb" }}
             >
-              Kalender →
+              Indicaties", href:"/indicaties"},
+    { label:"Inventaris", href:"/inventaris"},
+    { label:"{ label:"Indicaties", href:"/indicaties"},
+    { label:"Inventaris", href:"/inventaris"},
+    Kalender" →
             </Link>
           </div>
 

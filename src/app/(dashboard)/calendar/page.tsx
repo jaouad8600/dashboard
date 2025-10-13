@@ -3,7 +3,11 @@
 import CalendarFC from "@/components/CalendarFC";
 import { useState } from "react";
 
-export default function KalenderPage() {
+export default function Indicaties", href:"/indicaties"},
+    { label:"Inventaris", href:"/inventaris"},
+    { label:"{ label:"Indicaties", href:"/indicaties"},
+    { label:"Inventaris", href:"/inventaris"},
+    Kalender"Page() {
   const [tide, setTide] = useState<"eb" | "vloed">("eb");
   return (
     <div className="page">
