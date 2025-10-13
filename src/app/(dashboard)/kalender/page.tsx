@@ -1,145 +1,58 @@
-"use client";
+'use client';
 
-import dynamic from "next/dynamic";
-import { useCallback, useRef } from "react";
-import interactionPlugin from "@fullcalendar/interaction";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
-
-const FullCalendar = dynamic(() => import("@fullcalendar/react"), {
-  ssr: false,
-});
-
-type ApiItem = {
-  id: string;
-  title: string;
-  start: string;
-  end: string;
-  color?: string;
-};
+import React from 'react';
+import FullCalendar from '@fullcalendar/react';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import nlLocale from '@fullcalendar/core/locales/nl';
 
 export default function KalenderPage() {
-  const calendarRef = useRef<any>(null);
-
-  const refetch = useCallback(() => {
-    const api = calendarRef.current?.getApi?.();
-    api?.refetchEvents();
-  }, []);
-
-  async function fetchEvents(
-    info: { startStr: string; endStr: string },
-    successCallback: any,
-    failureCallback: any,
-  ) {
-    try {
-      const res = await fetch(
-        `/api/planning?start=${encodeURIComponent(info.startStr)}&end=${encodeURIComponent(info.endStr)}`,
-      );
-      const data = await res.json();
-      const events = (data.items as ApiItem[]).map((e) => ({
-        id: e.id,
-        title: e.title,
-        start: e.start,
-        end: e.end,
-        color: e.color,
-      }));
-      successCallback(events);
-    } catch (e) {
-      failureCallback(e);
-    }
-  }
-
-  const handleSelect = async (selInfo: any) => {
-    const title = window.prompt("Titel voor sportmoment:", "Sportmoment");
-    if (!title) return;
-    await fetch("/api/planning", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        start: selInfo.startStr,
-        end: selInfo.endStr,
-      }),
-    });
-    refetch();
-  };
-
-  const handleEventClick = async (clickInfo: any) => {
-    const ev = clickInfo.event;
-    const choice = window.prompt(
-      `Bewerk titel of typ "DELETE" om te verwijderen:\nHuidig: ${ev.title}`,
-      ev.title,
-    );
-    if (choice === null) return;
-    if (choice.trim().toUpperCase() === "DELETE") {
-      if (!confirm("Zeker weten verwijderen?")) return;
-      await fetch("/api/planning", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: ev.id }),
-      });
-      refetch();
-      return;
-    }
-    if (choice.trim() !== ev.title) {
-      await fetch("/api/planning", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: ev.id, title: choice.trim() }),
-      });
-      refetch();
-    }
-  };
-
-  const handleChangeTime = async (changeInfo: any) => {
-    const ev = changeInfo.event;
-    await fetch("/api/planning", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: ev.id,
-        start: ev.start.toISOString(),
-        end: ev.end?.toISOString(),
-      }),
-    });
-    refetch();
-  };
-
   return (
-    <div className="p-4">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="p-6 space-y-4">
+      <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Kalender</h1>
         <button
-          className="btn"
-          onClick={() => refetch()}
-          className="px-3 py-2 rounded-lg border hover:bg-gray-50"
+          onClick={() => location.reload()}
+          className="px-3 py-2 rounded-xl bg-gray-900 text-white hover:opacity-90"
         >
           Herladen
         </button>
       </div>
 
       <FullCalendar
-        ref={calendarRef}
-        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+        plugins={[timeGridPlugin, interactionPlugin]}
         initialView="timeGridWeek"
-        headerToolbar={{
-          left: "prev,next today",
-          center: "title",
-          right: "dayGridMonth,timeGridWeek,timeGridDay",
-        }}
-        selectable
-        selectMirror
-        editable
-        droppable={false}
-        eventDurationEditable
-        eventStartEditable
-        events={fetchEvents}
-        select={handleSelect}
-        eventClick={handleEventClick}
-        eventDrop={handleChangeTime}
-        eventResize={handleChangeTime}
-        height="auto"
+        locales={[nlLocale]}
+        locale="nl"
+        firstDay={1}                 // maandag
+        hiddenDays={[0, 6]}          // alleen ma-vr
+        dayHeaderFormat={{ weekday: 'short', day: '2-digit', month: '2-digit' }}
+        slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
+        eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
+        slotMinTime="09:00:00"
+        slotMaxTime="21:30:00"
         slotDuration="00:30:00"
+        allDaySlot={false}
+        nowIndicator={true}
+        height="auto"
+        headerToolbar={{ left: 'prev,next today', center: 'title', right: 'timeGridWeek' }}
+        titleFormat={{ year: 'numeric', month: 'long', day: '2-digit' }}
+        events={async (info, success, failure) => {
+          try {
+            const start = info.startStr.slice(0, 10); // YYYY-MM-DD
+            const res = await fetch(`/api/planning?date=${start}`, { cache: 'no-store' });
+            const data = await res.json();
+            const events = (data.items ?? []).map((it: any) => ({
+              id: it.id,
+              title: it.title || 'Sportmoment',
+              start: it.start,
+              end: it.end,
+            }));
+            success(events);
+          } catch (e) {
+            failure(e as any);
+          }
+        }}
       />
     </div>
   );

@@ -51,8 +51,8 @@ export default function Sidebar() {
         >
           {open ? "Groepen" : "G"}
         </Link>
-        <Link className="btn-ghost" href="/extra-sportmomenten">
-          Extra sportmomenten
+        <Link className="btn-ghost" href="/sportmomenten">
+          Sportmomenten
         </Link>
         <Link
           className="block px-3 py-2 hover:bg-gray-100 rounded"

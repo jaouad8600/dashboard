@@ -24,8 +24,8 @@ export default function ExtraSportmomentenPage() {
     setLoading(true);
     try {
       const [aggRes, listRes] = await Promise.all([
-        fetch("/api/extra-sportmomenten?aggregate=1").then((r) => r.json()),
-        fetch("/api/extra-sportmomenten").then((r) => r.json()),
+        fetch("/api/sportmomenten?aggregate=1").then((r) => r.json()),
+        fetch("/api/sportmomenten").then((r) => r.json()),
       ]);
       setRows(aggRes.rows || []);
       setItems(listRes.items || []);
@@ -44,7 +44,7 @@ export default function ExtraSportmomentenPage() {
     setPosting(groepId);
     setError(null);
     try {
-      const res = await fetch("/api/extra-sportmomenten", {
+      const res = await fetch("/api/sportmomenten", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ groepId }),
@@ -64,7 +64,7 @@ export default function ExtraSportmomentenPage() {
   async function undo(id: string) {
     setError(null);
     const res = await fetch(
-      `/api/extra-sportmomenten?id=${encodeURIComponent(id)}`,
+      `/api/sportmomenten?id=${encodeURIComponent(id)}`,
       {
         method: "DELETE",
       },
@@ -81,7 +81,7 @@ export default function ExtraSportmomentenPage() {
     <div className="p-4 md:p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Extra sportmomenten</h1>
+          <h1 className="text-2xl font-semibold">Sportmomenten</h1>
           <p className="text-sm text-gray-500">
             Turf hoe vaak elke groep een extra sportmoment heeft gehad.
           </p>

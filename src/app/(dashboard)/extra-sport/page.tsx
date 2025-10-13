@@ -42,7 +42,7 @@ export default function ExtraSportPage() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Extra sportmomenten</h1>
+        <h1 className="text-2xl font-bold">Sportmomenten</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={prev}
