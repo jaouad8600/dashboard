@@ -1,102 +1,85 @@
-import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
-import crypto from "crypto";
+import { NextRequest, NextResponse } from 'next/server';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 
-export const dynamic = "force-dynamic";
+const DB_PATH = 'data/app-data.json';
 
-const DB_PATH = path.join(process.cwd(), "data", "app-data.json");
-
-function readDb() {
-  if (!fs.existsSync(DB_PATH))
-    return { groepen: [], planning: { items: [] }, extraSportmomenten: [] };
-  const raw = fs.readFileSync(DB_PATH, "utf8");
-  const db = JSON.parse(raw || "{}");
-  // normaliseer
-  let groepen: any[] = [];
-  if (Array.isArray(db.groepen)) groepen = db.groepen;
-  else if (db.groepen && typeof db.groepen === "object")
-    groepen = Object.values(db.groepen);
-  let extra: any[] = Array.isArray(db.extraSportmomenten)
-    ? db.extraSportmomenten
-    : Array.isArray(db.extra_sportmomenten)
-      ? db.extra_sportmomenten
-      : [];
-  return {
-    ...db,
-    groepen,
-    extraSportmomenten: extra,
-    planning: db.planning || { items: [] },
-  };
+function ensureDb() {
+  if (!existsSync('data')) mkdirSync('data');
+  if (!existsSync(DB_PATH)) {
+    writeFileSync(DB_PATH, JSON.stringify({ groepen: [], planning: { items: [] }, extraSportmomenten: [], notities: {} }, null, 2));
+  }
 }
-
-function writeDb(db: any) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), "utf8");
+function readDb(): any {
+  ensureDb();
+  try {
+    const raw = readFileSync(DB_PATH, 'utf8');
+    const db = JSON.parse(raw || '{}');
+    if (!Array.isArray(db.groepen)) db.groepen = [];
+    if (!Array.isArray(db.extraSportmomenten)) db.extraSportmomenten = [];
+    return db;
+  } catch {
+    return { groepen: [], extraSportmomenten: [] };
+  }
 }
+function writeDb(db: any) { writeFileSync(DB_PATH, JSON.stringify(db, null, 2)); }
+function genId(){ return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+function toYmd(d: string) { return (d||'').slice(0,10); }
 
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const aggregate = url.searchParams.get("aggregate") === "1";
+export async function GET(req: NextRequest) {
   const db = readDb();
+  const { searchParams } = new URL(req.url);
+  const aggregate = searchParams.get('aggregate');
+  const start = searchParams.get('start');
+  const end = searchParams.get('end');
 
-  if (aggregate) {
-    const byGroup: Record<string, number> = {};
-    for (const m of db.extraSportmomenten) {
-      const gid = String(
-        m?.groepId || m?.groupId || m?.groep || m?.group || "",
-      );
-      if (!gid) continue;
-      byGroup[gid] = (byGroup[gid] || 0) + 1;
-    }
-    const groups = Array.isArray(db.groepen) ? db.groepen : [];
-    const rows = groups
-      .map((g: any) => ({
-        groepId: g.id,
-        groepNaam: g.naam || g.name || g.title || g.id,
-        aantal: byGroup[g.id] || 0,
-      }))
-      .sort((a, b) => b.aantal - a.aantal);
+  let items = db.extraSportmomenten || [];
 
-    const totaal = rows.reduce((s, r) => s + r.aantal, 0);
-    return NextResponse.json({ rows, totaal, byGroup });
+  if (start && end) {
+    const s = toYmd(start), e = toYmd(end);
+    items = items.filter((m: any) => {
+      const d = toYmd(m?.datum || '');
+      return d && d >= s && d <= e;
+    });
   }
 
-  // optioneel filter op groepId
-  const groepId = url.searchParams.get("groepId");
-  const items = groepId
-    ? db.extraSportmomenten.filter(
-        (m: any) => String(m.groepId) === String(groepId),
-      )
-    : db.extraSportmomenten;
+  if (!aggregate) {
+    return NextResponse.json({ items });
+  }
 
-  return NextResponse.json({ items });
+  // aggregate (optioneel binnen het filter-interval)
+  const byGroup: Record<string, number> = {};
+  for (const m of items) {
+    if (!m || !m.groepId) continue;
+    byGroup[m.groepId] = (byGroup[m.groepId] || 0) + 1;
+  }
+  const rows = (db.groepen || []).map((g: any) => ({
+    groepId: g.id,
+    groepNaam: g.naam || g.id,
+    aantal: byGroup[g.id] || 0
+  }));
+  return NextResponse.json({ rows });
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => ({}));
+  const { groepId, datum, duurMinuten, reden, gebruiker } = body || {};
+  if (!groepId) return NextResponse.json({ error: 'groepId is verplicht' }, { status: 400 });
   const db = readDb();
-  const body = await req.json().catch(() => ({}) as any);
-  const groepId = String(body?.groepId || body?.groupId || "").trim();
-  if (!groepId)
-    return NextResponse.json(
-      { error: "groepId is verplicht" },
-      { status: 400 },
-    );
-
-  const groepBestaat =
-    Array.isArray(db.groepen) &&
-    db.groepen.some((g: any) => String(g.id) === groepId);
-  if (!groepBestaat)
-    return NextResponse.json({ error: "Groep niet gevonden" }, { status: 404 });
-
-  const item = {
-    id: body.id || crypto.randomUUID(),
-    groepId,
-    datum: body.datum || new Date().toISOString(),
-    duurMinuten: body.duurMinuten ?? 60,
-    reden: body.reden || null,
-    gebruiker: body.gebruiker || null,
-  };
+  const item = { id: genId(), groepId, datum: datum || new Date().toISOString(), duurMinuten: duurMinuten ?? 60, reden, gebruiker };
   db.extraSportmomenten.push(item);
   writeDb(db);
-  return NextResponse.json({ ok: true, item });
+  return NextResponse.json(item, { status: 201 });
+}
+
+// DELETE ?id=...  of body: { id }
+export async function DELETE(req: NextRequest) {
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id') || (await req.json().catch(() => ({}))).id;
+  if (!id) return NextResponse.json({ error: 'id is verplicht' }, { status: 400 });
+  const db = readDb();
+  const before = db.extraSportmomenten.length;
+  db.extraSportmomenten = db.extraSportmomenten.filter((it: any) => it.id !== id);
+  writeDb(db);
+  const deleted = before - db.extraSportmomenten.length;
+  return NextResponse.json({ deleted });
 }

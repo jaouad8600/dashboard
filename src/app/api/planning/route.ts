@@ -1,131 +1,97 @@
-import { NextRequest, NextResponse } from "next/server";
-import { readDB, writeDB, uid } from "../../../lib/db";
+import { NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
+import { parseISO, isValid, addMinutes, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 
-export type SportMoment = {
+const DB_PATH = path.join(process.cwd(), 'data', 'app-data.json');
+
+type PlanningItem = {
   id: string;
-  title: string;
-  start: string; // ISO
-  end: string; // ISO
-  groepId?: string | null;
-  type?: "sportverbod" | "fitness" | "open" | "gesloten" | "pauze" | string;
-  status?: "gepland" | "geannuleerd" | "afgerond" | string;
-  notities?: string;
+  groepId?: string;
+  groupId?: string;
+  title?: string;
+  start: string;
+  end?: string;
+  durationMin?: number;
   color?: string;
 };
 
-function inRange(ev: SportMoment, start?: Date, end?: Date) {
-  if (!start && !end) return true;
-  const s = new Date(ev.start).getTime();
-  const e = new Date(ev.end).getTime();
-  const from = start?.getTime() ?? -Infinity;
-  const to = end?.getTime() ?? Infinity;
-  return s < to && e > from;
+function readDB(){
+  try { return JSON.parse(fs.readFileSync(DB_PATH,'utf8')); }
+  catch { return { groepen: [], planning: { items: [] } }; }
 }
+function writeDB(db:any){ fs.writeFileSync(DB_PATH, JSON.stringify(db,null,2)); }
 
-// GET ?start=ISO&end=ISO  (of ?date=YYYY-MM-DD)
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const date = searchParams.get("date");
-  const startQ = searchParams.get("start");
-  const endQ = searchParams.get("end");
-
-  let start: Date | undefined;
-  let end: Date | undefined;
-
-  if (date) {
-    const d = new Date(date);
-    start = new Date(
-      Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0),
-    );
-    end = new Date(
-      Date.UTC(
-        d.getUTCFullYear(),
-        d.getUTCMonth(),
-        d.getUTCDate() + 1,
-        0,
-        0,
-        0,
-      ),
-    );
-  } else if (startQ || endQ) {
-    if (startQ) start = new Date(startQ);
-    if (endQ) end = new Date(endQ);
+function normalize(items:any[]):PlanningItem[] {
+  const out:PlanningItem[] = [];
+  for (const raw of items||[]) {
+    if(!raw || typeof raw.start!=='string') continue;
+    let s:Date; try { s = parseISO(raw.start); } catch { continue; }
+    if(!isValid(s)) continue;
+    let e:Date|undefined;
+    if (typeof raw.end==='string') {
+      try { const tmp = parseISO(raw.end); if(isValid(tmp)) e = tmp; } catch {}
+    }
+    if(!e) e = addMinutes(s, Number(raw.durationMin||60));
+    out.push({
+      id: String(raw.id || `${s.getTime()}-${Math.random().toString(36).slice(2,8)}`),
+      groepId: raw.groepId || raw.groupId,
+      groupId: raw.groupId || raw.groepId,
+      title: raw.title || 'Sportmoment',
+      start: s.toISOString(),
+      end: e.toISOString(),
+      color: raw.color || raw.kleurHex
+    });
   }
-
-  const db = readDB<any>();
-  const items: SportMoment[] = db.planning?.items ?? [];
-  const filtered = items.filter((ev) => inRange(ev, start, end));
-  return NextResponse.json({ items: filtered });
+  return out;
 }
 
-// CREATE
-export async function POST(req: NextRequest) {
-  const body = await req.json();
-  let { title, start, end, groepId, type, status, notities, color } =
-    body || {};
-  if (!start || !end)
-    return NextResponse.json(
-      { error: "start en end zijn verplicht" },
-      { status: 400 },
-    );
+export async function GET(req: Request){
+  const { searchParams } = new URL(req.url);
+  const dateParam = searchParams.get('date');
+  const db = readDB();
+  db.planning = db.planning || {}; db.planning.items = db.planning.items || [];
+  const normalized = normalize(db.planning.items);
+  if (normalized.length !== db.planning.items.length) { db.planning.items = normalized; writeDB(db); }
+  let items = normalized;
 
-  const db = readDB<any>();
-  const item: SportMoment = {
-    id: uid(),
-    title: title || "Sportmoment",
-    start,
-    end,
-    groepId: groepId ?? null,
-    type,
-    status: status ?? "gepland",
-    notities,
-    color,
+  if (dateParam) {
+    let d:Date; try { d = parseISO(dateParam); } catch { d = new Date(); }
+    if (!isValid(d)) d = new Date();
+    const start = startOfWeek(d, { weekStartsOn: 1 });
+    const end = endOfWeek(d, { weekStartsOn: 1 });
+    items = items.filter(it => {
+      try { return isWithinInterval(parseISO(it.start), { start, end }); }
+      catch { return false; }
+    });
+  }
+  return NextResponse.json({ items });
+}
+
+export async function POST(req: Request){
+  const body = await req.json().catch(()=> ({}));
+  if (!body?.start || typeof body.start !== 'string') {
+    return NextResponse.json({ error: 'start (ISO) verplicht' }, { status: 400 });
+  }
+  let s:Date; try { s = parseISO(body.start); } catch { return NextResponse.json({ error:'Ongeldige start' }, { status:400 }); }
+  if (!isValid(s)) return NextResponse.json({ error:'Ongeldige start' }, { status:400 });
+
+  const e = body.end && typeof body.end==='string' && isValid(parseISO(body.end))
+    ? parseISO(body.end)
+    : addMinutes(s, Number(body.durationMin||60));
+
+  const db = readDB();
+  db.planning = db.planning || {}; db.planning.items = db.planning.items || [];
+  const item:PlanningItem = {
+    id: String(body.id || `${s.getTime()}-${Math.random().toString(36).slice(2,8)}`),
+    groepId: body.groepId || body.groupId,
+    groupId: body.groupId || body.groepId,
+    title: body.title || 'Sportmoment',
+    start: s.toISOString(),
+    end: e.toISOString(),
+    color: body.color || body.kleurHex
   };
-
-  db.planning = db.planning || { items: [] };
-  db.planning.items = db.planning.items || [];
   db.planning.items.push(item);
   writeDB(db);
-
   return NextResponse.json(item, { status: 201 });
-}
-
-// UPDATE (body moet id bevatten)
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
-  const { id, ...rest } = body || {};
-  if (!id)
-    return NextResponse.json({ error: "id is verplicht" }, { status: 400 });
-
-  const db = readDB<any>();
-  const items: SportMoment[] = db.planning?.items ?? [];
-  const idx = items.findIndex((x) => x.id === id);
-  if (idx === -1)
-    return NextResponse.json({ error: "niet gevonden" }, { status: 404 });
-
-  items[idx] = { ...items[idx], ...rest, id };
-  db.planning.items = items;
-  writeDB(db);
-
-  return NextResponse.json(items[idx]);
-}
-
-// DELETE (body: {id})
-export async function DELETE(req: NextRequest) {
-  const body = await req.json();
-  const { id } = body || {};
-  if (!id)
-    return NextResponse.json({ error: "id is verplicht" }, { status: 400 });
-
-  const db = readDB<any>();
-  const items: SportMoment[] = db.planning?.items ?? [];
-  const next = items.filter((x) => x.id !== id);
-  const removed = items.length - next.length;
-
-  db.planning.items = next;
-  writeDB(db);
-
-  if (!removed)
-    return NextResponse.json({ error: "niet gevonden" }, { status: 404 });
-  return NextResponse.json({ ok: true, removed: 1 });
 }
