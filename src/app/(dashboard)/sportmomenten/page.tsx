@@ -1,173 +1,99 @@
-"use client";
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+'use client';
 
-type Row = { groepId: string; groepNaam: string; aantal: number };
-type ExtraItem = {
-  id: string;
-  groepId: string;
-  groepNaam?: string;
-  datum: string;
-  duur: number;
-  notities?: string;
-  createdAt: string;
-};
+import React, { useEffect, useMemo, useState } from 'react';
+import { startOfWeek, addDays, format } from 'date-fns';
+import { nl } from 'date-fns/locale';
 
-export default function ExtraSportmomentenPage() {
-  const [rows, setRows] = useState<Row[]>([]);
-  const [items, setItems] = useState<ExtraItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [posting, setPosting] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+type Group = { id: string; naam?: string; name?: string; title?: string };
 
-  async function refresh() {
-    setLoading(true);
-    try {
-      const [aggRes, listRes] = await Promise.all([
-        fetch("/api/sportmomenten?aggregate=1").then((r) => r.json()),
-        fetch("/api/sportmomenten").then((r) => r.json()),
-      ]);
-      setRows(aggRes.rows || []);
-      setItems(listRes.items || []);
-    } catch (e: any) {
-      setError(e?.message || "Fout bij laden");
-    } finally {
-      setLoading(false);
-    }
+export default function SportmomentenPage() {
+  const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const days = useMemo(() => Array.from({ length: 5 }, (_, i) => addDays(weekStart, i)), [weekStart]);
+
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [items, setItems] = useState<{ groupId: string; date: string }[]>([]);
+  const keySet = useMemo(() => new Set(items.map(i => `${i.groupId}|${i.date}`)), [items]);
+
+  async function load() {
+    const p1 = fetch('/api/groepen', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ groups: [] }));
+    const params = new URLSearchParams({
+      start: format(weekStart, 'yyyy-MM-dd'),
+      end: format(addDays(weekStart, 6), 'yyyy-MM-dd'), // hele week
+    });
+    const p2 = fetch(`/api/sportmomenten?${params}`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({ items: [] }));
+    const [g, sm] = await Promise.all([p1, p2]);
+    setGroups(Array.isArray(g?.groups) ? g.groups : []);
+    setItems(Array.isArray(sm?.items) ? sm.items : []);
   }
 
-  useEffect(() => {
-    refresh();
-  }, []);
+  useEffect(() => { load(); }, [weekStart]);
 
-  async function turf(groepId: string) {
-    setPosting(groepId);
-    setError(null);
-    try {
-      const res = await fetch("/api/sportmomenten", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groepId }),
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || "Kon niet turven");
-      }
-      await refresh();
-    } catch (e: any) {
-      setError(e?.message || "Kon niet turven");
-    } finally {
-      setPosting(null);
-    }
+  async function toggle(groupId: string, d: Date) {
+    const dateStr = format(d, 'yyyy-MM-dd');
+    await fetch('/api/sportmomenten', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId, date: dateStr }),
+    });
+    await load();
   }
 
-  async function undo(id: string) {
-    setError(null);
-    const res = await fetch(
-      `/api/sportmomenten?id=${encodeURIComponent(id)}`,
-      {
-        method: "DELETE",
-      },
-    );
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({}));
-      setError(j.error || "Kon item niet verwijderen");
-    } else {
-      await refresh();
-    }
+  function label(d: Date) {
+    // "ma 14-10"
+    return format(d, 'EEE dd-MM', { locale: nl });
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Sportmomenten</h1>
-          <p className="text-sm text-gray-500">
-            Turf hoe vaak elke groep een extra sportmoment heeft gehad.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Link className="btn-ghost" href="/dashboard">
-            Terug naar dashboard
-          </Link>
+    <div className="p-6 space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">Sportmomenten</h1>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setWeekStart(addDays(weekStart, -7))}
+                  className="px-3 py-2 rounded-xl bg-gray-200 hover:bg-gray-300">Vorige week</button>
+          <button onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}
+                  className="px-3 py-2 rounded-xl bg-gray-900 text-white hover:opacity-90">Deze week</button>
+          <button onClick={() => setWeekStart(addDays(weekStart, 7))}
+                  className="px-3 py-2 rounded-xl bg-gray-200 hover:bg-gray-300">Volgende week</button>
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      <div className="overflow-x-auto rounded-xl border">
-        <table className="min-w-full text-sm">
+      <div className="overflow-auto border rounded-2xl">
+        <table className="min-w-full border-collapse">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-3 py-2 text-left font-medium">Groep</th>
-              <th className="px-3 py-2 text-left font-medium">
-                Extra momenten
-              </th>
-              <th className="px-3 py-2 text-left font-medium">Actie</th>
+              <th className="text-left p-3 border-b w-48">Groep</th>
+              {days.map(d => (
+                <th key={d.toISOString()} className="text-center p-3 border-b">{label(d)}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr>
-                <td className="px-3 py-3" colSpan={3}>
-                  Laden…
-                </td>
-              </tr>
-            )}
-            {!loading && rows.length === 0 && (
-              <tr>
-                <td className="px-3 py-3" colSpan={3}>
-                  Geen groepen gevonden.
-                </td>
-              </tr>
-            )}
-            {rows.map((r) => (
-              <tr key={r.groepId} className="odd:bg-white even:bg-gray-50">
-                <td className="px-3 py-2 font-medium">{r.groepNaam}</td>
-                <td className="px-3 py-2">{r.aantal}</td>
-                <td className="px-3 py-2">
-                  <button
-                    className="btn"
-                    onClick={() => turf(r.groepId)}
-                    disabled={posting === r.groepId}
-                    aria-busy={posting === r.groepId}
-                  >
-                    {posting === r.groepId ? "Opslaan…" : "Turf +1"}
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {groups.map((g) => {
+              const naam = g.naam || g.name || g.title || g.id;
+              return (
+                <tr key={g.id} className="odd:bg-white even:bg-gray-50">
+                  <td className="p-3 border-b font-medium">{naam}</td>
+                  {days.map(d => {
+                    const dateStr = format(d, 'yyyy-MM-dd');
+                    const on = keySet.has(`${g.id}|${dateStr}`);
+                    return (
+                      <td key={g.id + dateStr} className="p-2 border-b text-center">
+                        <button
+                          onClick={() => toggle(g.id, d)}
+                          className={`px-3 py-2 rounded-xl ${on ? 'bg-green-600 text-white' : 'bg-gray-900 text-white'} hover:opacity-90`}
+                          title={on ? 'Sportmoment aanwezig (klik om uit te zetten)' : 'Nog geen sportmoment (klik om te turven)'}
+                        >
+                          {on ? '✓' : 'Turf'}
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
-
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">Laatste turfs</h2>
-        <div className="rounded-xl border divide-y">
-          {items.length === 0 && (
-            <div className="p-3 text-sm text-gray-500">
-              Nog geen extra momenten.
-            </div>
-          )}
-          {items.map((i) => (
-            <div key={i.id} className="flex items-center justify-between p-3">
-              <div className="text-sm">
-                <div className="font-medium">{i.groepNaam || i.groepId}</div>
-                <div className="text-gray-500">
-                  {new Date(i.datum || i.createdAt).toLocaleString()}
-                </div>
-              </div>
-              <button className="btn-ghost" onClick={() => undo(i.id)}>
-                Ongedaan maken
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }

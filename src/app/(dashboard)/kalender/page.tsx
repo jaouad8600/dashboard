@@ -24,23 +24,27 @@ export default function KalenderPage() {
         initialView="timeGridWeek"
         locales={[nlLocale]}
         locale="nl"
-        firstDay={1}                 // maandag
-        hiddenDays={[0, 6]}          // alleen ma-vr
-        dayHeaderFormat={{ weekday: 'short', day: '2-digit', month: '2-digit' }}
+        firstDay={1}                  // maandag
+        hiddenDays={[0, 6]}           // alleen ma-vr
+        allDaySlot={false}
         slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
         eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
+        dayHeaderFormat={{ weekday: 'short', day: '2-digit', month: '2-digit' }}
         slotMinTime="09:00:00"
         slotMaxTime="21:30:00"
         slotDuration="00:30:00"
-        allDaySlot={false}
         nowIndicator={true}
         height="auto"
         headerToolbar={{ left: 'prev,next today', center: 'title', right: 'timeGridWeek' }}
         titleFormat={{ year: 'numeric', month: 'long', day: '2-digit' }}
         events={async (info, success, failure) => {
           try {
-            const start = info.startStr.slice(0, 10); // YYYY-MM-DD
-            const res = await fetch(`/api/planning?date=${start}`, { cache: 'no-store' });
+            // FullCalendar geeft start/end (ISO) mee
+            const params = new URLSearchParams({
+              start: info.startStr,
+              end: info.endStr,
+            });
+            const res = await fetch(`/api/planning?${params.toString()}`, { cache: 'no-store' });
             const data = await res.json();
             const events = (data.items ?? []).map((it: any) => ({
               id: it.id,

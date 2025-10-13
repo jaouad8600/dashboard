@@ -29,7 +29,7 @@
     "@syncfusion/ej2-react-schedule": "^31.1.17",
     "antd": "^5.27.3",
     "clsx": "^2.1.1",
-    "date-fns": "3.6.0",
+    "date-fns": "^3.6.0",
     "dayjs": "^1.11.18",
     "docx-preview": "^0.3.7",
     "jspdf-autotable": "^5.0.2",
