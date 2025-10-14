@@ -1,38 +1,55 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs'; import path from 'path';
-const DATA = path.join(process.cwd(),'data','app-data.json');
-const uid = ()=> (Date.now().toString(36)+Math.random().toString(36).slice(2,8));
-const read=()=> {
-  if(!fs.existsSync(DATA)) return { indicaties:{items:[]}, groepen:[] };
-  const db = JSON.parse(fs.readFileSync(DATA,'utf8')||'{}');
-  db.indicaties = db.indicaties || { items: [] };
-  return db;
-};
-const write=(db:any)=> fs.writeFileSync(DATA, JSON.stringify(db,null,2));
+import fs from 'fs';
+import path from 'path';
 
-export async function GET(req:Request){
-  const u = new URL(req.url);
-  const groepId = u.searchParams.get('groepId')||'';
-  const q = (u.searchParams.get('q')||'').toLowerCase();
-  const status = u.searchParams.get('status')||'';
-  const db = read(); let items = db.indicaties.items||[];
-  if(groepId) items = items.filter((x:any)=>x.groepId===groepId);
-  if(status)  items = items.filter((x:any)=>(x.status||'').toLowerCase()===status.toLowerCase());
-  if(q) items = items.filter((x:any)=> (x.omschrijving||'').toLowerCase().includes(q) || (x.type||'').toLowerCase().includes(q));
-  return NextResponse.json({ items });
+type Indicatie = {
+  id: string;
+  naam: string;
+  type?: string;
+  status: 'open' | 'in-behandeling' | 'afgerond';
+  groepId?: string | null;
+  start?: string | null;
+  eind?: string | null;
+  opmerking?: string | null;
+};
+
+const DATA = path.join(process.cwd(), 'data', 'app-data.json');
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+
+function readDB(): any {
+  if(!fs.existsSync(DATA)) return { indicaties:{items:[]}, groepen:[] };
+  try {
+    const j = JSON.parse(fs.readFileSync(DATA,'utf8')||'{}');
+    if(!j.indicaties || !Array.isArray(j.indicaties.items)) j.indicaties={items:[]};
+    return j;
+  } catch {
+    return { indicaties:{items:[]}, groepen:[] };
+  }
+}
+function writeDB(db:any){ fs.writeFileSync(DATA, JSON.stringify(db,null,2)); }
+
+export async function GET() {
+  const db = readDB();
+  return NextResponse.json({ items: db.indicaties.items ?? [] }, { status:200 });
 }
 
-export async function POST(req:Request){
-  const body = await req.json().catch(()=> ({} as any));
-  const item:any = {
+export async function POST(req: Request) {
+  const body = await req.json().catch(()=>({}));
+  const naam = String(body.naam || '').trim();
+  if(!naam) return NextResponse.json({error:'Naam is verplicht'}, {status:400});
+
+  const item: Indicatie = {
     id: uid(),
-    groepId: String(body.groepId||'').trim(),
-    datum: String(body.datum||'').trim(),       // YYYY-MM-DD
-    type: String(body.type||'').trim(),
-    omschrijving: String(body.omschrijving||'').trim(),
-    status: (body.status||'open').toString().trim().toLowerCase(), // open | afgehandeld
+    naam,
+    type: body.type ? String(body.type) : undefined,
+    status: (['open','in-behandeling','afgerond'].includes(body.status) ? body.status : 'open') as any,
+    groepId: body.groepId ? String(body.groepId) : null,
+    start: body.start ? String(body.start) : null,
+    eind: body.eind ? String(body.eind) : null,
+    opmerking: body.opmerking ? String(body.opmerking) : null,
   };
-  if(!item.groepId || !item.datum) return NextResponse.json({error:'groepId en datum verplicht'},{status:400});
-  const db = read(); db.indicaties.items.push(item); write(db);
+  const db = readDB();
+  db.indicaties.items.push(item);
+  writeDB(db);
   return NextResponse.json({ item }, { status:201 });
 }

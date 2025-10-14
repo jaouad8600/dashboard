@@ -1,20 +1,39 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs'; import path from 'path';
-const DATA = path.join(process.cwd(),'data','app-data.json');
-const read=()=> JSON.parse(fs.readFileSync(DATA,'utf8')||'{}');
-const write=(db:any)=> fs.writeFileSync(DATA, JSON.stringify(db,null,2));
+import fs from 'fs';
+import path from 'path';
 
-export async function PUT(req:Request, { params }: { params:{ id:string } }){
-  const patch = await req.json().catch(()=> ({} as any));
-  const db = read(); const arr = db.indicaties?.items||[]; const i = arr.findIndex((x:any)=>x.id===params.id);
-  if(i<0) return NextResponse.json({error:'Niet gevonden'},{status:404});
-  arr[i] = {...arr[i], ...patch}; write(db);
-  return NextResponse.json({ item: arr[i] });
+const DATA = path.join(process.cwd(), 'data', 'app-data.json');
+
+function readDB(): any {
+  if(!fs.existsSync(DATA)) return { indicaties:{items:[]} };
+  try {
+    const j = JSON.parse(fs.readFileSync(DATA,'utf8')||'{}');
+    if(!j.indicaties || !Array.isArray(j.indicaties.items)) j.indicaties={items:[]};
+    return j;
+  } catch {
+    return { indicaties:{items:[]} };
+  }
+}
+function writeDB(db:any){ fs.writeFileSync(DATA, JSON.stringify(db,null,2)); }
+
+export async function PUT(_req: Request, ctx: { params: { id: string } }) {
+  const id = ctx.params.id;
+  const body = await _req.json().catch(()=>({}));
+  const db = readDB();
+  const items = db.indicaties.items as any[];
+  const i = items.findIndex(x => String(x.id) === String(id));
+  if(i<0) return NextResponse.json({error:'Niet gevonden'}, {status:404});
+  items[i] = { ...items[i], ...body, id: items[i].id }; // id blijft
+  writeDB(db);
+  return NextResponse.json({ item: items[i] }, { status:200 });
 }
 
-export async function DELETE(_req:Request, { params }: { params:{ id:string } }){
-  const db = read(); const arr = db.indicaties?.items||[]; const i = arr.findIndex((x:any)=>x.id===params.id);
-  if(i<0) return NextResponse.json({error:'Niet gevonden'},{status:404});
-  arr.splice(i,1); write(db);
-  return NextResponse.json({ ok:true });
+export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
+  const id = ctx.params.id;
+  const db = readDB();
+  const items = db.indicaties.items as any[];
+  const before = items.length;
+  db.indicaties.items = items.filter(x => String(x.id)!==String(id));
+  writeDB(db);
+  return NextResponse.json({ removed: before - (db.indicaties.items as any[]).length }, { status:200 });
 }
