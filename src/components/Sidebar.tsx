@@ -1,30 +1,38 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import React from 'react';
 
-const items = [
-  { href:'/dashboard',      label:'Dashboard' },
-  { href:'/groepen',        label:'Groepen' },
-  { href:'/sportmomenten',  label:'Sportmomenten' },
-  { href:'/kalender',       label:'Kalender' },
-  { href:'/mutaties',       label:'Sportmutaties' },
-  { href:'/indicaties',     label:'Indicaties' },
-  { href:'/inventaris',     label:'Inventaris' },
+const NAV = [
+  { href: '/dashboard',       label: 'Dashboard' },
+  { href: '/groepen',         label: 'Groepen' },
+  { href: '/sportmomenten',   label: 'Sportmomenten' },
+  { href: '/kalender',        label: 'Kalender' },
+  { href: '/indicaties',      label: 'Indicaties' },
+  { href: '/inventaris',      label: 'Inventaris' },
+  { href: '/mutaties',        label: 'Sportmutaties' },
 ];
 
 export default function Sidebar(){
   const path = usePathname();
   return (
-    <aside className="w-60 shrink-0 border-r bg-gray-900 text-white">
-      <div className="p-4 text-lg font-semibold">Menu</div>
-      <nav className="px-2 pb-4 space-y-1">
-        {items.map(it=>{
-          const active = path === it.href;
+    <aside className="w-64 min-h-screen border-r bg-white">
+      <div className="p-4 text-xl font-semibold">Menu</div>
+      <nav className="px-3 pb-6 space-y-1">
+        {NAV.map(i=>{
+          const active = path===i.href;
           return (
-            <Link key={it.href} href={it.href}
-              className={`block px-3 py-2 rounded ${active ? 'bg-gray-700' : 'hover:bg-gray-800'}`}
+            <Link
+              key={i.href}
+              href={i.href}
+              className={
+                'block px-3 py-2 rounded transition ' +
+                (active
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white text-gray-800 hover:bg-gray-100 border')
+              }
             >
-              {it.label}
+              {i.label}
             </Link>
           );
         })}

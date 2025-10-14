@@ -21,7 +21,14 @@ export async function GET(req: Request) {
   const db = getDB();
   let items: PlanningItem[] = Array.isArray(db?.planning?.items) ? db.planning.items : [];
   // verdedigend: alleen items met geldige start-string
-  items = items.filter(it => typeof it?.start === 'string' && it.start);
+  items = items.filter((it: any) => {
+  const val = typeof it?.start==='string' ? it.start : '';
+  if(!val) return false;
+  try {
+    const s = (typeof parseISO!=='undefined' ? parseISO(val) : new Date(val));
+    return isWithinInterval(s, { start: weekStart, end: weekEnd });
+  } catch { return false; }
+});
 
   // start/end (van FullCalendar) heeft voorrang
   if (startStr && endStr) {
@@ -40,9 +47,14 @@ export async function GET(req: Request) {
     const d = parseISO(dateStr.length === 10 ? `${dateStr}T00:00:00` : dateStr);
     const weekStart = startOfWeek(d, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(d, { weekStartsOn: 1 });
-    items = items.filter(it => {
-      try {
-        const s = parseISO(it.start!);
+    items = items.filter((it: any) => {
+  const val = typeof it?.start==='string' ? it.start : '';
+  if(!val) return false;
+  try {
+    const s = (typeof parseISO!=='undefined' ? parseISO(val) : new Date(val));
+    return isWithinInterval(s, { start: weekStart, end: weekEnd });
+  } catch { return false; }
+});
         return isWithinInterval(s, { start: weekStart, end: endOfDay(weekEnd) });
       } catch { return false; }
     });

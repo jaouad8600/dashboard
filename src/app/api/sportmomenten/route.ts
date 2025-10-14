@@ -1,75 +1,49 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { startOfWeek, endOfWeek, parseISO, isWithinInterval } from 'date-fns';
 
-const DATA_PATH = path.join(process.cwd(), 'data', 'app-data.json');
+const DATA = path.join(process.cwd(),'data','app-data.json');
 
-type Item = { groepId:string; date:string; createdAt?:string };
+type Row = { id:string; groepId:string; datum:string }; // id = `${groepId}:${datum}`
 
 function readDB(){
-  if(!fs.existsSync(DATA_PATH)) return { sportmomenten:{items:[] as Item[] } };
-  const db = JSON.parse(fs.readFileSync(DATA_PATH,'utf8')||'{}');
+  if(!fs.existsSync(DATA)) return { sportmomenten:{items:[]}, groepen:[] };
+  const db = JSON.parse(fs.readFileSync(DATA,'utf8')||'{}');
   db.sportmomenten = db.sportmomenten || { items: [] };
   return db;
 }
+function writeDB(db:any){ fs.writeFileSync(DATA, JSON.stringify(db,null,2)); }
 
 export async function GET(req: Request){
   const url = new URL(req.url);
-  const ws = url.searchParams.get('weekStart');
-  const we = url.searchParams.get('weekEnd');
-  const agg = url.searchParams.get('aggregate') === '1';
+  const start = url.searchParams.get('start') || undefined;
+  const end   = url.searchParams.get('end')   || undefined;
+  const groepId = url.searchParams.get('groepId') || undefined;
 
   const db = readDB();
-  let items: Item[] = db.sportmomenten.items || [];
-
-  if (ws && we) {
-    const start = parseISO(ws);
-    const end   = parseISO(we);
-    items = items.filter(it=>{
-      try{
-        const d = parseISO(it.date);
-        return isWithinInterval(d,{start,end});
-      }catch{ return false; }
-    });
-  }
-
-  if (agg) {
-    const byKey: Record<string,number> = {};
-    for (const it of items) {
-      const key = `${it.groepId}:${it.date}`;
-      byKey[key] = (byKey[key]||0)+1;
-    }
-    return NextResponse.json({ aggregate: byKey });
-  }
+  let items: Row[] = db.sportmomenten.items || [];
+  if(groepId) items = items.filter(x=>x.groepId===groepId);
+  if(start)   items = items.filter(x=>x.datum >= start);
+  if(end)     items = items.filter(x=>x.datum <= end);
   return NextResponse.json({ items });
 }
 
 export async function POST(req: Request){
   const body = await req.json().catch(()=> ({} as any));
   const groepId = String(body?.groepId||'').trim();
-  const dateStr = String(body?.date||'').trim(); // YYYY-MM-DD
-  if(!groepId || !dateStr) return NextResponse.json({error:'groepId en date verplicht'}, {status:400});
-  const db = readDB();
-  const items: Item[] = db.sportmomenten.items || (db.sportmomenten.items = []);
-  const exists = items.find(x=>x.groepId===groepId && x.date===dateStr);
-  if(!exists){
-    items.push({ groepId, date: dateStr, createdAt: new Date().toISOString() });
-    fs.writeFileSync(DATA_PATH, JSON.stringify(db,null,2));
-  }
-  return NextResponse.json({ ok:true });
-}
+  const datum   = String(body?.datum||'').trim(); // YYYY-MM-DD
+  const on      = !!body?.on;
 
-export async function DELETE(req: Request){
-  const url = new URL(req.url);
-  const groepId = String(url.searchParams.get('groepId')||'').trim();
-  const dateStr = String(url.searchParams.get('date')||'').trim();
-  if(!groepId || !dateStr) return NextResponse.json({error:'groepId en date verplicht'}, {status:400});
-  const db = readDB();
-  const before = db.sportmomenten.items.length;
-  db.sportmomenten.items = db.sportmomenten.items.filter((x:Item)=> !(x.groepId===groepId && x.date===dateStr));
-  if (db.sportmomenten.items.length !== before) {
-    fs.writeFileSync(DATA_PATH, JSON.stringify(db,null,2));
+  if(!groepId || !datum) return NextResponse.json({ error:'groepId en datum verplicht'},{ status:400 });
+
+  const db = readDB(); const id = `${groepId}:${datum}`;
+  const idx = db.sportmomenten.items.findIndex((x:Row)=>x.id===id);
+
+  if(on){
+    if(idx===-1) db.sportmomenten.items.push({ id, groepId, datum });
+  }else{
+    if(idx>=0) db.sportmomenten.items.splice(idx,1);
   }
-  return NextResponse.json({ ok:true });
+  writeDB(db);
+  return NextResponse.json({ ok:true, id, on });
 }
