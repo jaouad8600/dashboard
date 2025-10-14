@@ -124,7 +124,7 @@ export default function SportmomentenPage(){
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div data-page="sportmomenten" className="p-6 space-y-6">
       {/* header + acties */}
       <div className="flex flex-wrap items-center gap-2 justify-between">
         <h1 className="text-xl font-semibold">Sportmomenten</h1>

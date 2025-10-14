@@ -82,3 +82,10 @@ input {
     @apply bg-slate-100 text-slate-600 border border-slate-200;
   }
 }
+
+/* === Sportmomenten groene knoppen (force) === */
+[data-page="sportmomenten"] button,
+[data-page="sportmomenten"] .btn,
+[data-page="sportmomenten"] a[role="button"] {
+  @apply bg-emerald-600 text-white hover:bg-emerald-700 border border-emerald-700;
+}
