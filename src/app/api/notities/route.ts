@@ -1,47 +1,38 @@
-import { NextRequest, NextResponse } from "next/server";
-import { readDB, writeDB } from "../../../lib/db";
+import { NextRequest, NextResponse } from 'next/server';
+import path from 'path';
+import fs from 'fs/promises';
 
-export const dynamic = "force-dynamic";
-type Note = { id: string; groupId: string; text: string; createdAt: string };
+export const revalidate = 0;
+export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest) {
+const DB_PATH = path.join(process.cwd(), 'data', 'app-data.json');
+async function readDB(){ try{ return JSON.parse(await fs.readFile(DB_PATH,'utf8')); }catch{ return {}; } }
+async function writeDB(db:any){ await fs.mkdir(path.dirname(DB_PATH),{recursive:true}); await fs.writeFile(DB_PATH, JSON.stringify(db,null,2)); }
+const uid = ()=>'n_'+Math.random().toString(36).slice(2)+Date.now().toString(36);
+
+export async function GET(req:NextRequest){
+  const db=await readDB();
+  db.notities = db.notities || { items: [] };
   const { searchParams } = new URL(req.url);
-  const groupId = searchParams.get("groupId") || "";
-  const db = readDB<any>();
-  const all: Note[] = db.notes ?? [];
-  return NextResponse.json({
-    items: all.filter((n) => !groupId || n.groupId === groupId),
-  });
+  const groupId = searchParams.get('groupId') || searchParams.get('groepId');
+  let items = Array.isArray(db.notities.items)? db.notities.items : [];
+  if(groupId) items = items.filter((n:any)=> String(n.groupId)===String(groupId));
+  // sort nieuwste boven
+  items = items.sort((a:any,b:any)=> String(b.createdAt??'').localeCompare(String(a.createdAt??'')));
+  return NextResponse.json(items, { headers:{'cache-control':'no-store'} });
 }
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
-  if (!body?.groupId || !body?.text)
-    return NextResponse.json(
-      { error: "groupId en text verplicht" },
-      { status: 400 },
-    );
-  const db = readDB<any>();
-  db.notes ??= [];
-  const note: Note = {
-    id: "nt_" + Math.random().toString(36).slice(2, 9),
-    groupId: body.groupId,
-    text: body.text,
-    createdAt: new Date().toISOString(),
-  };
-  db.notes.push(note);
-  writeDB(db);
-  return NextResponse.json(note, { status: 201 });
-}
-
-export async function DELETE(req: NextRequest) {
-  const body = await req.json();
-  if (!body?.id)
-    return NextResponse.json({ error: "id verplicht" }, { status: 400 });
-  const db = readDB<any>();
-  db.notes ??= [];
-  const before = db.notes.length;
-  db.notes = db.notes.filter((n: Note) => n.id !== body.id);
-  writeDB(db);
-  return NextResponse.json({ removed: before - db.notes.length });
+export async function POST(req:NextRequest){
+  const body = await req.json().catch(()=>({}));
+  const groupId = body?.groupId || body?.groepId;
+  const tekst   = (body?.tekst ?? body?.text ?? '').trim();
+  if(!groupId || !tekst) return NextResponse.json({error:'groupId en tekst verplicht'}, {status:400, headers:{'cache-control':'no-store'}});
+  const db=await readDB();
+  db.notities = db.notities || { items: [] };
+  if(!Array.isArray(db.notities.items)) db.notities.items=[];
+  const now = new Date().toISOString();
+  const note = { id: uid(), groupId: String(groupId), tekst, createdAt: now, updatedAt: now, archived: false };
+  db.notities.items.unshift(note);
+  await writeDB(db);
+  return NextResponse.json(note, { status:201, headers:{'cache-control':'no-store'} });
 }

@@ -1,21 +1,40 @@
-import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs'; import path from 'path';
-const DB = path.join(process.cwd(),'data','app-data.json');
-function load(){ try{ return JSON.parse(fs.readFileSync(DB,'utf8')); }catch{ return {}; } }
-function save(j:any){ fs.writeFileSync(DB, JSON.stringify(j,null,2)); }
+import { NextRequest, NextResponse } from "next/server";
+import path from "path";
+import fs from "fs/promises";
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
+const DB = path.join(process.cwd(), "data", "app-data.json");
+const uid = ()=>"n_"+Math.random().toString(36).slice(2)+Date.now().toString(36);
+
+async function readDB(): Promise<any>{ try{ return JSON.parse(await fs.readFile(DB,"utf8")); }catch{ return {}; } }
+async function writeDB(db:any){ await fs.mkdir(path.dirname(DB),{recursive:true}); await fs.writeFile(DB, JSON.stringify(db,null,2)); }
+
 export async function GET(req: NextRequest){
-  const { searchParams } = new URL(req.url);
-  const groepId = (searchParams.get('groupId') || searchParams.get('groepId') || '').toString();
-  const j = load(); const items = (j.aantekeningen?.items||[]).filter((x:any)=>!groepId || x.groepId===groepId);
-  return NextResponse.json({ ok:true, items }, { status:200 });
+  const db = await readDB();
+  const items = Array.isArray(db?.aantekeningen?.items)? db.aantekeningen.items : [];
+  const sp = new URL(req.url).searchParams;
+  const groupId = sp.get("groupId") || sp.get("groepId") || "";
+
+  if(groupId==="list"){
+    const map:Record<string,number>={};
+    for(const it of items) map[String(it.groepId)] = (map[String(it.groepId)]||0)+1;
+    return NextResponse.json(map, {headers:{'cache-control':'no-store'}});
+  }
+  const out = groupId? items.filter((x:any)=>String(x.groepId)===String(groupId)) : items;
+  out.sort((a:any,b:any)=>String(b.createdAt??"").localeCompare(String(a.createdAt??"")));
+  return NextResponse.json(out, {headers:{'cache-control':'no-store'}});
 }
+
 export async function POST(req: NextRequest){
-  const b = await req.json().catch(()=>({}));
-  const text=(b.text||b.opmerking||'').toString().trim();
-  const groepId=(b.groepId||b.groupId||'').toString();
-  if(!groepId || !text) return NextResponse.json({ok:false,error:'groepId en text vereist'},{status:400});
-  const j = load(); j.aantekeningen = j.aantekeningen || {items:[]};
-  const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2,7)}`, groepId, text, createdAt: new Date().toISOString() };
-  j.aantekeningen.items.push(item); save(j);
-  return NextResponse.json({ ok:true, item }, { status:201 });
+  const body = await req.json().catch(()=>({}));
+  const tekst = String((body as any).tekst || (body as any).text || "").trim();
+  const groepId = (body as any).groepId ?? (body as any).groupId;
+  if(!groepId || !tekst) return NextResponse.json({error:"groepId en tekst verplicht"}, {status:400});
+  const db = await readDB();
+  db.aantekeningen = db.aantekeningen || {items:[]};
+  if(!Array.isArray(db.aantekeningen.items)) db.aantekeningen.items=[];
+  const item = { id: uid(), groepId, tekst, createdAt: new Date().toISOString() };
+  db.aantekeningen.items.unshift(item);
+  await writeDB(db);
+  return NextResponse.json(item, {status:201, headers:{'cache-control':'no-store'}});
 }
