@@ -17,9 +17,11 @@ const DATA = path.join(process.cwd(), 'data', 'app-data.json');
 function readDB(): any {
   if (!fs.existsSync(DATA)) return { planning: { items: [] } };
   try {
-    const db = JSON.parse(fs.readFileSync(DATA, 'utf8') || '{}');
-    db.planning = db.planning || { items: [] };
-    if (!Array.isArray(db.planning.items)) db.planning.items = [];
+    const raw = fs.readFileSync(DATA, 'utf8') || '{}';
+    const db = JSON.parse(raw);
+    if (!db.planning || !Array.isArray(db.planning.items)) {
+      db.planning = { items: [] };
+    }
     return db;
   } catch {
     return { planning: { items: [] } };
@@ -39,33 +41,31 @@ function safeParseISO(s?: string | null): Date | null {
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const qDate = url.searchParams.get('date');   // YYYY-MM-DD -> filter op week van deze datum (ma-zo)
+  const qDate = url.searchParams.get('date');   // YYYY-MM-DD -> weekfilter (ma-zo)
   const qStart = url.searchParams.get('start'); // ISO
-  const qEnd = url.searchParams.get('end');     // ISO
+  const qEnd   = url.searchParams.get('end');   // ISO
 
   const db = readDB();
-  let items: PlanningItem[] = db.planning.items || [];
+  let items: PlanningItem[] = Array.isArray(db.planning?.items) ? db.planning.items : [];
 
-  // Filteren op bereik
+  // bereikfilter (voorrang)
   if (qStart && qEnd) {
     const s = safeParseISO(qStart);
     const e = safeParseISO(qEnd);
     if (s && e) {
-      items = items.filter(it => {
+      items = items.filter((it) => {
         const d = safeParseISO(it.start);
-        if (!d) return false;
-        return isWithinInterval(d, { start: s, end: e });
+        return !!(d && isWithinInterval(d, { start: s, end: e }));
       });
     }
   } else if (qDate) {
     const d = safeParseISO(qDate);
     if (d) {
-      const weekStart = startOfWeek(d, { weekStartsOn: 1 });           // Maandag
-      const weekEnd = endOfDay(endOfWeek(d, { weekStartsOn: 1 }));     // Zondag 23:59:59
-      items = items.filter(it => {
+      const weekStart = startOfWeek(d, { weekStartsOn: 1 });
+      const weekEnd   = endOfDay(endOfWeek(d, { weekStartsOn: 1 }));
+      items = items.filter((it) => {
         const s = safeParseISO(it.start);
-        if (!s) return false;
-        return isWithinInterval(s, { start: weekStart, end: weekEnd });
+        return !!(s && isWithinInterval(s, { start: weekStart, end: weekEnd }));
       });
     }
   }
