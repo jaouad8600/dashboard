@@ -1,99 +1,64 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { parseISO, isWithinInterval, startOfWeek, endOfWeek, endOfDay } from 'date-fns';
-
-type PlanningItem = {
-  id: string;
-  title: string;
-  start: string;   // ISO string (YYYY-MM-DD of YYYY-MM-DDTHH:mm)
-  end?: string;    // ISO string
-  allDay?: boolean;
-  groepId?: string;
-};
 
 const DATA = path.join(process.cwd(), 'data', 'app-data.json');
 
 function readDB(): any {
   if (!fs.existsSync(DATA)) return { planning: { items: [] } };
   try {
-    const raw = fs.readFileSync(DATA, 'utf8') || '{}';
-    const db = JSON.parse(raw);
-    if (!db.planning || !Array.isArray(db.planning.items)) {
-      db.planning = { items: [] };
-    }
-    return db;
+    const j = JSON.parse(fs.readFileSync(DATA, 'utf8') || '{}');
+    if (!j.planning || !Array.isArray(j.planning.items)) j.planning = { items: [] };
+    return j;
   } catch {
     return { planning: { items: [] } };
   }
 }
 
-function writeDB(db: any) {
-  fs.writeFileSync(DATA, JSON.stringify(db, null, 2));
-}
-
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-
-function safeParseISO(s?: string | null): Date | null {
-  if (!s || typeof s !== 'string') return null;
-  try { return parseISO(s); } catch { return null; }
+function toDateSafe(v: any): Date | null {
+  if (!v) return null;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
 }
 
 export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const qDate = url.searchParams.get('date');   // YYYY-MM-DD -> weekfilter (ma-zo)
-  const qStart = url.searchParams.get('start'); // ISO
-  const qEnd   = url.searchParams.get('end');   // ISO
+  const { searchParams } = new URL(req.url);
+  const startQ = searchParams.get('start'); // ISO string
+  const endQ   = searchParams.get('end');   // ISO string
+  const weekQ  = searchParams.get('date');  // YYYY-MM-DD -> filter whole week (Mon-Sun)
 
-  const db = readDB();
-  let items: PlanningItem[] = Array.isArray(db.planning?.items) ? db.planning.items : [];
+  let items: any[] = readDB().planning.items;
 
-  // bereikfilter (voorrang)
-  if (qStart && qEnd) {
-    const s = safeParseISO(qStart);
-    const e = safeParseISO(qEnd);
-    if (s && e) {
-      items = items.filter((it) => {
-        const d = safeParseISO(it.start);
-        return !!(d && isWithinInterval(d, { start: s, end: e }));
-      });
+  try {
+    if (weekQ && !startQ && !endQ) {
+      const d = toDateSafe(weekQ);
+      if (d) {
+        const day = d.getDay(); // 0=Sun..6=Sat
+        const monday = new Date(d);
+        monday.setDate(d.getDate() - ((day + 6) % 7));
+        monday.setHours(0,0,0,0);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23,59,59,999);
+
+        items = items.filter((it: any) => {
+          const s = toDateSafe(it?.start);
+          return !!(s && s >= monday && s <= sunday);
+        });
+      }
+    } else if (startQ && endQ) {
+      const s = toDateSafe(startQ);
+      const e = toDateSafe(endQ);
+      if (s && e) {
+        items = items.filter((it: any) => {
+          const si = toDateSafe(it?.start);
+          return !!(si && si >= s && si <= e);
+        });
+      }
     }
-  } else if (qDate) {
-    const d = safeParseISO(qDate);
-    if (d) {
-      const weekStart = startOfWeek(d, { weekStartsOn: 1 });
-      const weekEnd   = endOfDay(endOfWeek(d, { weekStartsOn: 1 }));
-      items = items.filter((it) => {
-        const s = safeParseISO(it.start);
-        return !!(s && isWithinInterval(s, { start: weekStart, end: weekEnd }));
-      });
-    }
+  } catch {
+    // swallow filter errors; return unfiltered list
   }
 
   return NextResponse.json({ items }, { status: 200 });
-}
-
-export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({} as Partial<PlanningItem>));
-  const title = String(body.title ?? '').trim();
-  const start = String(body.start ?? '').trim();
-
-  if (!start) {
-    return NextResponse.json({ error: 'start (ISO) is verplicht' }, { status: 400 });
-  }
-
-  const item: PlanningItem = {
-    id: uid(),
-    title: title || 'Item',
-    start,
-    end: body.end ? String(body.end) : undefined,
-    allDay: Boolean(body.allDay),
-    groepId: body.groepId ? String(body.groepId) : undefined,
-  };
-
-  const db = readDB();
-  db.planning.items.push(item);
-  writeDB(db);
-
-  return NextResponse.json({ item }, { status: 201 });
 }

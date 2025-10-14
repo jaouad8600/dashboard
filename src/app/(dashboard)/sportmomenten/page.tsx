@@ -1,114 +1,144 @@
 'use client';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-type Group = { id: string; naam?: string; name?: string; title?: string; label?: string };
+type Groep = { id: string; naam?: string; name?: string; title?: string };
+type CellKey = string; // `${groepId}:${yyyy-mm-dd}`
 
-function fmt(d: Date){ return d.toISOString().slice(0,10); } // YYYY-MM-DD
-function startOfISOWeek(d: Date){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setHours(0,0,0,0); x.setDate(x.getDate()-day); return x; }
+function startOfWeekMonday(d = new Date()): Date {
+  const x = new Date(d);
+  const day = x.getDay(); // 0..6; Monday index = 1
+  const diff = (day + 6) % 7; // days since Monday
+  x.setDate(x.getDate() - diff);
+  x.setHours(0,0,0,0);
+  return x;
+}
+function addDays(d: Date, n: number): Date {
+  const x = new Date(d); x.setDate(x.getDate()+n); return x;
+}
+function iso(d: Date): string {
+  const p=(n:number)=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+
+const btn = 'inline-flex items-center justify-center px-3 py-2 rounded-md text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800';
+const btnGhost = 'inline-flex items-center justify-center px-3 py-2 rounded-md border bg-white text-gray-700 hover:bg-gray-50';
 
 export default function SportmomentenPage(){
-  const [groups,setGroups]=useState<Group[]>([]);
-  const [counts,setCounts]=useState<Record<string,number>>({});
-  const [anchor,setAnchor]=useState<Date>(startOfISOWeek(new Date())); // maandag van deze week
+  const [groepen, setGroepen] = useState<Groep[]>([]);
+  const [weekStart, setWeekStart] = useState<Date>(startOfWeekMonday());
+  const days = useMemo(()=>[0,1,2,3,4],[]); // ma-vr
+  const [checked, setChecked] = useState<Record<CellKey, boolean>>({});
+  const [loading, setLoading] = useState(false);
 
-  const days = useMemo(()=>{
-    const a = startOfISOWeek(anchor);
-    return Array.from({length:5}, (_,i)=>{ const d=new Date(a); d.setDate(a.getDate()+i); return d; }); // ma..vr
-  },[anchor]);
+  const load = async (ws: Date) => {
+    setLoading(true);
+    try {
+      const [gRes, mRes] = await Promise.all([
+        fetch('/api/groepen', { cache: 'no-store' }),
+        fetch(`/api/sportmomenten?weekStart=${iso(ws)}&days=7`, { cache: 'no-store' }),
+      ]);
+      const gJ = await gRes.json().catch(()=>({items:[]}));
+      const mJ = await mRes.json().catch(()=>({items:[]}));
+      const gs = (gJ.items || gJ || []).map((g:any)=>({ id: g.id, naam: g.naam || g.name || g.title || g.id }));
+      setGroepen(gs);
+      const map: Record<CellKey, boolean> = {};
+      (mJ.items || []).forEach((i:any)=>{
+        if (i?.groepId && i?.datum) {
+          map[`${i.groepId}:${i.datum}`] = !!i.aanwezig;
+        }
+      });
+      setChecked(map);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  useEffect(()=>{
-    (async ()=>{
-      // 1) groepen
-      try{
-        const r = await fetch('/api/groepen',{cache:'no-store'});
-        const j = await r.json();
-        let arr: any[] = [];
-        if(Array.isArray(j)) arr=j;
-        else if(Array.isArray(j?.items)) arr=j.items;
-        else if(Array.isArray(j?.groepen)) arr=j.groepen;
-        else arr = [];
-        const norm = arr.map((g:any)=>({ id: g.id || g.slug || g.key || String(g), naam: g.naam||g.name||g.title||g.label||g.id||g.slug }));
-        setGroups(norm);
-      }catch{ setGroups([]); }
+  useEffect(()=>{ load(weekStart); },[]);
 
-      // 2) counts voor week
-      const qs = new URLSearchParams({ start: fmt(days[0]), end: fmt(days[days.length-1]) }).toString();
-      const r2 = await fetch(`/api/sportmomenten?${qs}`,{cache:'no-store'});
-      const j2 = await r2.json();
-      setCounts(j2?.counts||{});
-    })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anchor]);
+  const goPrev = () => { const d = addDays(weekStart, -7); setWeekStart(d); load(d); };
+  const goNext = () => { const d = addDays(weekStart,  7); setWeekStart(d); load(d); };
+  const goToday= () => { const d = startOfWeekMonday(new Date()); setWeekStart(d); load(d); };
 
-  function key(gid:string, d:Date){ return gid+'|'+fmt(d); }
-  function labelDateNL(d:Date){
-    const weekdagen = ['ma','di','wo','do','vr','za','zo'];
-    return `${weekdagen[(d.getDay()+6)%7]} ${d.toLocaleDateString('nl-NL', { day:'2-digit', month:'2-digit' })}`;
-  }
+  const toggle = async (groepId: string, date: string) => {
+    const key = `${groepId}:${date}`;
+    const newVal = !checked[key];
 
-  async function change(gid:string, d:Date, delta:number){
-    const body = { groepId: gid, date: fmt(d), delta };
-    await fetch('/api/sportmomenten',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-    setCounts(c=>{
-      const k = key(gid,d);
-      const v = Math.max(0, (c[k]||0) + delta);
-      return { ...c, [k]: v };
+    // optimistic update
+    setChecked(prev => ({ ...prev, [key]: newVal }));
+
+    const res = await fetch('/api/sportmomenten', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groepId, datum: date, aanwezig: newVal })
     });
-  }
 
-  function titleOf(g:Group){ return g.naam||g.name||g.title||g.label||g.id; }
+    if (!res.ok) {
+      // revert on failure
+      setChecked(prev => ({ ...prev, [key]: !newVal }));
+      alert('Opslaan mislukt');
+    }
+  };
+
+  const wd = days.map(n => addDays(weekStart, n)); // ma..vr
 
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">Sportmomenten (week)</h1>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Sportmomenten</h1>
+          <p className="text-gray-500">Klik op de vakjes om aanwezigheid per groep per dag te turven. Opslaan gebeurt automatisch.</p>
+        </div>
         <div className="flex items-center gap-2">
-          <button onClick={()=>setAnchor(a=>{const x=new Date(a); x.setDate(x.getDate()-7); return x;})} className="px-3 py-2 rounded-xl bg-gray-200 hover:bg-gray-300">← Vorige</button>
-          <button onClick={()=>setAnchor(startOfISOWeek(new Date()))} className="px-3 py-2 rounded-xl bg-gray-200 hover:bg-gray-300">Vandaag</button>
-          <button onClick={()=>setAnchor(a=>{const x=new Date(a); x.setDate(x.getDate()+7); return x;})} className="px-3 py-2 rounded-xl bg-gray-200 hover:bg-gray-300">Volgende →</button>
+          <button className={btnGhost} onClick={goPrev}>Vorige</button>
+          <button className={btnGhost} onClick={goToday}>Vandaag</button>
+          <button className={btnGhost} onClick={goNext}>Volgende</button>
         </div>
       </div>
 
-      <div className="overflow-auto border rounded-2xl">
-        <table className="min-w-full border-collapse">
+      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <table className="w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
-              <th className="p-3 text-left w-56">Groep</th>
-              {days.map((d,i)=>(
-                <th key={i} className="p-3 text-left">{labelDateNL(d)}</th>
+              <th className="px-3 py-3 text-left font-medium text-gray-700 w-48">Groep</th>
+              {wd.map((d,i)=>(
+                <th key={i} className="px-3 py-3 text-center font-medium text-gray-700">
+                  {['ma','di','wo','do','vr'][i]} {iso(d)}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {groups.map(g=>(
-              <tr key={g.id} className="odd:bg-white even:bg-gray-50">
-                <td className="p-3 font-medium">{titleOf(g)}</td>
-                {days.map((d,i)=>{
-                  const k = key(g.id, d);
-                  const v = counts[k]||0;
-                  const active = v>0;
+            {loading && (
+              <tr><td className="px-3 py-6 text-gray-500" colSpan={1+wd.length}>Laden…</td></tr>
+            )}
+            {!loading && groepen.length===0 && (
+              <tr><td className="px-3 py-6 text-gray-500" colSpan={1+wd.length}>Geen groepen gevonden.</td></tr>
+            )}
+            {!loading && groepen.map((g)=>(
+              <tr key={g.id} className="border-t">
+                <td className="px-3 py-2">{g.naam || g.id}</td>
+                {wd.map((d,i)=>{
+                  const date = iso(d);
+                  const key: CellKey = `${g.id}:${date}`;
+                  const on = !!checked[key];
                   return (
-                    <td key={i} className="p-2">
-                      <div className={"flex items-center gap-2 " + (active ? "bg-green-50 border border-green-200" : "bg-white border border-gray-200") + " rounded-xl px-2 py-1"}>
-                        <button onClick={()=>change(g.id,d,-1)} disabled={v<=0} className={"px-2 py-1 rounded-lg " + (v>0 ? "bg-gray-200 hover:bg-gray-300" : "bg-gray-100 text-gray-400 cursor-not-allowed")}>−</button>
-                        <div className="min-w-8 text-center font-semibold">{v}</div>
-                        <button onClick={()=>change(g.id,d,1)} className="px-2 py-1 rounded-lg bg-gray-900 text-white hover:opacity-90">+</button>
-                      </div>
+                    <td key={i} className="px-3 py-2">
+                      <button
+                        className={`w-10 h-10 rounded border transition ${on ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white text-gray-700'}`}
+                        onClick={()=>toggle(g.id, date)}
+                        aria-pressed={on}
+                        title={on ? 'Ja' : 'Nee'}
+                      >
+                        {on ? 'Ja' : 'Nee'}
+                      </button>
                     </td>
                   );
                 })}
               </tr>
             ))}
-            {groups.length===0 && (
-              <tr><td className="p-4 text-gray-500" colSpan={6}>Geen groepen gevonden.</td></tr>
-            )}
           </tbody>
         </table>
       </div>
-
-      <p className="text-sm text-gray-500">
-        Klik <span className="font-semibold">+</span> om een sportmoment te turven, <span className="font-semibold">−</span> om te corrigeren.
-      </p>
     </div>
   );
 }
