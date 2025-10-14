@@ -1,64 +1,99 @@
 import { NextResponse } from 'next/server';
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import fs from 'fs';
+import path from 'path';
 import { parseISO, isWithinInterval, startOfWeek, endOfWeek, endOfDay } from 'date-fns';
 
-type PlanningItem = { id: string; title?: string; start?: string; end?: string; groupId?: string };
+type PlanningItem = {
+  id: string;
+  title: string;
+  start: string;   // ISO string (YYYY-MM-DD of YYYY-MM-DDTHH:mm)
+  end?: string;    // ISO string
+  allDay?: boolean;
+  groepId?: string;
+};
 
-function getDB() {
-  const p = join(process.cwd(), 'data', 'app-data.json');
-  if (!existsSync(p)) return { planning: { items: [] as PlanningItem[] } };
-  try { return JSON.parse(readFileSync(p, 'utf8')); }
-  catch { return { planning: { items: [] as PlanningItem[] } }; }
+const DATA = path.join(process.cwd(), 'data', 'app-data.json');
+
+function readDB(): any {
+  if (!fs.existsSync(DATA)) return { planning: { items: [] } };
+  try {
+    const db = JSON.parse(fs.readFileSync(DATA, 'utf8') || '{}');
+    db.planning = db.planning || { items: [] };
+    if (!Array.isArray(db.planning.items)) db.planning.items = [];
+    return db;
+  } catch {
+    return { planning: { items: [] } };
+  }
+}
+
+function writeDB(db: any) {
+  fs.writeFileSync(DATA, JSON.stringify(db, null, 2));
+}
+
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+function safeParseISO(s?: string | null): Date | null {
+  if (!s || typeof s !== 'string') return null;
+  try { return parseISO(s); } catch { return null; }
 }
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const dateStr = searchParams.get('date'); // optioneel
-  const startStr = searchParams.get('start'); // ISO
-  const endStr = searchParams.get('end');     // ISO
+  const url = new URL(req.url);
+  const qDate = url.searchParams.get('date');   // YYYY-MM-DD -> filter op week van deze datum (ma-zo)
+  const qStart = url.searchParams.get('start'); // ISO
+  const qEnd = url.searchParams.get('end');     // ISO
 
-  const db = getDB();
-  let items: PlanningItem[] = Array.isArray(db?.planning?.items) ? db.planning.items : [];
-  // verdedigend: alleen items met geldige start-string
-  items = items.filter((it: any) => {
-  const val = typeof it?.start==='string' ? it.start : '';
-  if(!val) return false;
-  try {
-    const s = (typeof parseISO!=='undefined' ? parseISO(val) : new Date(val));
-    return isWithinInterval(s, { start: weekStart, end: weekEnd });
-  } catch { return false; }
-});
+  const db = readDB();
+  let items: PlanningItem[] = db.planning.items || [];
 
-  // start/end (van FullCalendar) heeft voorrang
-  if (startStr && endStr) {
-    let start: Date, end: Date;
-    try { start = parseISO(startStr); } catch { start = new Date(startStr); }
-    try { end   = parseISO(endStr); }   catch { end   = new Date(endStr); }
-    items = items.filter(it => {
-      try { return isWithinInterval(parseISO(it.start!), { start, end: endOfDay(end) }); }
-      catch { return false; }
-    });
-    return NextResponse.json({ items }, { status: 200 });
-  }
-
-  // fallback: ?date = willekeurige dag → filter op week ma–zo
-  if (dateStr) {
-    const d = parseISO(dateStr.length === 10 ? `${dateStr}T00:00:00` : dateStr);
-    const weekStart = startOfWeek(d, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(d, { weekStartsOn: 1 });
-    items = items.filter((it: any) => {
-  const val = typeof it?.start==='string' ? it.start : '';
-  if(!val) return false;
-  try {
-    const s = (typeof parseISO!=='undefined' ? parseISO(val) : new Date(val));
-    return isWithinInterval(s, { start: weekStart, end: weekEnd });
-  } catch { return false; }
-});
-        return isWithinInterval(s, { start: weekStart, end: endOfDay(weekEnd) });
-      } catch { return false; }
-    });
+  // Filteren op bereik
+  if (qStart && qEnd) {
+    const s = safeParseISO(qStart);
+    const e = safeParseISO(qEnd);
+    if (s && e) {
+      items = items.filter(it => {
+        const d = safeParseISO(it.start);
+        if (!d) return false;
+        return isWithinInterval(d, { start: s, end: e });
+      });
+    }
+  } else if (qDate) {
+    const d = safeParseISO(qDate);
+    if (d) {
+      const weekStart = startOfWeek(d, { weekStartsOn: 1 });           // Maandag
+      const weekEnd = endOfDay(endOfWeek(d, { weekStartsOn: 1 }));     // Zondag 23:59:59
+      items = items.filter(it => {
+        const s = safeParseISO(it.start);
+        if (!s) return false;
+        return isWithinInterval(s, { start: weekStart, end: weekEnd });
+      });
+    }
   }
 
   return NextResponse.json({ items }, { status: 200 });
+}
+
+export async function POST(req: Request) {
+  const body = await req.json().catch(() => ({} as Partial<PlanningItem>));
+  const title = String(body.title ?? '').trim();
+  const start = String(body.start ?? '').trim();
+
+  if (!start) {
+    return NextResponse.json({ error: 'start (ISO) is verplicht' }, { status: 400 });
+  }
+
+  const item: PlanningItem = {
+    id: uid(),
+    title: title || 'Item',
+    start,
+    end: body.end ? String(body.end) : undefined,
+    allDay: Boolean(body.allDay),
+    groepId: body.groepId ? String(body.groepId) : undefined,
+  };
+
+  const db = readDB();
+  db.planning.items.push(item);
+  writeDB(db);
+
+  return NextResponse.json({ item }, { status: 201 });
 }
