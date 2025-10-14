@@ -1,59 +1,47 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
-import path from 'path';
+export const revalidate = 0;
 
-const DATA = path.join(process.cwd(), 'data', 'app-data.json');
+const PATH = 'data/app-data.json';
+type PlanningItem = { id:string; naam?:string; title?:string; start?:string; end?:string; allDay?:boolean };
 
-function readDB(): any {
-  if (!fs.existsSync(DATA)) return { planning: { items: [] } };
-  try {
-    const j = JSON.parse(fs.readFileSync(DATA, 'utf8') || '{}');
-    if (!j.planning || !Array.isArray(j.planning.items)) j.planning = { items: [] };
-    return j;
-  } catch { return { planning: { items: [] } }; }
+function readDB(){
+  const raw = fs.existsSync(PATH) ? fs.readFileSync(PATH,'utf8') : '{"planning":{"items":[]}}';
+  try { return JSON.parse(raw); } catch { return { planning:{items:[]} }; }
+}
+function inRange(s:string|undefined, start?:Date, end?:Date){
+  if(!s) return false;
+  const d = new Date(s);
+  if(Number.isNaN(+d)) return false;
+  if(start && d < start) return false;
+  if(end   && d > end)   return false;
+  return true;
 }
 
-function safeDate(v: any): Date | null {
-  if (!v) return null;
-  const d = new Date(v);
-  return isNaN(d.getTime()) ? null : d;
-}
+export async function GET(req: NextRequest){
+  const url = new URL(req.url);
+  const date = url.searchParams.get('date');     // YYYY-MM-DD (centrum)
+  const startQ = url.searchParams.get('start');  // ISO
+  const endQ   = url.searchParams.get('end');    // ISO
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const startQ = searchParams.get('start');
-  const endQ   = searchParams.get('end');
-  const dateQ  = searchParams.get('date'); // YYYY-MM-DD
+  const db = readDB();
+  let items: PlanningItem[] = Array.isArray(db.planning?.items) ? db.planning.items : [];
 
-  let items: any[] = readDB().planning.items;
+  let start: Date | undefined;
+  let end:   Date | undefined;
 
-  try {
-    if (dateQ && !startQ && !endQ) {
-      const d = safeDate(dateQ);
-      if (d) {
-        const day = d.getDay(); // 0..6
-        const monday = new Date(d);
-        monday.setDate(d.getDate() - ((day + 6) % 7));
-        monday.setHours(0,0,0,0);
-        const sunday = new Date(monday);
-        sunday.setDate(monday.getDate() + 6);
-        sunday.setHours(23,59,59,999);
-        items = items.filter((it: any) => {
-          const s = safeDate(it?.start);
-          return !!(s && s >= monday && s <= sunday);
-        });
-      }
-    } else if (startQ && endQ) {
-      const s = safeDate(startQ);
-      const e = safeDate(endQ);
-      if (s && e) {
-        items = items.filter((it: any) => {
-          const si = safeDate(it?.start);
-          return !!(si && si >= s && si <= e);
-        });
-      }
-    }
-  } catch { /* bij fout: ongewijzigde lijst terug */ }
+  if(startQ && endQ){
+    start = new Date(startQ); end = new Date(endQ);
+  } else if(date){
+    const d = new Date(date+'T00:00:00');
+    const day = (d.getDay()+6)%7; // maandag=0
+    start = new Date(d); start.setDate(d.getDate()-day); start.setHours(0,0,0,0);
+    end   = new Date(start); end.setDate(start.getDate()+6); end.setHours(23,59,59,999);
+  }
+
+  if(start && end){
+    items = items.filter(it => inRange(it.start, start, end));
+  }
 
   return NextResponse.json({ items }, { status: 200 });
 }

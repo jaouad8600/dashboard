@@ -89,3 +89,21 @@ input {
 [data-page="sportmomenten"] a[role="button"] {
   @apply bg-emerald-600 text-white hover:bg-emerald-700 border border-emerald-700;
 }
+
+/* === Toggle-cellen sportmomenten === */
+[data-page="sportmomenten"] table .toggle-cell{
+  background:#fff !important;
+  color:inherit !important;
+  width:2.5rem; height:2.5rem;
+  border:1px solid rgba(0,0,0,0.1);
+  border-radius:0.5rem;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.25rem; line-height:1; cursor:pointer;
+  user-select:none;
+}
+[data-page="sportmomenten"] table .toggle-cell.on{
+  background:#ecfdf5 !important;          /* emerald-50 */
+  color:#065f46 !important;               /* emerald-700 */
+  border-color:#059669 !important;        /* emerald-600 */
+  font-weight:700;
+}

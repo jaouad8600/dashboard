@@ -1,32 +1,36 @@
-import { NextResponse } from 'next/server';
-import path from 'path';
-import fs from 'fs/promises';
+import { NextRequest, NextResponse } from 'next/server';
+import fs from 'fs';
+export const revalidate = 0;
 
-const DB_PATH = path.join(process.cwd(), 'data', 'app-data.json');
-async function readDB(): Promise<any> { try { return JSON.parse(await fs.readFile(DB_PATH,'utf8')); } catch { return {}; } }
-async function writeDB(db: any) { await fs.mkdir(path.dirname(DB_PATH),{recursive:true}); await fs.writeFile(DB_PATH, JSON.stringify(db,null,2)); }
+const PATH = 'data/app-data.json';
+type Item = { id:string; groepId:string; datum:string; aanwezig:boolean };
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const groepId = searchParams.get('groepId');
-  const db = await readDB();
-  const items = Array.isArray(db?.sportmomenten?.items) ? db.sportmomenten.items : [];
-  const out = groepId ? items.filter((x: any) => x.groepId === groepId) : items;
-  return NextResponse.json({ items: out });
+function readDB(){
+  const raw = fs.existsSync(PATH) ? fs.readFileSync(PATH,'utf8') : '{"sportmomenten":{"items":[]}}';
+  try { return JSON.parse(raw); } catch { return { sportmomenten:{items:[]} }; }
+}
+function writeDB(db:any){ fs.writeFileSync(PATH, JSON.stringify(db,null,2)); }
+
+export async function GET(){
+  const db = readDB();
+  const items: Item[] = db.sportmomenten?.items ?? [];
+  return NextResponse.json({ items }, { status: 200 });
 }
 
-export async function POST(req: Request) {
-  const { groepId, datum, aanwezig } = await req.json().catch(() => ({}));
-  if (!groepId || !datum) {
-    return NextResponse.json({ error: 'groepId en datum verplicht' }, { status: 400 });
+export async function POST(req: NextRequest){
+  const { groepId, datum, aanwezig } = await req.json();
+  if(!groepId || !datum){
+    return NextResponse.json({ error:'groepId en datum verplicht' }, { status: 400 });
   }
-  const db = await readDB();
+  const db = readDB();
   db.sportmomenten = db.sportmomenten || { items: [] };
-  if (!Array.isArray(db.sportmomenten.items)) db.sportmomenten.items = [];
-  const key = `${groepId}:${datum}`;
-  const idx = db.sportmomenten.items.findIndex((x: any) => x.id === key);
-  const row = { id: key, groepId, datum, aanwezig: !!aanwezig };
-  if (idx === -1) db.sportmomenten.items.push(row); else db.sportmomenten.items[idx] = row;
-  await writeDB(db);
-  return NextResponse.json({ ok: true, item: row });
+  db.sportmomenten.items = Array.isArray(db.sportmomenten.items) ? db.sportmomenten.items : [];
+  const idx = db.sportmomenten.items.findIndex((x:Item)=> x.groepId===groepId && x.datum===datum);
+  if(idx>=0){
+    db.sportmomenten.items[idx].aanwezig = !!aanwezig;
+  } else {
+    db.sportmomenten.items.push({ id:`${groepId}:${datum}`, groepId, datum, aanwezig:!!aanwezig });
+  }
+  writeDB(db);
+  return NextResponse.json({ ok:true }, { status: 200 });
 }
