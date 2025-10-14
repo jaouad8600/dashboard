@@ -36,7 +36,8 @@ export default function Sidebar(){
             </Link>
           );
         })}
-      </nav>
+        <a href="/backup" className="block px-3 py-2 hover:bg-gray-100 rounded">Back-up</a>
+</nav>
     </aside>
   );
 }
