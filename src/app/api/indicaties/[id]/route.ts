@@ -1,34 +1,20 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-
+import fs from 'fs'; import path from 'path';
 const DATA = path.join(process.cwd(),'data','app-data.json');
+const read=()=> JSON.parse(fs.readFileSync(DATA,'utf8')||'{}');
+const write=(db:any)=> fs.writeFileSync(DATA, JSON.stringify(db,null,2));
 
-function readDB(){
-  if(!fs.existsSync(DATA)) return { indicaties:{items:[]}};
-  const db = JSON.parse(fs.readFileSync(DATA,'utf8')||'{}');
-  db.indicaties = db.indicaties || { items: [] };
-  return db;
-}
-function writeDB(db:any){ fs.writeFileSync(DATA, JSON.stringify(db,null,2)); }
-
-export async function PUT(req: Request, { params }: { params:{ id:string }}){
-  const id = params.id;
+export async function PUT(req:Request, { params }: { params:{ id:string } }){
   const patch = await req.json().catch(()=> ({} as any));
-  const db = readDB();
-  const i = db.indicaties.items.findIndex((x:any)=>x.id===id);
-  if(i<0) return NextResponse.json({ error:'Niet gevonden'},{ status:404 });
-  db.indicaties.items[i] = { ...db.indicaties.items[i], ...patch, updatedAt: new Date().toISOString() };
-  writeDB(db);
-  return NextResponse.json({ item: db.indicaties.items[i] });
+  const db = read(); const arr = db.indicaties?.items||[]; const i = arr.findIndex((x:any)=>x.id===params.id);
+  if(i<0) return NextResponse.json({error:'Niet gevonden'},{status:404});
+  arr[i] = {...arr[i], ...patch}; write(db);
+  return NextResponse.json({ item: arr[i] });
 }
 
-export async function DELETE(req: Request, { params }: { params:{ id:string }}){
-  const id = params.id;
-  const db = readDB();
-  const before = db.indicaties.items.length;
-  db.indicaties.items = db.indicaties.items.filter((x:any)=>x.id!==id);
-  if(db.indicaties.items.length===before) return NextResponse.json({ error:'Niet gevonden'},{ status:404 });
-  writeDB(db);
+export async function DELETE(_req:Request, { params }: { params:{ id:string } }){
+  const db = read(); const arr = db.indicaties?.items||[]; const i = arr.findIndex((x:any)=>x.id===params.id);
+  if(i<0) return NextResponse.json({error:'Niet gevonden'},{status:404});
+  arr.splice(i,1); write(db);
   return NextResponse.json({ ok:true });
 }

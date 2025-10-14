@@ -4,13 +4,13 @@ import { usePathname } from 'next/navigation';
 import React from 'react';
 
 const NAV = [
-  { href: '/dashboard',       label: 'Dashboard' },
-  { href: '/groepen',         label: 'Groepen' },
-  { href: '/sportmomenten',   label: 'Sportmomenten' },
-  { href: '/kalender',        label: 'Kalender' },
-  { href: '/indicaties',      label: 'Indicaties' },
-  { href: '/inventaris',      label: 'Inventaris' },
-  { href: '/mutaties',        label: 'Sportmutaties' },
+  { href: '/dashboard',     label: 'Dashboard' },
+  { href: '/groepen',       label: 'Groepen' },
+  { href: '/sportmomenten', label: 'Sportmomenten' },
+  { href: '/kalender',      label: 'Kalender' },
+  { href: '/indicaties',    label: 'Indicaties' },
+  { href: '/inventaris',    label: 'Inventaris' },
+  { href: '/mutaties',      label: 'Sportmutaties' },
 ];
 
 export default function Sidebar(){

@@ -1,49 +1,36 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-
+import fs from 'fs'; import path from 'path';
 const DATA = path.join(process.cwd(),'data','app-data.json');
-type Mutatie = { id:string; groepId:string; datum:string; actie:string; aantal?:number; notitie?:string; createdAt?:string; updatedAt?:string };
-
-function readDB(){
+const uid = ()=> (Date.now().toString(36)+Math.random().toString(36).slice(2,8));
+const read=()=> {
   if(!fs.existsSync(DATA)) return { mutaties:{items:[]}, groepen:[] };
   const db = JSON.parse(fs.readFileSync(DATA,'utf8')||'{}');
   db.mutaties = db.mutaties || { items: [] };
   return db;
-}
-function writeDB(db:any){ fs.writeFileSync(DATA, JSON.stringify(db,null,2)); }
+};
+const write=(db:any)=> fs.writeFileSync(DATA, JSON.stringify(db,null,2));
 
-export async function GET(req: Request){
-  const url = new URL(req.url);
-  const groepId = url.searchParams.get('groepId') || undefined;
-  const q       = (url.searchParams.get('q')||'').toLowerCase();
-  const from    = url.searchParams.get('from') || undefined;
-  const to      = url.searchParams.get('to') || undefined;
-
-  const db = readDB(); let items:Mutatie[] = db.mutaties.items || [];
-  if(groepId) items = items.filter(x=>x.groepId===groepId);
-  if(from) items = items.filter(x=>x.datum >= from);
-  if(to)   items = items.filter(x=>x.datum <= to);
-  if(q) items = items.filter(x=> (x.actie||'').toLowerCase().includes(q) || (x.notitie||'').toLowerCase().includes(q));
+export async function GET(req:Request){
+  const u = new URL(req.url);
+  const groepId = u.searchParams.get('groepId')||'';
+  const q = (u.searchParams.get('q')||'').toLowerCase();
+  const db = read(); let items = db.mutaties.items||[];
+  if(groepId) items = items.filter((x:any)=>x.groepId===groepId);
+  if(q) items = items.filter((x:any)=> (x.notitie||'').toLowerCase().includes(q) || (x.actie||'').toLowerCase().includes(q));
   return NextResponse.json({ items });
 }
 
-export async function POST(req: Request){
+export async function POST(req:Request){
   const body = await req.json().catch(()=> ({} as any));
-  const now = new Date().toISOString();
-  const item:Mutatie = {
-    id: body?.id || `mut_${Date.now().toString(36)}${Math.random().toString(36).slice(2,7)}`,
-    groepId: String(body?.groepId||'').trim(),
-    datum: String(body?.datum||'').trim(),
-    actie: String(body?.actie||'').trim(),
-    aantal: Number.isFinite(body?.aantal)? Number(body.aantal) : undefined,
-    notitie: String(body?.notitie||'').trim(),
-    createdAt: now, updatedAt: now
+  const item:any = {
+    id: uid(),
+    groepId: String(body.groepId||'').trim(),
+    datum: String(body.datum||'').trim(),   // YYYY-MM-DD
+    actie: String(body.actie||'').trim(),   // bijv. extra_sportmoment, materieel, etc.
+    aantal: Number(body.aantal||0),
+    notitie: String(body.notitie||'').trim(),
   };
-  if(!item.groepId || !item.datum || !item.actie){
-    return NextResponse.json({ error:'groepId, datum en actie zijn verplicht' },{ status:400 });
-  }
-  const db = readDB();
-  db.mutaties.items.push(item); writeDB(db);
+  if(!item.groepId || !item.datum) return NextResponse.json({error:'groepId en datum verplicht'},{status:400});
+  const db = read(); db.mutaties.items.push(item); write(db);
   return NextResponse.json({ item }, { status:201 });
 }
