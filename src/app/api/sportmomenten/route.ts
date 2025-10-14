@@ -1,58 +1,89 @@
-export const runtime = 'nodejs';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-type Sportmoment = { id: string; groepId: string; datum: string; aanwezig: boolean };
+type Item = { id: string; groepId: string; datum: string };
 
-const DATA = path.join(process.cwd(), 'data', 'app-data.json');
-function readDB(): any {
-  if (!fs.existsSync(DATA)) return { sportmomenten: { items: [] } };
-  try {
-    const j = JSON.parse(fs.readFileSync(DATA, 'utf8') || '{}');
-    if (!j.sportmomenten || !Array.isArray(j.sportmomenten.items)) j.sportmomenten = { items: [] };
-    return j;
-  } catch { return { sportmomenten: { items: [] } }; }
+const DB_PATH = path.join(process.cwd(), 'data', 'app-data.json');
+
+function loadDB() {
+  let j: any = {};
+  try { j = JSON.parse(fs.readFileSync(DB_PATH, 'utf8')); } catch {}
+  if (!Array.isArray(j.groepen) && Array.isArray(j.groups)) j.groepen = j.groups;
+  if (!Array.isArray(j.groepen)) j.groepen = [];
+  if (!j.sportmomenten || !Array.isArray(j.sportmomenten.items)) j.sportmomenten = { items: [] };
+  return j as { groepen: any[]; sportmomenten: { items: Item[] } };
 }
-function writeDB(db: any){ fs.writeFileSync(DATA, JSON.stringify(db, null, 2)); }
-function iso(d: Date){ const p=(n:number)=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
+function saveDB(j: any) {
+  fs.writeFileSync(DB_PATH, JSON.stringify(j, null, 2));
+}
 
-export async function GET(req: Request) {
+function iso(d: Date){ return d.toISOString().slice(0,10); }
+function parseISOorNull(s?: string){ if(!s) return null; const d=new Date(s); return isNaN(d.getTime())?null:d; }
+
+export async function GET(req: NextRequest) {
+  const j = loadDB();
   const { searchParams } = new URL(req.url);
-  const ws = searchParams.get('weekStart'); // YYYY-MM-DD (maandag)
-  const days = Number(searchParams.get('days') || 5); // ma-vr
-  const db = readDB();
-  let items: Sportmoment[] = db.sportmomenten.items;
+  const aggregate = searchParams.get('aggregate');
+  const groupId = searchParams.get('groupId') || searchParams.get('groepId');
 
-  if (ws) {
-    const start = new Date(ws);
-    if (!isNaN(start.getTime())) {
-      const end = new Date(start); end.setDate(start.getDate() + days - 1);
-      items = items.filter(i => {
-        const d = new Date(i.datum);
-        return !isNaN(d.getTime()) && d >= start && d <= end;
-      });
-    }
+  // Stats: aggregate=1&groupId=<id>
+  if (aggregate === '1') {
+    if (!groupId) return NextResponse.json({ ok:false, error:'groupId vereist' }, { status: 400 });
+    const now = new Date();
+    const startThisYear = new Date(now.getFullYear(), 0, 1);
+    const startLastMonth = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const endLastMonth = new Date(now.getFullYear(), now.getMonth(), 0); // laatste dag vorige maand
+
+    const items = j.sportmomenten.items.filter(i => i.groepId === groupId);
+    const allTime = items.length;
+
+    const thisYear = items.filter(i => {
+      const d = parseISOorNull(i.datum); if(!d) return false;
+      return d >= startThisYear;
+    }).length;
+
+    const lastMonth = items.filter(i => {
+      const d = parseISOorNull(i.datum); if(!d) return false;
+      return d >= startLastMonth && d <= endLastMonth;
+    }).length;
+
+    return NextResponse.json({ ok:true, groupId, stats: { lastMonth, thisYear, allTime }}, { status: 200 });
   }
-  return NextResponse.json({ items }, { status: 200 });
+
+  // Lijst in bereik: ?start=YYYY-MM-DD&end=YYYY-MM-DD
+  const start = parseISOorNull(searchParams.get('start')||undefined);
+  const end   = parseISOorNull(searchParams.get('end')||undefined);
+
+  let items = j.sportmomenten.items;
+  if (start && end) {
+    items = items.filter(i => {
+      const d = parseISOorNull(i.datum); if(!d) return false;
+      return d >= start && d <= end;
+    });
+  }
+  return NextResponse.json({ ok:true, items }, { status: 200 });
 }
 
-export async function POST(req: Request) {
-  const body = await req.json().catch(()=>null) as Partial<Sportmoment>;
-  const groepId = String(body?.groepId || '').trim();
-  const datumIn = String(body?.datum || '').trim();
-  const aanwezig = !!body?.aanwezig;
-  if (!groepId || !datumIn) return NextResponse.json({ error: 'groepId en datum zijn verplicht' }, { status: 400 });
+export async function POST(req: NextRequest) {
+  const j = loadDB();
+  const body = await req.json().catch(() => ({}));
+  const groepId = (body.groepId || body.groupId || '').toString();
+  const datum = (body.datum || body.date || '').toString().slice(0,10);
+  const on = !!body.on;
 
-  const d = new Date(datumIn); if (isNaN(d.getTime())) return NextResponse.json({ error: 'Ongeldige datum' }, { status: 400 });
-  const datum = iso(d);
+  if (!groepId || !datum) {
+    return NextResponse.json({ ok:false, error:'groepId en datum vereist' }, { status: 400 });
+  }
 
-  const db = readDB();
-  const list: Sportmoment[] = db.sportmomenten.items;
-  const idx = list.findIndex(x => x.groepId === groepId && x.datum === datum);
+  const key = `${groepId}:${datum}`;
+  const idx = j.sportmomenten.items.findIndex((i: Item) => `${i.groepId}:${i.datum}` === key);
 
-  if (!aanwezig) { if (idx >= 0) list.splice(idx, 1); writeDB(db); return NextResponse.json({ ok: true, removed: true }, { status: 200 }); }
-  if (idx >= 0) list[idx].aanwezig = true; else list.push({ id: Date.now().toString(36), groepId, datum, aanwezig: true });
-  writeDB(db);
-  return NextResponse.json({ ok: true }, { status: 201 });
+  if (on && idx === -1) {
+    j.sportmomenten.items.push({ id: key, groepId, datum });
+  } else if (!on && idx !== -1) {
+    j.sportmomenten.items.splice(idx, 1);
+  }
+  saveDB(j);
+  return NextResponse.json({ ok:true }, { status: 200 });
 }
