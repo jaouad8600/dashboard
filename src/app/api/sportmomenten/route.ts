@@ -1,76 +1,75 @@
 import { NextResponse } from 'next/server';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import fs from 'fs';
+import path from 'path';
+import { startOfWeek, endOfWeek, parseISO, isWithinInterval } from 'date-fns';
 
-type Entry = {
-  id: string;
-  groepId: string;
-  date: string; // YYYY-MM-DD
-  createdAt: string;
-};
+const DATA_PATH = path.join(process.cwd(), 'data', 'app-data.json');
 
-const DB = join(process.cwd(), 'data', 'app-data.json');
+type Item = { groepId:string; date:string; createdAt?:string };
 
-function readDB() {
-  if (!existsSync(DB)) return { sportmomenten: { items: [] }, groepen: { items: [] } };
-  try { return JSON.parse(readFileSync(DB, 'utf8')); }
-  catch { return { sportmomenten: { items: [] }, groepen: { items: [] } }; }
-}
-function writeDB(db: any) {
-  writeFileSync(DB, JSON.stringify(db, null, 2), 'utf8');
-}
-
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const start = url.searchParams.get('start'); // YYYY-MM-DD (optioneel)
-  const end = url.searchParams.get('end');     // YYYY-MM-DD (optioneel)
-
-  const db = readDB();
-  const items: Entry[] = Array.isArray(db?.sportmomenten?.items) ? db.sportmomenten.items : [];
-
-  // Aggregate count per groepId+date
-  const key = (g: string, d: string) => `${g}|${d}`;
-  const counts: Record<string, number> = {};
-  for (const it of items) {
-    if (!it?.groepId || !it?.date) continue;
-    if (start && it.date < start) continue;
-    if (end && it.date > end) continue;
-    counts[key(it.groepId, it.date)] = (counts[key(it.groepId, it.date)] || 0) + 1;
-  }
-  return NextResponse.json({ counts }, { status: 200 });
-}
-
-export async function POST(req: Request) {
-  const body = await req.json().catch(()=>null) as { groepId?: string; date?: string; delta?: number };
-  if (!body?.groepId || !body?.date) {
-    return NextResponse.json({ error: 'groepId en date verplicht' }, { status: 400 });
-  }
-  const delta = Number.isFinite(body.delta) ? Math.trunc(Number(body.delta)) : 1;
-
-  const db = readDB();
+function readDB(){
+  if(!fs.existsSync(DATA_PATH)) return { sportmomenten:{items:[] as Item[] } };
+  const db = JSON.parse(fs.readFileSync(DATA_PATH,'utf8')||'{}');
   db.sportmomenten = db.sportmomenten || { items: [] };
-  db.sportmomenten.items = Array.isArray(db.sportmomenten.items) ? db.sportmomenten.items : [];
+  return db;
+}
 
-  if (delta > 0) {
-    for (let i=0;i<delta;i++){
-      (db.sportmomenten.items as Entry[]).push({
-        id: `${Date.now()}-${Math.random().toString(36).slice(2,9)}`,
-        groepId: body.groepId!,
-        date: body.date!,
-        createdAt: new Date().toISOString(),
-      });
-    }
-  } else if (delta < 0) {
-    let need = Math.abs(delta);
-    db.sportmomenten.items = (db.sportmomenten.items as Entry[]).filter((e:Entry)=>{
-      if (need>0 && e.groepId===body.groepId && e.date===body.date) { need--; return false; }
-      return true;
+export async function GET(req: Request){
+  const url = new URL(req.url);
+  const ws = url.searchParams.get('weekStart');
+  const we = url.searchParams.get('weekEnd');
+  const agg = url.searchParams.get('aggregate') === '1';
+
+  const db = readDB();
+  let items: Item[] = db.sportmomenten.items || [];
+
+  if (ws && we) {
+    const start = parseISO(ws);
+    const end   = parseISO(we);
+    items = items.filter(it=>{
+      try{
+        const d = parseISO(it.date);
+        return isWithinInterval(d,{start,end});
+      }catch{ return false; }
     });
   }
 
-  writeDB(db);
+  if (agg) {
+    const byKey: Record<string,number> = {};
+    for (const it of items) {
+      const key = `${it.groepId}:${it.date}`;
+      byKey[key] = (byKey[key]||0)+1;
+    }
+    return NextResponse.json({ aggregate: byKey });
+  }
+  return NextResponse.json({ items });
+}
 
-  // return new count for that cell
-  const count = (db.sportmomenten.items as Entry[]).filter((e:Entry)=>e.groepId===body.groepId && e.date===body.date).length;
-  return NextResponse.json({ ok: true, count }, { status: 201 });
+export async function POST(req: Request){
+  const body = await req.json().catch(()=> ({} as any));
+  const groepId = String(body?.groepId||'').trim();
+  const dateStr = String(body?.date||'').trim(); // YYYY-MM-DD
+  if(!groepId || !dateStr) return NextResponse.json({error:'groepId en date verplicht'}, {status:400});
+  const db = readDB();
+  const items: Item[] = db.sportmomenten.items || (db.sportmomenten.items = []);
+  const exists = items.find(x=>x.groepId===groepId && x.date===dateStr);
+  if(!exists){
+    items.push({ groepId, date: dateStr, createdAt: new Date().toISOString() });
+    fs.writeFileSync(DATA_PATH, JSON.stringify(db,null,2));
+  }
+  return NextResponse.json({ ok:true });
+}
+
+export async function DELETE(req: Request){
+  const url = new URL(req.url);
+  const groepId = String(url.searchParams.get('groepId')||'').trim();
+  const dateStr = String(url.searchParams.get('date')||'').trim();
+  if(!groepId || !dateStr) return NextResponse.json({error:'groepId en date verplicht'}, {status:400});
+  const db = readDB();
+  const before = db.sportmomenten.items.length;
+  db.sportmomenten.items = db.sportmomenten.items.filter((x:Item)=> !(x.groepId===groepId && x.date===dateStr));
+  if (db.sportmomenten.items.length !== before) {
+    fs.writeFileSync(DATA_PATH, JSON.stringify(db,null,2));
+  }
+  return NextResponse.json({ ok:true });
 }
