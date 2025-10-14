@@ -7,7 +7,7 @@ const items = [
   { href:'/groepen',        label:'Groepen' },
   { href:'/sportmomenten',  label:'Sportmomenten' },
   { href:'/kalender',       label:'Kalender' },
-  { href:'/mutaties',       label:'Mutaties' },
+  { href:'/mutaties',       label:'Sportmutaties' },
   { href:'/indicaties',     label:'Indicaties' },
   { href:'/inventaris',     label:'Inventaris' },
 ];
