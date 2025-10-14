@@ -11,7 +11,7 @@ function iso(d:Date){ const p=(n:number)=>String(n).padStart(2,'0'); return `${d
 export default function SportmomentenPage(){
   const [groepen,setGroepen]=useState<Groep[]>([]);
   const [weekStart,setWeekStart]=useState<Date>(startOfWeekMonday());
-  const days = useMemo(()=>[0,1,2,3,4],[]);
+  const days = useMemo(()=>[0,1,2,3,4],[]); // ma-vr
   const [checked,setChecked]=useState<Record<CellKey,boolean>>({});
   const [loading,setLoading]=useState(false);
 
@@ -20,7 +20,7 @@ export default function SportmomentenPage(){
     try{
       const [gRes,mRes]=await Promise.all([
         fetch('/api/groepen',{cache:'no-store'}),
-        fetch(`/api/sportmomenten?weekStart=${iso(ws)}&days=7`,{cache:'no-store'}),
+        fetch(`/api/sportmomenten?weekStart=${iso(ws)}&days=5`,{cache:'no-store'}),
       ]);
       const gJ=await gRes.json().catch(()=>({items:[]}));
       const mJ=await mRes.json().catch(()=>({items:[]}));
@@ -30,7 +30,6 @@ export default function SportmomentenPage(){
       setChecked(map);
     } finally { setLoading(false); }
   };
-
   useEffect(()=>{ load(weekStart); },[]);
 
   const wd = days.map(n=>addDays(weekStart,n));
@@ -45,12 +44,14 @@ export default function SportmomentenPage(){
     if(!r.ok){ setChecked(prev=>({...prev,[key]:!newVal})); alert('Opslaan mislukt'); }
   };
 
+  const rowTotal = (gid:string)=>wd.reduce((acc,d)=>acc + (checked[`${gid}:${iso(d)}`]?1:0),0);
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Sportmomenten</h1>
-          <p className="text-gray-500">Klik op een vakje om te turven. Opslaan gebeurt automatisch.</p>
+          <p className="text-gray-500">Klik op een vakje om te turven (autosave). Rechts staat het totaal per groep.</p>
         </div>
         <div className="flex gap-2">
           <button className="px-3 py-2 rounded border bg-white hover:bg-gray-50" onClick={goPrev}>Vorige</button>
@@ -69,11 +70,12 @@ export default function SportmomentenPage(){
                   {['ma','di','wo','do','vr'][i]} {iso(d)}
                 </th>
               ))}
+              <th className="px-3 py-3 text-center w-24">Totaal</th>
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td className="px-3 py-6 text-gray-500" colSpan={1+wd.length}>Laden…</td></tr>}
-            {!loading && groepen.length===0 && <tr><td className="px-3 py-6 text-gray-500" colSpan={1+wd.length}>Geen groepen gevonden.</td></tr>}
+            {loading && <tr><td className="px-3 py-6 text-gray-500" colSpan={1+wd.length+1}>Laden…</td></tr>}
+            {!loading && groepen.length===0 && <tr><td className="px-3 py-6 text-gray-500" colSpan={1+wd.length+1}>Geen groepen gevonden.</td></tr>}
             {!loading && groepen.map(g=>(
               <tr key={g.id} className="border-t">
                 <td className="px-3 py-2">{g.naam||g.id}</td>
@@ -90,6 +92,7 @@ export default function SportmomentenPage(){
                     </td>
                   );
                 })}
+                <td className="px-3 py-2 text-center font-semibold">{rowTotal(g.id)}</td>
               </tr>
             ))}
           </tbody>

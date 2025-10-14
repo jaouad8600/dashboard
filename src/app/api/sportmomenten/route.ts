@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
@@ -5,7 +6,6 @@ import path from 'path';
 type Sportmoment = { id: string; groepId: string; datum: string; aanwezig: boolean };
 
 const DATA = path.join(process.cwd(), 'data', 'app-data.json');
-
 function readDB(): any {
   if (!fs.existsSync(DATA)) return { sportmomenten: { items: [] } };
   try {
@@ -19,16 +19,19 @@ function iso(d: Date){ const p=(n:number)=>String(n).padStart(2,'0'); return `${
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const ws = searchParams.get('weekStart'); // YYYY-MM-DD
-  const days = Number(searchParams.get('days') || 7);
+  const ws = searchParams.get('weekStart'); // YYYY-MM-DD (maandag)
+  const days = Number(searchParams.get('days') || 5); // ma-vr
   const db = readDB();
   let items: Sportmoment[] = db.sportmomenten.items;
 
   if (ws) {
     const start = new Date(ws);
     if (!isNaN(start.getTime())) {
-      const end = new Date(start); end.setDate(start.getDate() + (isFinite(days)?days:7) - 1);
-      items = items.filter(i => { const d=new Date(i.datum); return !isNaN(d.getTime()) && d>=start && d<=end; });
+      const end = new Date(start); end.setDate(start.getDate() + days - 1);
+      items = items.filter(i => {
+        const d = new Date(i.datum);
+        return !isNaN(d.getTime()) && d >= start && d <= end;
+      });
     }
   }
   return NextResponse.json({ items }, { status: 200 });
@@ -39,18 +42,17 @@ export async function POST(req: Request) {
   const groepId = String(body?.groepId || '').trim();
   const datumIn = String(body?.datum || '').trim();
   const aanwezig = !!body?.aanwezig;
+  if (!groepId || !datumIn) return NextResponse.json({ error: 'groepId en datum zijn verplicht' }, { status: 400 });
 
-  if (!groepId || !datumIn) return NextResponse.json({ error:'groepId en datum zijn verplicht' }, { status: 400 });
-
-  const d = new Date(datumIn); if (isNaN(d.getTime())) return NextResponse.json({ error:'Ongeldige datum' }, { status: 400 });
+  const d = new Date(datumIn); if (isNaN(d.getTime())) return NextResponse.json({ error: 'Ongeldige datum' }, { status: 400 });
   const datum = iso(d);
 
   const db = readDB();
   const list: Sportmoment[] = db.sportmomenten.items;
-  const idx = list.findIndex(x => x.groepId===groepId && x.datum===datum);
+  const idx = list.findIndex(x => x.groepId === groepId && x.datum === datum);
 
-  if (!aanwezig) { if (idx>=0) list.splice(idx,1); writeDB(db); return NextResponse.json({ ok:true, removed:true }, { status: 200 }); }
-  if (idx>=0) list[idx].aanwezig = true; else list.push({ id: Date.now().toString(36), groepId, datum, aanwezig:true });
+  if (!aanwezig) { if (idx >= 0) list.splice(idx, 1); writeDB(db); return NextResponse.json({ ok: true, removed: true }, { status: 200 }); }
+  if (idx >= 0) list[idx].aanwezig = true; else list.push({ id: Date.now().toString(36), groepId, datum, aanwezig: true });
   writeDB(db);
-  return NextResponse.json({ ok:true }, { status: 201 });
+  return NextResponse.json({ ok: true }, { status: 201 });
 }
