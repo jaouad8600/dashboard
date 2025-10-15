@@ -1,34 +1,50 @@
-import { NextResponse } from 'next/server';
-import path from 'path';
-import fs from 'fs/promises';
-const DB_PATH = path.join(process.cwd(), 'data', 'app-data.json');
+import { NextResponse } from "next/server";
+import path from "path";
+import fs from "fs";
+import { generateStandingEvents, mergeWithRecurring } from "../../../server/standingSchedule";
 
-type Plan = { id?:string; title?:string; start?:string; end?:string; allDay?:boolean; groepId?:string };
+function headers() {
+  return { "Cache-Control": "no-store", "Content-Type": "application/json" };
+}
+function loadDb() {
+  const p = path.join(process.cwd(), "data", "app-data.json");
+  try { return JSON.parse(fs.readFileSync(p, "utf8")); } catch { return {}; }
+}
+function between(items: any[], start?: string | null, end?: string | null) {
+  if (!start || !end) return items;
+  return items.filter((it: any) => {
+    const s = String(it?.start ?? "");
+    return s >= start && s < end;
+  });
+}
+function dayRangeFrom(dateStr?: string | null) {
+  const base = dateStr ? new Date(dateStr as string) : new Date();
+  const y = base.getFullYear(), m = base.getMonth() + 1, d = base.getDate();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const off = "+02:00";
+  const start = `${y}-${pad(m)}-${pad(d)}T00:00:00${off}`;
+  const end   = `${y}-${pad(m)}-${pad(d)}T24:00:00${off}`;
+  return { start, end };
+}
 
-export async function GET(req: Request){
-  const url = new URL(req.url);
-  const qStart = url.searchParams.get('start');
-  const qEnd   = url.searchParams.get('end');
-  const qDate  = url.searchParams.get('date'); // fallback
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const start = searchParams.get("start");
+  const end = searchParams.get("end");
+  const date = searchParams.get("date");
 
-  let db:any={};
-  try{ db = JSON.parse(await fs.readFile(DB_PATH,'utf8')); }catch{}
-  let items: Plan[] = Array.isArray(db?.planning?.items) ? db.planning.items : [];
+  const range = (start && end) ? { start, end } : dayRangeFrom(date);
 
-  const inRange = (s?:string)=>{
-    if(!s) return false;
-    const t = +new Date(s);
-    if (qStart && qEnd) return t >= +new Date(qStart) && t <= +new Date(qEnd);
-    if (qDate){
-      const d = new Date(qDate);
-      const a = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0,0).getTime();
-      const b = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23,59,59,999).getTime();
-      return t>=a && t<=b;
-    }
-    return true;
-  };
+  const db = loadDb();
+  const raw = Array.isArray(db?.planning?.items) ? db.planning.items
+            : Array.isArray(db?.planning)       ? db.planning
+            : [];
+  const stored = between(raw, range.start, range.end);
 
-  if (qStart || qDate) items = items.filter(x=>inRange(x.start));
+  const recurring = generateStandingEvents(range.start, range.end);
+  const items = mergeWithRecurring(stored, recurring);
 
-  return NextResponse.json({ items }, { headers: { 'cache-control': 'no-store' } });
+  items.sort((a: any, b: any) => String(a?.start ?? "").localeCompare(String(b?.start ?? "")));
+
+  return NextResponse.json({ items }, { headers: headers() });
 }

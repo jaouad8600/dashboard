@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "dev:3040": "next dev -p 3040"
+    "dev:3040": "next dev -p 3040",
+    "backup": "bash scripts/backup.sh"
   },
   "dependencies": {
     "@fullcalendar/common": "^5.11.5",
