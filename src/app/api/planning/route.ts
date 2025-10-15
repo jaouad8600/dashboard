@@ -1,47 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-export const revalidate = 0;
+import { NextResponse } from 'next/server';
+import path from 'path';
+import fs from 'fs/promises';
+const DB_PATH = path.join(process.cwd(), 'data', 'app-data.json');
 
-const PATH = 'data/app-data.json';
-type PlanningItem = { id:string; naam?:string; title?:string; start?:string; end?:string; allDay?:boolean };
+type Plan = { id?:string; title?:string; start?:string; end?:string; allDay?:boolean; groepId?:string };
 
-function readDB(){
-  const raw = fs.existsSync(PATH) ? fs.readFileSync(PATH,'utf8') : '{"planning":{"items":[]}}';
-  try { return JSON.parse(raw); } catch { return { planning:{items:[]} }; }
-}
-function inRange(s:string|undefined, start?:Date, end?:Date){
-  if(!s) return false;
-  const d = new Date(s);
-  if(Number.isNaN(+d)) return false;
-  if(start && d < start) return false;
-  if(end   && d > end)   return false;
-  return true;
-}
-
-export async function GET(req: NextRequest){
+export async function GET(req: Request){
   const url = new URL(req.url);
-  const date = url.searchParams.get('date');     // YYYY-MM-DD (centrum)
-  const startQ = url.searchParams.get('start');  // ISO
-  const endQ   = url.searchParams.get('end');    // ISO
+  const qStart = url.searchParams.get('start');
+  const qEnd   = url.searchParams.get('end');
+  const qDate  = url.searchParams.get('date'); // fallback
 
-  const db = readDB();
-  let items: PlanningItem[] = Array.isArray(db.planning?.items) ? db.planning.items : [];
+  let db:any={};
+  try{ db = JSON.parse(await fs.readFile(DB_PATH,'utf8')); }catch{}
+  let items: Plan[] = Array.isArray(db?.planning?.items) ? db.planning.items : [];
 
-  let start: Date | undefined;
-  let end:   Date | undefined;
+  const inRange = (s?:string)=>{
+    if(!s) return false;
+    const t = +new Date(s);
+    if (qStart && qEnd) return t >= +new Date(qStart) && t <= +new Date(qEnd);
+    if (qDate){
+      const d = new Date(qDate);
+      const a = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0,0).getTime();
+      const b = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23,59,59,999).getTime();
+      return t>=a && t<=b;
+    }
+    return true;
+  };
 
-  if(startQ && endQ){
-    start = new Date(startQ); end = new Date(endQ);
-  } else if(date){
-    const d = new Date(date+'T00:00:00');
-    const day = (d.getDay()+6)%7; // maandag=0
-    start = new Date(d); start.setDate(d.getDate()-day); start.setHours(0,0,0,0);
-    end   = new Date(start); end.setDate(start.getDate()+6); end.setHours(23,59,59,999);
-  }
+  if (qStart || qDate) items = items.filter(x=>inRange(x.start));
 
-  if(start && end){
-    items = items.filter(it => inRange(it.start, start, end));
-  }
-
-  return NextResponse.json({ items }, { status: 200 });
+  return NextResponse.json({ items }, { headers: { 'cache-control': 'no-store' } });
 }

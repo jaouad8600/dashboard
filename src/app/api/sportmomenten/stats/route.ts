@@ -1,34 +1,57 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import path from "path";
 import fs from "fs/promises";
-export const revalidate = 0;
-export const dynamic = "force-dynamic";
-const DB = path.join(process.cwd(), "data", "app-data.json");
 
-async function readDB(): Promise<any>{ try{ return JSON.parse(await fs.readFile(DB,"utf8")); }catch{ return {}; } }
-const inRange=(d:string,a:Date,b:Date)=>{ const t=new Date(d).getTime(); return t>=a.getTime() && t<b.getTime(); };
-const thisMonth=(now=new Date())=>[new Date(now.getFullYear(),now.getMonth(),1), new Date(now.getFullYear(),now.getMonth()+1,1)] as const;
-const lastMonth=(now=new Date())=>[new Date(now.getFullYear(),now.getMonth()-1,1), new Date(now.getFullYear(),now.getMonth(),1)] as const;
+const DB_PATH = path.join(process.cwd(), "data", "app-data.json");
+const headers = { "cache-control": "no-store" };
 
-export async function GET(req: NextRequest){
-  const sp = new URL(req.url).searchParams;
-  const groepId = sp.get("groepId");
-  if(!groepId) return NextResponse.json({error:"groepId verplicht"},{status:400});
-  const db = await readDB();
-  const items:any[] = Array.isArray(db?.sportmomenten?.items)? db.sportmomenten.items : [];
-  const own = items.filter(x=>String(x.groepId)===String(groepId));
-  const now = new Date();
-  const [tmA,tmB] = thisMonth(now);
-  const [lmA,lmB] = lastMonth(now);
-  const yA = new Date(now.getFullYear(),0,1);
-  const yB = new Date(now.getFullYear()+1,0,1);
-  const d30 = new Date(now.getTime()-30*24*3600*1000);
+function parseYMD(d:string): {y:number,m:number,day:number,ts:number} | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+  if (!m) return null;
+  const y = +m[1], mo = +m[2], day = +m[3];
+  if (mo<1||mo>12||day<1||day>31) return null;
+  const ts = Date.UTC(y, mo-1, day); // middernacht UTC
+  return { y, m: mo, day, ts };
+}
 
-  return NextResponse.json({
-    totaal: own.length,
-    dezeMaand: own.filter(x=>inRange(x.datum,tmA,tmB)).length,
-    vorigeMaand: own.filter(x=>inRange(x.datum,lmA,lmB)).length,
-    ditJaar: own.filter(x=>inRange(x.datum,yA,yB)).length,
-    laatste30Dagen: own.filter(x=>inRange(x.datum,d30,now)).length,
-  }, {headers:{'cache-control':'no-store'}});
+export async function GET(req: Request){
+  const url = new URL(req.url);
+  const groupId = String(url.searchParams.get("groepId") || url.searchParams.get("groupId") || "").trim();
+
+  let db:any={};
+  try { db = JSON.parse(await fs.readFile(DB_PATH,"utf8")); } catch {}
+  const all = Array.isArray(db?.sportmomenten?.items) ? db.sportmomenten.items : [];
+
+  const items = (groupId ? all.filter((i:any)=> i.groupId===groupId) : all).filter((i:any)=> i.value===true);
+
+  const now = new Date();                       // lokale 'nu'
+  const year = now.getFullYear();
+  const month = now.getMonth()+1;               // 1..12
+
+  // vorige maand
+  const prevMonth = month === 1 ? 12 : month-1;
+  const prevYear  = month === 1 ? year-1 : year;
+
+  // laatste 30 dagen (inclusief vandaag)
+  const todayUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const last30Start = todayUTC - 29*24*3600*1000;
+
+  let totaal = 0, dezeMaand=0, vorigeMaand=0, ditJaar=0, laatste30=0;
+
+  for (const it of items) {
+    const p = parseYMD(String(it.date||""));
+    if (!p) continue; // sla ongeldige datums over
+
+    totaal += 1;
+
+    if (p.y === year) ditJaar += 1;
+    if (p.y === year && p.m === month) dezeMaand += 1;
+    if (p.y === prevYear && p.m === prevMonth) vorigeMaand += 1;
+    if (p.ts >= last30Start && p.ts <= todayUTC) laatste30 += 1;
+  }
+
+  return NextResponse.json(
+    { groepId: groupId || null, totaal, dezeMaand, vorigeMaand, ditJaar, laatste30Dagen: laatste30 },
+    { headers }
+  );
 }

@@ -1,38 +1,68 @@
-import { NextRequest, NextResponse } from 'next/server';
-import path from 'path';
-import fs from 'fs/promises';
+import { NextResponse } from "next/server";
+import path from "path";
+import fs from "fs/promises";
+const DB_PATH = path.join(process.cwd(), "data", "app-data.json");
+const headers = { "cache-control": "no-store" };
 
-export const revalidate = 0;
-export const dynamic = 'force-dynamic';
+type Note = {
+  id: string;
+  groupId: string;
+  text: string;
+  archived?: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
 
-const DB_PATH = path.join(process.cwd(), 'data', 'app-data.json');
-async function readDB(){ try{ return JSON.parse(await fs.readFile(DB_PATH,'utf8')); }catch{ return {}; } }
+async function readDB(): Promise<any> {
+  try { return JSON.parse(await fs.readFile(DB_PATH,"utf8")); } catch { return {}; }
+}
 async function writeDB(db:any){ await fs.mkdir(path.dirname(DB_PATH),{recursive:true}); await fs.writeFile(DB_PATH, JSON.stringify(db,null,2)); }
-const uid = ()=>'n_'+Math.random().toString(36).slice(2)+Date.now().toString(36);
+function uid(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
 
-export async function GET(req:NextRequest){
-  const db=await readDB();
-  db.notities = db.notities || { items: [] };
-  const { searchParams } = new URL(req.url);
-  const groupId = searchParams.get('groupId') || searchParams.get('groepId');
-  let items = Array.isArray(db.notities.items)? db.notities.items : [];
-  if(groupId) items = items.filter((n:any)=> String(n.groupId)===String(groupId));
-  // sort nieuwste boven
-  items = items.sort((a:any,b:any)=> String(b.createdAt??'').localeCompare(String(a.createdAt??'')));
-  return NextResponse.json(items, { headers:{'cache-control':'no-store'} });
+function getList(db:any): Note[] {
+  const n = Array.isArray(db?.notities?.items) ? db.notities.items : [];
+  const a = Array.isArray(db?.aantekeningen?.items) ? db.aantekeningen.items : [];
+  // merge & normaliseer
+  const map = new Map<string,Note>();
+  for (const it of [...n, ...a]) {
+    if (!it) continue;
+    const id = String(it.id || uid());
+    const groupId = String(it.groupId || it.groepId || "").trim();
+    const text = String(it.text ?? it.opmerking ?? "");
+    const createdAt = it.createdAt || new Date().toISOString();
+    const updatedAt = it.updatedAt || createdAt;
+    map.set(id, { id, groupId, text, archived: !!it.archived, createdAt, updatedAt });
+  }
+  return [...map.values()];
+}
+function setList(db:any, items:Note[]) {
+  db.notities = { items }; db.aantekeningen = { items }; // beide up-to-date houden
 }
 
-export async function POST(req:NextRequest){
-  const body = await req.json().catch(()=>({}));
-  const groupId = body?.groupId || body?.groepId;
-  const tekst   = (body?.tekst ?? body?.text ?? '').trim();
-  if(!groupId || !tekst) return NextResponse.json({error:'groupId en tekst verplicht'}, {status:400, headers:{'cache-control':'no-store'}});
-  const db=await readDB();
-  db.notities = db.notities || { items: [] };
-  if(!Array.isArray(db.notities.items)) db.notities.items=[];
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const gid = String(url.searchParams.get("groupId") || url.searchParams.get("groepId") || "").trim();
+  const all = getList(await readDB());
+  const items = gid && gid!=="list" ? all.filter(n => n.groupId===gid && !n.archived) : all.filter(n => !n.archived);
+  // Sorteren: nieuwste eerst
+  items.sort((a,b)=> b.updatedAt.localeCompare(a.updatedAt));
+  return NextResponse.json({ items }, { headers });
+}
+
+export async function POST(req: Request) {
+  const body = await req.json().catch(()=> ({}));
+  const groupId = String(body.groupId || body.groepId || "").trim();
+  const text = String(body.text || body.opmerking || "").trim();
+  if (!groupId || !text) {
+    return NextResponse.json({ error: "groupId én text zijn verplicht" }, { status: 400, headers });
+  }
+  const db = await readDB();
+  const list = getList(db);
   const now = new Date().toISOString();
-  const note = { id: uid(), groupId: String(groupId), tekst, createdAt: now, updatedAt: now, archived: false };
-  db.notities.items.unshift(note);
+  const item: Note = { id: uid(), groupId, text, archived:false, createdAt: now, updatedAt: now };
+  list.push(item);
+  setList(db, list);
   await writeDB(db);
-  return NextResponse.json(note, { status:201, headers:{'cache-control':'no-store'} });
+  // ⚠️ front-end verwacht { item } (j.item.text)
+  return NextResponse.json({ ok:true, item }, { headers });
 }

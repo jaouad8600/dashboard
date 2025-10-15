@@ -1,136 +1,175 @@
-'use client';
+"use client";
+import { useEffect, useMemo, useState } from "react";
 
-import { useEffect, useMemo, useState } from 'react';
+type Group = { id?: string; slug?: string; naam?: string; name?: string };
+type Item  = { groupId: string; date: string; value?: boolean };
 
-type Groep = { id:string; naam?:string; name?:string; title?:string; kleur?:string };
-type SM = { id:string; groepId:string; datum:string; aanwezig:boolean };
-
-function isoDate(d: Date){
-  const y=d.getFullYear(), m=(d.getMonth()+1).toString().padStart(2,'0'), dd=d.getDate().toString().padStart(2,'0');
-  return `${y}-${m}-${dd}`;
-}
-function startOfWeekMonday(date = new Date()){
-  const d=new Date(date); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); d.setHours(0,0,0,0); return d;
-}
+const iso = (d: Date) => d.toISOString().slice(0,10);
+const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const startOfWeekMon = (d: Date) => { const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; };
 
 export default function SportmomentenPage(){
-  const [groepen, setGroepen] = useState<Groep[]>([]);
-  const [checked, setChecked] = useState<Set<string>>(new Set()); // key = groepId:YYYY-MM-DD
-  const [cursor, setCursor] = useState<Date>(startOfWeekMonday(new Date())); // huidige week (ma)
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [items, setItems]   = useState<Item[]>([]);
+  const [anchor, setAnchor] = useState<Date>(new Date());
+  const [modal, setModal]   = useState<{group?: Group}|null>(null);
 
-  const dagen = useMemo(()=>{
-    return Array.from({length:5}).map((_,i)=>{ const d=new Date(cursor); d.setDate(d.getDate()+i); return d; });
-  },[cursor]);
+  const gid = (g: Group) => (g.id || g.slug || g.naam || g.name || "").toString();
+  const weekStart = useMemo(()=>startOfWeekMon(anchor), [anchor]);
+  const days = useMemo(()=> Array.from({length:7},(_,i)=> addDays(weekStart,i)), [weekStart]);
 
-  const mapKey = (gid:string, d:Date)=> `${gid}:${isoDate(d)}`;
+  // map: groupId|date -> bool
+  const map = useMemo(()=>{
+    const m = new Map<string, boolean>();
+    for (const it of items) m.set(`${it.groupId}|${it.date}`, !!it.value);
+    return m;
+  }, [items]);
 
-  useEffect(()=>{ (async()=>{
-    // Groepen
-    const gRes = await fetch('/api/groepen').then(r=>r.json()).catch(()=>[]);
-    const arr:Groep[] = Array.isArray(gRes) ? gRes
-      : (gRes.groepen ?? gRes.groups ?? gRes.items ?? []);
-    setGroepen(arr||[]);
-    // Sportmomenten
-    const sRes = await fetch('/api/sportmomenten').then(r=>r.json()).catch(()=>({items:[]}));
-    const items:SM[] = Array.isArray(sRes) ? sRes : (sRes.items ?? []);
-    const s = new Set<string>();
-    for(const it of items){ if(it.aanwezig) s.add(`${it.groepId}:${it.datum}`); }
-    setChecked(s);
-  })(); },[]);
-
-  async function toggle(gid:string, d:Date){
-    const key = mapKey(gid, d);
-    const datum = isoDate(d);
-    const wasOn = checked.has(key);
-    const next = new Set(checked);
-    if (wasOn) next.delete(key); else next.add(key);
-    setChecked(next); // optimistisch updaten
-
-    try{
-      const r = await fetch('/api/sportmomenten', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ groepId: gid, datum, aanwezig: !wasOn })
-      });
-      if(!r.ok){
-        // revert bij fout
-        const rev = new Set(next);
-        if(wasOn) rev.add(key); else rev.delete(key);
-        setChecked(rev);
-        console.error('Opslaan mislukt', await r.text());
-      }
-    }catch(e){
-      const rev = new Set(next);
-      if(wasOn) rev.add(key); else rev.delete(key);
-      setChecked(rev);
-      console.error(e);
+  const weekTotals = useMemo(()=>{
+    const t = new Map<string, number>();
+    for (const g of groups){
+      const id = gid(g);
+      let c = 0;
+      for (const d of days) if (map.get(`${id}|${iso(d)}`)) c++;
+      t.set(id, c);
     }
+    return t;
+  }, [groups, days, map]);
+
+  async function loadAll(){
+    const [gr, sm] = await Promise.all([
+      fetch("/api/groepen", { cache:"no-store" }).then(r=>r.json()).catch(()=>[]),
+      fetch("/api/sportmomenten", { cache:"no-store" }).then(r=>r.json()).catch(()=>({items:[]})),
+    ]);
+    setGroups(Array.isArray(gr)? gr : []);
+    setItems(Array.isArray(sm?.items)? sm.items : []);
+  }
+  useEffect(()=>{ loadAll(); }, []);
+
+  async function toggleCell(groupId: string, dateISO: string){
+    const newVal = !map.get(`${groupId}|${dateISO}`);
+    // Optimistisch
+    setItems(prev => {
+      const filtered = prev.filter(x => !(x.groupId===groupId && x.date===dateISO));
+      return [...filtered, { groupId, date: dateISO, value: newVal }];
+    });
+    await fetch("/api/sportmomenten", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ groupId, date: dateISO, value: newVal })
+    }).catch(()=>{});
   }
 
-  const totalFor = (gid:string)=> {
-    let t=0;
-    for(const d of dagen){ if(checked.has(mapKey(gid,d))) t++; }
-    return t;
-  };
+  function stats(g: Group){
+    const id = gid(g);
+    const now = new Date();
+    const startMonth     = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startPrevMonth = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const endPrevMonth   = new Date(now.getFullYear(), now.getMonth(), 0);
+    const startYear      = new Date(now.getFullYear(), 0, 1);
+    const last30From     = new Date(now.getTime() - 30*24*3600*1000);
 
-  function weekBack(){ const d=new Date(cursor); d.setDate(d.getDate()-7); setCursor(startOfWeekMonday(d)); }
-  function weekNext(){ const d=new Date(cursor); d.setDate(d.getDate()+7); setCursor(startOfWeekMonday(d)); }
-  function weekNow(){ setCursor(startOfWeekMonday(new Date())); }
+    const list = items.filter(it => it.groupId===id && it.value);
+    const inRange = (from: Date, to: Date) => {
+      const a = new Date(from.toDateString()).getTime();
+      const b = new Date(to.toDateString()).getTime();
+      return list.filter(it => {
+        const t = new Date(it.date+"T00:00:00").getTime();
+        return t>=a && t<=b;
+      }).length;
+    };
+
+    return {
+      dezeMaand:   inRange(startMonth, now),
+      vorigeMaand: inRange(startPrevMonth, endPrevMonth),
+      ditJaar:     inRange(startYear, now),
+      laatste30:   inRange(last30From, now),
+      totaal:      list.length,
+    };
+  }
 
   return (
-    <main data-page="sportmomenten" className="p-6 space-y-4">
-      <div className="flex items-center gap-2">
-        <button className="btn bg-emerald-600 text-white px-3 py-2 rounded" onClick={weekBack}>Vorige week</button>
-        <button className="btn bg-emerald-600 text-white px-3 py-2 rounded" onClick={weekNow}>Deze week</button>
-        <button className="btn bg-emerald-600 text-white px-3 py-2 rounded" onClick={weekNext}>Volgende week</button>
-        <div className="ml-auto text-sm text-gray-600">
-          Week van <strong>{isoDate(dagen[0] ?? cursor)}</strong> t/m <strong>{isoDate(dagen[4] ?? cursor)}</strong>
+    <div className="p-6">
+      <div className="flex gap-2 mb-4">
+        <button className="bg-emerald-600 text-white px-3 py-2 rounded" onClick={()=>setAnchor(new Date())}>Vandaag</button>
+        <button className="bg-emerald-600 text-white px-3 py-2 rounded" onClick={()=>setAnchor(addDays(weekStart,-7))}>← Vorige</button>
+        <button className="bg-emerald-600 text-white px-3 py-2 rounded" onClick={()=>setAnchor(addDays(weekStart, 7))}>Volgende →</button>
+        <div className="px-3 py-2 rounded border">
+          {weekStart.toLocaleDateString('nl-NL')} – {addDays(weekStart,6).toLocaleDateString('nl-NL')}
         </div>
       </div>
 
-      <div className="overflow-auto rounded border">
+      <div className="overflow-x-auto border rounded-lg">
         <table className="min-w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead className="bg-zinc-50">
             <tr>
-              <th className="px-3 py-2 text-left font-semibold">Groep</th>
-              {dagen.map((d,i)=>(
-                <th key={i} className="px-2 py-2 text-center font-semibold">{d.toLocaleDateString('nl-NL', { weekday:'short', day:'2-digit', month:'2-digit' })}</th>
+              <th className="text-left p-3">Groep</th>
+              {days.map(d => (
+                <th key={iso(d)} className="text-center p-3 w-20">
+                  {d.toLocaleDateString('nl-NL',{ weekday:'short' })}<br/>
+                  {d.toLocaleDateString('nl-NL',{ day:'2-digit', month:'2-digit' })}
+                </th>
               ))}
-              <th className="px-3 py-2 text-center font-semibold">Totaal</th>
+              <th className="p-3 text-center">Totaal</th>
+              <th className="p-3 text-center">Statistiek</th>
             </tr>
           </thead>
           <tbody>
-            {groepen.map((g)=> {
-              const gNaam = g.naam || g.name || g.title || g.id;
+            {groups.map(g=>{
+              const id = gid(g);
+              const naam = g.naam || g.name || id;
               return (
-                <tr key={g.id} className="border-t">
-                  <td className="px-3 py-2 font-medium">{gNaam}</td>
-                  {dagen.map((d,i)=>{
-                    const key = mapKey(g.id, d);
-                    const on = checked.has(key);
+                <tr key={id} className="border-t">
+                  <td className="p-3">{naam}</td>
+                  {days.map(d=>{
+                    const k = `${id}|${iso(d)}`;
+                    const checked = !!map.get(k);
                     return (
-                      <td key={i} className="px-2 py-2 text-center">
+                      <td key={k} className="p-2 text-center">
                         <button
-                          className={`toggle-cell${on?' on':''}`}
-                          aria-pressed={on}
-                          aria-label={`${gNaam} ${isoDate(d)} ${on?'Ja':'Nee'}`}
-                          onClick={()=>toggle(g.id, d)}
-                        >
-                          {on ? '✓' : ''}
-                        </button>
+                          onClick={()=>toggleCell(id, iso(d))}
+                          className={"inline-flex items-center justify-center w-8 h-8 rounded border " + (checked ? "bg-emerald-600 text-white" : "bg-white text-transparent")}
+                          aria-label={checked ? "Ja" : "Nee"}
+                          title={checked ? "Ja" : "Nee"}
+                        >✓</button>
                       </td>
                     );
                   })}
-                  <td className="px-3 py-2 text-center font-semibold">{totalFor(g.id)}</td>
+                  <td className="p-3 text-center font-semibold">{weekTotals.get(id) ?? 0}</td>
+                  <td className="p-3 text-center">
+                    <button onClick={()=>setModal({ group: g })} className="bg-emerald-600 text-white px-3 py-1 rounded">Open</button>
+                  </td>
                 </tr>
               );
             })}
-            {groepen.length===0 && (
-              <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-500">Geen groepen gevonden.</td></tr>
-            )}
           </tbody>
         </table>
       </div>
-    </main>
+
+      {!!modal?.group && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-[480px]">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold">
+                Statistiek — {modal.group.naam || modal.group.name || gid(modal.group)}
+              </h2>
+              <button onClick={()=>setModal(null)} className="bg-emerald-700 text-white px-3 py-1 rounded">Sluiten</button>
+            </div>
+            {(() => {
+              const s = stats(modal.group!);
+              return (
+                <ul className="space-y-2">
+                  <li><b>Deze maand:</b> {s.dezeMaand}</li>
+                  <li><b>Vorige maand:</b> {s.vorigeMaand}</li>
+                  <li><b>Dit jaar:</b> {s.ditJaar}</li>
+                  <li><b>Laatste 30 dagen:</b> {s.laatste30}</li>
+                  <li><b>Totaal:</b> {s.totaal}</li>
+                </ul>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
