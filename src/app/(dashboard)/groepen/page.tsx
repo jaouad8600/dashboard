@@ -1,165 +1,213 @@
-'use client';
-import { useEffect, useMemo, useState } from 'react';
+"use client";
 
-type Groep = { id:string; naam?:string; name?:string; title?:string; kleur?:string; afdeling?:string };
-type Indicatie = { id:string; groepId:string; status?:string };
-type Mutatie = { id:string; groepId:string };
+import { useEffect, useMemo, useState } from "react";
 
-const KLEUREN = [
-  { key:'groen',  label:'GROEN',  clsOn:'bg-emerald-600 text-white',    clsOff:'bg-gray-100 text-gray-700 hover:bg-gray-200' },
-  { key:'geel',   label:'GEEL',   clsOn:'bg-amber-500 text-white',      clsOff:'bg-gray-100 text-gray-700 hover:bg-gray-200' },
-  { key:'oranje', label:'ORANJE', clsOn:'bg-orange-500 text-white',     clsOff:'bg-gray-100 text-gray-700 hover:bg-gray-200' },
-  { key:'rood',   label:'ROOD',   clsOn:'bg-red-600 text-white',        clsOff:'bg-gray-100 text-gray-700 hover:bg-gray-200' },
-];
+type Group = { id: string; slug?: string; naam?: string; name?: string; kleur?: string; code?: string };
 
-function naam(g:Groep){ return g.naam || g.name || g.title || g.id; }
+type Note = {
+  id: string;
+  groupId: string;
+  text: string;
+  archived?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
 
-export default function GroepenPage(){
-  const [groepen, setGroepen] = useState<Groep[]>([]);
-  const [filter, setFilter]   = useState('');
+function gid(g: Group) {
+  return String(g?.id ?? g?.slug ?? g?.code ?? g?.name ?? g?.naam ?? "").toLowerCase();
+}
+function fmtDate(iso?: string) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("nl-NL", {
+      year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+    });
+  } catch { return iso || ""; }
+}
+
+export default function GroepenPage() {
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let abort = false;
     (async () => {
-      const r = await fetch('/api/groepen', { cache:'no-store' });
-      const j = await r.json();
-      setGroepen(Array.isArray(j) ? j : (j.groepen || j.groups || []));
+      try {
+        const res = await fetch("/api/groepen", { cache: "no-store" });
+        const data = await res.json();
+        if (abort) return;
+        const items: Group[] = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+        setGroups(items);
+      } finally { setLoading(false); }
     })();
+    return () => { abort = true; };
   }, []);
 
-  const gefilterd = useMemo(() => {
-    const f = filter.trim().toLowerCase();
-    if(!f) return groepen;
-    return groepen.filter(g => naam(g).toLowerCase().includes(f));
-  }, [groepen, filter]);
+  if (loading) return <div className="p-6 text-sm text-zinc-500">Laden…</div>;
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Groepen</h1>
-        <input
-          value={filter} onChange={e=>setFilter(e.target.value)}
-          placeholder="Filter…"
-          className="px-3 py-2 rounded-lg border w-[260px]"
-        />
-      </div>
-
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-2">
-        {gefilterd.map(g => (<GroepCard key={g.id} g={g} onKleurChange={(k)=>updateKleur(g.id,k,setGroepen)} />))}
+      <h1 className="text-2xl font-bold">Groepen</h1>
+      <div className="grid gap-5">
+        {groups.map((g) => <GroupCard key={gid(g)} group={g} />)}
+        {groups.length === 0 && <div className="text-sm text-zinc-500">Geen groepen gevonden.</div>}
       </div>
     </div>
   );
 }
 
-async function updateKleur(id:string, kleur:string, setGroepen:(fn: (prev:Groep[])=>Groep[])=>void){
-  setGroepen(prev => prev.map(x => x.id===id ? { ...x, kleur } : x));
-  const r = await fetch(`/api/groepen/${id}`, {
-    method:'PUT',
-    headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify({ kleur })
-  }).catch(()=>null);
-  if(!r || !r.ok){
-    // rollback is simpel: herlaad groepen endpoint
-    const rr = await fetch('/api/groepen', { cache:'no-store' }).catch(()=>null);
-    if(rr && rr.ok){ const j = await rr.json(); setGroepen(Array.isArray(j)? j : (j.groepen||j.groups||[])); }
-  }
+function ColorButton({active,label,onClick}:{active?:boolean;label:string;onClick:()=>void}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-md border text-sm font-semibold
+        ${active ? "bg-zinc-900 text-white border-zinc-900" : "bg-white text-zinc-900 border-zinc-200 hover:border-zinc-300"}`}
+    >
+      {label}
+    </button>
+  );
 }
 
-function Badge({ tone='gray', children }:{ tone?:'green'|'blue'|'gray'; children:any }){
-  const map:any = {
-    green:'bg-emerald-100 text-emerald-700',
-    blue:'bg-indigo-100 text-indigo-700',
-    gray:'bg-gray-100 text-gray-700',
-  };
-  return <span className={`px-2 py-0.5 text-xs rounded ${map[tone]}`}>{children}</span>;
-}
+function GroupCard({ group }: { group: Group }) {
+  const groupId = useMemo(() => gid(group), [group]);
+  const title = String(group?.naam ?? group?.name ?? groupId || "Onbekend");
+  const [kleur, setKleur] = useState<string | undefined>(group?.kleur);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [noteText, setNoteText] = useState("");
+  const [busy, setBusy] = useState(false);
 
-function GroepCard({ g, onKleurChange }:{ g:Groep; onKleurChange:(kleur:string)=>void }){
-  const [mutaties, setMutaties] = useState<Mutatie[]>([]);
-  const [indicaties, setIndicaties] = useState<Indicatie[]>([]);
-  const [note, setNote] = useState('');
-  const [lastNote, setLastNote] = useState<{text:string; createdAt:string}|null>(null);
+  // Notities ophalen
+  useEffect(() => {
+    let abort = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/aantekeningen?groupId=${encodeURIComponent(groupId)}`, { cache: "no-store" });
+        const data = await res.json();
+        if (abort) return;
+        const items: Note[] = (Array.isArray(data?.items) ? data.items : []);
+        // Filter leeg/null en sorteer nieuw → oud
+        const clean = items
+          .filter((n) => n && typeof n.text === "string" && n.text.trim().length > 0 && !n.archived)
+          .sort((a,b)=> (b.updatedAt || b.createdAt || "").localeCompare(a.updatedAt || a.createdAt || ""));
+        setNotes(clean);
+      } catch { /* negeren */ }
+    })();
+    return () => { abort = true; };
+  }, [groupId]);
 
-  useEffect(()=>{ (async()=>{
-    const [m,i,n] = await Promise.all([
-      fetch(`/api/mutaties?groupId=${encodeURIComponent(g.id)}`, { cache:'no-store' }).then(r=>r.json()).catch(()=>({items:[]})),
-      fetch(`/api/indicaties?groupId=${encodeURIComponent(g.id)}`, { cache:'no-store' }).then(r=>r.json()).catch(()=>({items:[]})),
-      fetch(`/api/aantekeningen?groupId=${encodeURIComponent(g.id)}`, { cache:'no-store' }).then(r=>r.json()).catch(()=>({items:[]})),
-    ]);
-    setMutaties(m.items||[]);
-    setIndicaties(i.items||[]);
-    const ln = (n.items||[])[0] || null;
-    setLastNote(ln ? { text: ln.text, createdAt: ln.createdAt } : null);
-  })(); }, [g.id]);
-
-  const openIndicaties = indicaties.filter(x => (x.status||'open') !== 'afgerond').length;
-  const openMutaties   = mutaties.length; // geen status bij mutaties → tel alles
-
-  async function addNote(){
-    const t = note.trim(); if(!t) return;
-    setNote('');
-    const r = await fetch('/api/aantekeningen', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ groepId: g.id, text: t })
-    });
-    if(r.ok){
-      const j = await r.json();
-      setLastNote({ text:j.item.text, createdAt:j.item.createdAt });
+  async function setGroupColor(newColor: "groen"|"geel"|"oranje"|"rood") {
+    try {
+      setKleur(newColor);
+      await fetch(`/api/groepen/${encodeURIComponent(groupId)}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json", "cache-control": "no-store" },
+        body: JSON.stringify({ kleur: newColor }),
+      });
+    } catch {
+      // rollback bij fout
     }
   }
 
+  async function addNote() {
+    const text = noteText.trim();
+    if (!text) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/aantekeningen", {
+        method: "POST",
+        headers: { "content-type": "application/json", "cache-control": "no-store" },
+        body: JSON.stringify({ groupId, text }),
+      });
+      const data = await res.json();
+      const item: Note = data?.item ?? data; // API kan {item} of notitie zelf teruggeven
+      if (item && typeof item.text === "string") {
+        setNotes((prev) => [
+          { ...item, groupId, text: item.text, archived: !!item.archived },
+          ...prev,
+        ]);
+        setNoteText("");
+      }
+    } finally { setBusy(false); }
+  }
+
+  async function archiveNote(id: string) {
+    try {
+      await fetch(`/api/aantekeningen/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json", "cache-control": "no-store" },
+        body: JSON.stringify({ archived: true }),
+      });
+      setNotes((prev) => prev.filter(n => n.id !== id));
+    } catch { /* noop */ }
+  }
+
   return (
-    <div className="rounded-xl border shadow-sm">
-      {/* header-balk */}
-      <div className="px-5 pt-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xl font-semibold">{naam(g)}</div>
-            <div className="text-sm text-gray-600">{g.afdeling || 'EB'}</div>
-          </div>
-          <div className="h-2 w-24 rounded-full bg-emerald-600" />
+    <div className="rounded-xl border border-zinc-200 p-4 space-y-3 bg-white">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-lg font-semibold">{title}</div>
+          <div className="text-xs uppercase tracking-wide text-zinc-500">{groupId}</div>
+        </div>
+        <div className="h-2 w-40 rounded-full overflow-hidden bg-zinc-100">
+          <div
+            className={{
+              groen: "bg-emerald-500",
+              geel: "bg-amber-400",
+              oranje: "bg-orange-500",
+              rood: "bg-red-600",
+            }[String(kleur || "").toLowerCase()] || "bg-zinc-300"}
+            style={{ height: "100%", width: "100%" }}
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <ColorButton active={kleur==="groen"}  label="GROEN"  onClick={()=>setGroupColor("groen")} />
+        <ColorButton active={kleur==="geel"}   label="GEEL"   onClick={()=>setGroupColor("geel")} />
+        <ColorButton active={kleur==="oranje"} label="ORANJE" onClick={()=>setGroupColor("oranje")} />
+        <ColorButton active={kleur==="rood"}   label="ROOD"   onClick={()=>setGroupColor("rood")} />
+      </div>
+
+      <div className="space-y-2">
+        <div className="font-medium">Notities</div>
+        <div className="flex gap-2">
+          <input
+            value={noteText}
+            onChange={(e)=>setNoteText(e.target.value)}
+            onKeyDown={(e)=>{ if(e.key==="Enter") addNote(); }}
+            placeholder="Voeg notitie toe…"
+            className="flex-1 rounded-md border px-3 py-2 outline-none focus:ring-2 ring-zinc-300"
+          />
+          <button
+            onClick={addNote}
+            disabled={busy || noteText.trim().length===0}
+            className="px-4 py-2 rounded-md bg-emerald-600 text-white font-semibold disabled:opacity-50"
+          >
+            Toevoegen
+          </button>
         </div>
 
-        <div className="mt-3 flex gap-2">
-          <Badge tone="green">open mutaties: {openMutaties}</Badge>
-          <Badge tone="blue">open indicaties: {openIndicaties}</Badge>
-        </div>
-
-        {/* kleurstatus (pill knoppen, NL, klikbaar) */}
-        <div className="mt-4">
-          <div className="text-sm text-gray-700 mb-1">Kleurstatus</div>
-          <div className="flex gap-2 flex-wrap">
-            {KLEUREN.map(k => (
+        {/* Lijst met notities direct onder het invoerveld */}
+        <div className="mt-2 space-y-2">
+          {notes.length === 0 && (
+            <div className="text-sm text-zinc-500">Nog geen notities.</div>
+          )}
+          {notes.map((n)=>(
+            <div key={n.id} className="flex items-start justify-between rounded-md border border-zinc-200 p-3">
+              <div>
+                <div className="text-sm whitespace-pre-wrap">{n.text}</div>
+                <div className="text-xs text-zinc-500 mt-1">{fmtDate(n.createdAt || n.updatedAt)} — Aangemaakt</div>
+              </div>
               <button
-                key={k.key}
-                onClick={()=>onKleurChange(k.key)}
-                className={`px-3 py-1 rounded text-xs font-semibold border ${g.kleur===k.key? k.clsOn : k.clsOff}`}
-                type="button"
+                onClick={()=>archiveNote(n.id)}
+                className="text-xs font-semibold text-zinc-600 hover:text-zinc-900"
+                title="Verbergen/archiveren"
               >
-                {k.label}
+                Archiveren
               </button>
-            ))}
-          </div>
-        </div>
-
-        {/* notities */}
-        <div className="mt-4 mb-5">
-          <div className="text-sm text-gray-700 mb-1">Notities</div>
-          <div className="flex gap-2">
-            <input
-              value={note}
-              onChange={e=>setNote(e.target.value)}
-              placeholder="Voeg notitie toe…"
-              className="flex-1 px-3 py-2 rounded-lg border"
-            />
-            <button onClick={addNote} className="px-3 py-2 rounded-lg border bg-emerald-600 text-white hover:bg-emerald-700">
-              Toevoegen
-            </button>
-          </div>
-          <div className="text-xs text-gray-500 mt-2">
-            {lastNote
-              ? `${new Date(lastNote.createdAt).toLocaleString()} — Aangemaakt`
-              : 'Nog geen notities'}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
