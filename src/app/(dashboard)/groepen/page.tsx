@@ -71,7 +71,7 @@ function ColorButton({active,label,onClick}:{active?:boolean;label:string;onClic
 
 function GroupCard({ group }: { group: Group }) {
   const groupId = useMemo(() => gid(group), [group]);
-  const title = String(group?.naam ?? group?.name ?? groupId || "Onbekend");
+  const title = String((group?.naam ?? group?.name ?? groupId) || "Onbekend");
   const [kleur, setKleur] = useState<string | undefined>(group?.kleur);
   const [notes, setNotes] = useState<Note[]>([]);
   const [noteText, setNoteText] = useState("");
