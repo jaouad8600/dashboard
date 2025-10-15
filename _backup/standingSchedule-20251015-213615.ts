@@ -36,7 +36,7 @@ export function generateStandingEvents(rangeStartISO: string, rangeEndISO: strin
     const day = d.getDate();
     const dow = d.getDay(); // 0 zo ... 6 za
 
-    const push = (title: string, hh: number, mm: number, durMin = 45) => {
+    const push = (title: string, hh: number, mm: number, durMin = 60) => {
       const sISO = fmtISO(y, m, day, hh, mm, offset);
       const tEnd = addMinutes(hh, mm, durMin);
       const eISO = fmtISO(y, m, day, tEnd.hh, tEnd.mm, offset);
@@ -47,12 +47,12 @@ export function generateStandingEvents(rangeStartISO: string, rangeEndISO: strin
     // ma–do 16:00 — ma/wo = A, di/do = B
     if (dow >= 1 && dow <= 4) {
       const title = (dow === 1 || dow === 3) ? "Poel A" : "Poel B";
-      push(title, 16, 0, 45);
+      push(title, 16, 0, 60);
     }
     // za 14:15 Poel A
-    if (dow === 6) push("Poel A", 14, 15, 45);
+    if (dow === 6) push("Poel A", 14, 15, 60);
     // zo 14:15 Poel B
-    if (dow === 0) push("Poel B", 14, 15, 45);
+    if (dow === 0) push("Poel B", 14, 15, 60);
   }
   return events;
 }
