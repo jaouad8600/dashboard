@@ -1,4 +1,6 @@
 "use client";
+
+import DagplanningTile from "./DagplanningTile";
 import { useEffect, useMemo, useState } from "react";
 
 type SumMut = { open: number; totaal: number };
@@ -48,7 +50,8 @@ function usePoll<T>(url: string, intervalMs = 5000, init: T) {
     };
     fetchOnce();
     const h = setInterval(fetchOnce, intervalMs);
-    return () => {
+    return (
+) => {
       clearInterval(h);
     };
   }, [url, intervalMs]);
@@ -57,7 +60,9 @@ function usePoll<T>(url: string, intervalMs = 5000, init: T) {
 
 function todayStr() {
   const d = new Date();
-  return d.toISOString().slice(0, 10);
+  return d.toISOString().slice(0, 10
+  <div className="mt-6"><DagplanningTile /></div>
+);
 }
 
 export default function DashboardPage() {
