@@ -5,53 +5,48 @@ import fs from "fs/promises";
 const DB_PATH = path.join(process.cwd(), "data", "app-data.json");
 const headers = { "cache-control": "no-store" };
 
-function parseYMD(d:string): {y:number,m:number,day:number,ts:number} | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
-  if (!m) return null;
-  const y = +m[1], mo = +m[2], day = +m[3];
-  if (mo<1||mo>12||day<1||day>31) return null;
-  const ts = Date.UTC(y, mo-1, day); // middernacht UTC
-  return { y, m: mo, day, ts };
+async function readDB(): Promise<any> {
+  try { return JSON.parse(await fs.readFile(DB_PATH, "utf8")); } catch { return {}; }
+}
+function toDate(i: any): Date | null {
+  const cand = i?.date ? new Date(i.date + "T00:00:00") : (i?.updatedAt ? new Date(i.updatedAt) : (i?.createdAt ? new Date(i.createdAt) : null));
+  if (!cand || Number.isNaN(+cand)) return null;
+  return cand;
 }
 
-export async function GET(req: Request){
+export async function GET(req: Request) {
   const url = new URL(req.url);
-  const groupId = String(url.searchParams.get("groepId") || url.searchParams.get("groupId") || "").trim();
+  const groepId = url.searchParams.get("groepId") || url.searchParams.get("groupId") || undefined;
 
-  let db:any={};
-  try { db = JSON.parse(await fs.readFile(DB_PATH,"utf8")); } catch {}
-  const all = Array.isArray(db?.sportmomenten?.items) ? db.sportmomenten.items : [];
+  const db = await readDB();
+  const all: any[] = Array.isArray(db?.sportmomenten?.items) ? db.sportmomenten.items : [];
 
-  const items = (groupId ? all.filter((i:any)=> i.groupId===groupId) : all).filter((i:any)=> i.value===true);
+  const items = all.filter((x) => (groepId ? (x.groepId || x.groupId) === groepId : true) && x.value === true);
 
-  const now = new Date();                       // lokale 'nu'
-  const year = now.getFullYear();
-  const month = now.getMonth()+1;               // 1..12
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth(); // 0..11
+  const startThisMonth = new Date(y, m, 1);
+  const endThisMonth   = new Date(y, m + 1, 0, 23, 59, 59, 999);
 
-  // vorige maand
-  const prevMonth = month === 1 ? 12 : month-1;
-  const prevYear  = month === 1 ? year-1 : year;
+  const startPrevMonth = new Date(y, m - 1, 1);
+  const endPrevMonth   = new Date(y, m, 0, 23, 59, 59, 999);
 
-  // laatste 30 dagen (inclusief vandaag)
-  const todayUTC = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-  const last30Start = todayUTC - 29*24*3600*1000;
+  const startThisYear  = new Date(y, 0, 1);
+  const last30         = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  let totaal = 0, dezeMaand=0, vorigeMaand=0, ditJaar=0, laatste30=0;
+  const inRange = (d: Date | null, a: Date, b: Date) => (d ? +d >= +a && +d <= +b : false);
 
-  for (const it of items) {
-    const p = parseYMD(String(it.date||""));
-    if (!p) continue; // sla ongeldige datums over
-
+  let dezeMaand = 0, vorigeMaand = 0, ditJaar = 0, laatste30 = 0, totaal = 0;
+  for (const i of items) {
+    const d = toDate(i);
     totaal += 1;
-
-    if (p.y === year) ditJaar += 1;
-    if (p.y === year && p.m === month) dezeMaand += 1;
-    if (p.y === prevYear && p.m === prevMonth) vorigeMaand += 1;
-    if (p.ts >= last30Start && p.ts <= todayUTC) laatste30 += 1;
+    if (d) {
+      if (inRange(d, startThisMonth, endThisMonth)) dezeMaand += 1;
+      if (inRange(d, startPrevMonth, endPrevMonth)) vorigeMaand += 1;
+      if (+d >= +startThisYear && +d <= +now) ditJaar += 1;
+      if (+d >= +last30 && +d <= +now) laatste30 += 1;
+    }
   }
 
-  return NextResponse.json(
-    { groepId: groupId || null, totaal, dezeMaand, vorigeMaand, ditJaar, laatste30Dagen: laatste30 },
-    { headers }
-  );
+  return NextResponse.json({ dezeMaand, vorigeMaand, ditJaar, laatste30Dagen: laatste30, totaal }, { headers });
 }
