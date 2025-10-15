@@ -1,47 +1,51 @@
-import { NextResponse } from "next/server";
-import path from "path";
-import fs from "fs/promises";
+import { NextResponse } from 'next/server';
+import path from 'path';
+import fs from 'fs/promises';
 
-const DB_PATH = path.join(process.cwd(), "data", "app-data.json");
+const DB_PATH = path.join(process.cwd(), 'data', 'app-data.json');
+const headers = { 'cache-control': 'no-store' as const };
 
-async function readDB(): Promise<any> {
-  try { return JSON.parse(await fs.readFile(DB_PATH, "utf8")); } catch { return {}; }
-}
-async function writeDB(db: any) {
-  await fs.mkdir(path.dirname(DB_PATH), { recursive: true });
-  await fs.writeFile(DB_PATH, JSON.stringify(db, null, 2));
-}
-function normKleur(v?: string): string | null {
-  if (!v) return null;
-  const x = v.toLowerCase();
-  if (['groen','green'].includes(x))   return 'groen';
-  if (['geel','yellow'].includes(x))   return 'geel';
-  if (['oranje','orange'].includes(x)) return 'oranje';
-  if (['rood','red'].includes(x))      return 'rood';
-  return null;
-}
+type Group = { id?:string; slug?:string; code?:string; naam?:string; name?:string; kleur?:string };
 
-export async function GET() {
-  const db = await readDB();
-  const groepen = Array.isArray(db.groepen) ? db.groepen : (db.groups ?? []);
-  return NextResponse.json(groepen, { headers: { "cache-control": "no-store" } });
+function arr<T>(v:any): T[] { return Array.isArray(v) ? v : []; }
+function normId(g:any){
+  return String(g?.id ?? g?.slug ?? g?.code ?? g?.name ?? g?.naam ?? '').toLowerCase();
+}
+function isHidden(g:any){
+  const id = normId(g);
+  if (!id) return true;
+  if (id === 'list') return true;                  // nooit tonen
+  if (id.startsWith('eb-')) return true;           // eb-* weg
+  if (id.startsWith('vloed-')) return true;        // vloed-* weg
+  return false;
+}
+function cleanName(g:any){
+  const raw = String(g?.naam ?? g?.name ?? normId(g));
+  // verwijder 'eb' of 'vloed' aan het begin + '-' of spatie
+  return raw.replace(/^(eb|vloed)[-\s]*/i, '').trim() || raw;
 }
 
-export async function PATCH(req: Request) {
-  const body = await req.json().catch(() => ({}));
-  const id = String(body?.id ?? "").trim();
-  const kleur = normKleur(body?.kleur ?? body?.color);
-  if (!id || !kleur) {
-    return NextResponse.json({ error: "id en kleur verplicht" }, { status: 400, headers: { "cache-control": "no-store" } });
-  }
+export async function GET(req: Request){
+  let db:any={};
+  try { db = JSON.parse(await fs.readFile(DB_PATH,'utf8')); } catch {}
+  const url = new URL(req.url);
 
-  const db = await readDB();
-  const groepen = Array.isArray(db.groepen) ? db.groepen : (db.groups ?? []);
-  const idx = groepen.findIndex((g: any) => String(g?.id ?? g?.slug ?? g?.naam ?? g?.name ?? "").toLowerCase() === id.toLowerCase());
-  if (idx === -1) return NextResponse.json({ error: "Groep niet gevonden" }, { status: 404, headers: { "cache-control": "no-store" } });
+  // Optioneel: ?hideEbVloed=false om ALLES te zien (incl. eb/vloed/list)
+  const hideEbVloed = url.searchParams.get('hideEbVloed') !== 'false';
 
-  groepen[idx] = { ...groepen[idx], kleur };
-  db.groepen = groepen; db.groups = groepen;
-  await writeDB(db);
-  return NextResponse.json(groepen[idx], { headers: { "cache-control": "no-store" } });
+  let groups: Group[] = arr<Group>(db.groepen?.length ? db.groepen : db.groups);
+
+  if (hideEbVloed) groups = groups.filter(g => !isHidden(g));
+
+  // Verrijk met displayName en sorteer
+  const items = groups
+    .map(g => ({ ...g, displayName: cleanName(g) }))
+    .sort((a:any,b:any)=> String(a.displayName||'').localeCompare(String(b.displayName||''), 'nl'));
+
+  const total = items.length;
+
+  // Standaard: array response + x-total-count header (handig voor dashboards)
+  return new NextResponse(JSON.stringify(items), {
+    headers: { ...headers, 'content-type': 'application/json', 'x-total-count': String(total) }
+  });
 }
