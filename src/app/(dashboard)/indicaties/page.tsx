@@ -1,11 +1,7 @@
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-import dynamicImport from "next/dynamic";
-
-const IndicatiesClient = dynamicImport(() => import("./IndicatiesClient"), {
-  ssr: false,
-});
+import IndicatiesClient from "./IndicatiesClient";
 
 export default function Page() {
   return <IndicatiesClient />;
