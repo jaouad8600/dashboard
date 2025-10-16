@@ -1,4 +1,6 @@
 "use client";
+
+import DagplanningTile from "./DagplanningTile";
 import { useEffect, useMemo, useState } from "react";
 
 type SumMut = { open: number; totaal: number };
@@ -27,10 +29,8 @@ function usePoll<T>(url: string, intervalMs = 5000, init: T) {
   const [data, setData] = useState<T>(init);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>();
-
   useEffect(() => {
     let stop = false;
-
     const fetchOnce = async () => {
       try {
         const res = await fetch(url, { cache: "no-store" });
@@ -48,58 +48,47 @@ function usePoll<T>(url: string, intervalMs = 5000, init: T) {
         }
       }
     };
-
     fetchOnce();
     const h = setInterval(fetchOnce, intervalMs);
-    return () => {
+    return (
+) => {
       clearInterval(h);
-      stop = true;
     };
   }, [url, intervalMs]);
-
   return { data, loading, error };
 }
 
 function todayStr() {
   const d = new Date();
-  return d.toISOString().slice(0, 10);
+  return d.toISOString().slice(0, 10
+  <div className="mt-6"><DagplanningTile /></div>
+);
 }
 
 export default function DashboardPage() {
   const date = todayStr();
-
-  const { data: mut } = usePoll<SumMut>("/api/mutaties/summary", 5000, {
-    open: 0,
-    totaal: 0,
-  });
-
+  const { data: mut, loading: lm } = usePoll<SumMut>(
+    "/api/mutaties/summary",
+    5000,
+    { open: 0, totaal: 0 },
+  );
   const { data: ind } = usePoll<SumInd>("/api/indicaties/summary", 5000, {
     open: 0,
     inBehandeling: 0,
     afgerond: 0,
     totaal: 0,
   });
-
-  const { data: rode } = usePoll<Groep[] | { data?: Groep[] }>(
-    "/api/groepen/rode",
-    5000,
-    []
-  );
-
-  const { data: plan } = usePoll<Plan[] | { data?: Plan[] }>(
+  const { data: rode } = usePoll<Groep[] | any>("/api/groepen/rode", 5000, []);
+  const { data: plan } = usePoll<Plan[] | any>(
     `/api/planning?date=${date}`,
     5000,
-    []
+    [],
   );
 
-  const rodeArr = Array.isArray(rode) ? rode : (rode as any)?.data ?? [];
-  const planArr = Array.isArray(plan) ? plan : (plan as any)?.data ?? [];
-
-  const rodeNamen = useMemo(
-    () =>
-      Array.isArray(rodeArr) ? rodeArr.map((g: any) => g.naam).join(", ") : "",
-    [rodeArr]
-  );
+  const rodeNamen = useMemo(() => {
+    const arr = Array.isArray(rode) ? rode : (rode?.data ?? []);
+    return Array.isArray(arr) ? arr.map((g: any) => g.naam).join(", ") : "";
+  }, [rode]);
 
   return (
     <div className="p-6 space-y-6">
@@ -131,7 +120,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl shadow p-4">
           <div className="text-sm text-gray-500">Rode groepen</div>
           <div className="mt-2 text-3xl font-bold">
-            {Array.isArray(rodeArr) ? rodeArr.length : 0}
+            {Array.isArray(rode) ? rode.length : 0}
           </div>
           <div className="text-xs text-rose-700 mt-1 truncate">
             {rodeNamen || "—"}
@@ -141,9 +130,9 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl shadow p-4">
           <div className="text-sm text-gray-500">Dagplanning</div>
           <div className="mt-2 text-base">
-            {Array.isArray(planArr) && planArr.length > 0 ? (
-              planArr.slice(0, 4).map((p: any) => (
-                <div key={p.id ?? p.titel} className="text-sm flex gap-2">
+            {Array.isArray(plan) && plan.length > 0 ? (
+              plan.slice(0, 4).map((p: any) => (
+                <div key={p.id} className="text-sm flex gap-2">
                   <span className="w-14 text-gray-500">
                     {p.tijd || "--:--"}
                   </span>
@@ -153,7 +142,7 @@ export default function DashboardPage() {
               ))
             ) : (
               <div className="text-gray-400 text-sm">
-                Geen planning voor vandaag.
+                Geen items voor vandaag.
               </div>
             )}
           </div>

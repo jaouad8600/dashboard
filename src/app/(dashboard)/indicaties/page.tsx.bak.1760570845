@@ -1,0 +1,239 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+type Indicatie = {
+  id?: string;
+  naam: string;
+  type?: string | null;
+  status?: string | null;
+  groepId?: string | null;
+  start?: string | null;
+  eind?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+const initForm: Indicatie = {
+  naam: "",
+  type: "",
+  status: "OPEN",
+  groepId: "",
+  start: "",
+  eind: "",
+};
+
+export default function IndicatiesPage() {
+  const [items, setItems] = useState<Indicatie[]>([]);
+  const [openForm, setOpenForm] = useState(false);
+  const [form, setForm] = useState<Indicatie>(initForm);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const fetchList = async () => {
+    try {
+      setErr(null);
+      const res = await fetch("/api/indicaties", { cache: "no-store" });
+      const j = await res.json();
+      setItems(Array.isArray(j) ? j : []);
+    } catch (e: any) {
+      setErr(e?.message || "Laden mislukt");
+    }
+  };
+
+  useEffect(() => {
+    fetchList();
+  }, []);
+
+  const onSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setBusy(true);
+      setErr(null);
+      const body = {
+        naam: form.naam,
+        type: form.type || null,
+        status: (form.status || "OPEN").toString().toUpperCase(),
+        groepId: form.groepId || null,
+        start: form.start || null,
+        eind: form.eind || null,
+      };
+      const res = await fetch("/api/indicaties", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || "Opslaan mislukt");
+      }
+      setForm(initForm);
+      setOpenForm(false);
+      await fetchList();
+    } catch (e: any) {
+      setErr(e?.message || "Opslaan mislukt");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const title = "Indicaties";
+  const subtitle = "Beheer aanvragen en koppel ze aan een groep.";
+
+  const empty = useMemo(() => !items || items.length === 0, [items]);
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">{title}</h1>
+          <p className="text-sm text-gray-500">{subtitle}</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={fetchList}
+            className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm"
+            disabled={busy}
+          >
+            Herladen
+          </button>
+          <button
+            onClick={() => setOpenForm((v) => !v)}
+            className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm"
+            disabled={busy}
+          >
+            Nieuwe indicatie
+          </button>
+        </div>
+      </div>
+
+      {openForm && (
+        <form
+          onSubmit={onSave}
+          className="bg-white rounded-xl shadow p-4 grid md:grid-cols-3 gap-4"
+        >
+          <div className="col-span-3">
+            <label className="block text-sm text-gray-600">Naam *</label>
+            <input
+              className="mt-1 w-full border rounded-lg p-2"
+              value={form.naam}
+              onChange={(e) => setForm((f) => ({ ...f, naam: e.target.value }))}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600">Type</label>
+            <input
+              className="mt-1 w-full border rounded-lg p-2"
+              value={form.type ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600">Status</label>
+            <select
+              className="mt-1 w-full border rounded-lg p-2"
+              value={form.status ?? "OPEN"}
+              onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+            >
+              <option value="OPEN">OPEN</option>
+              <option value="IN_BEHANDELING">IN_BEHANDELING</option>
+              <option value="AFGEROND">AFGEROND</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600">Groep</label>
+            <input
+              className="mt-1 w-full border rounded-lg p-2"
+              value={form.groepId ?? ""}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, groepId: e.target.value }))
+              }
+              placeholder="bv. GROEP-001"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600">Start</label>
+            <input
+              type="date"
+              className="mt-1 w-full border rounded-lg p-2"
+              value={form.start ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, start: e.target.value }))}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600">Eind</label>
+            <input
+              type="date"
+              className="mt-1 w-full border rounded-lg p-2"
+              value={form.eind ?? ""}
+              onChange={(e) => setForm((f) => ({ ...f, eind: e.target.value }))}
+            />
+          </div>
+
+          <div className="col-span-3 flex gap-2">
+            <button
+              type="submit"
+              className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+              disabled={busy}
+            >
+              {busy ? "Opslaan…" : "Opslaan"}
+            </button>
+            <button
+              type="button"
+              className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm"
+              onClick={() => setOpenForm(false)}
+              disabled={busy}
+            >
+              Annuleren
+            </button>
+            {err && <span className="text-sm text-rose-700">{err}</span>}
+          </div>
+        </form>
+      )}
+
+      <div className="bg-white rounded-xl shadow overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50 text-left">
+              <th className="px-4 py-2">Naam</th>
+              <th className="px-4 py-2">Type</th>
+              <th className="px-4 py-2">Status</th>
+              <th className="px-4 py-2">Groep</th>
+              <th className="px-4 py-2">Start</th>
+              <th className="px-4 py-2">Eind</th>
+            </tr>
+          </thead>
+          <tbody>
+            {empty ? (
+              <tr>
+                <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                  Geen indicaties.
+                </td>
+              </tr>
+            ) : (
+              items.map((it, i) => (
+                <tr key={it.id ?? i} className="border-t">
+                  <td className="px-4 py-2 font-medium">{it.naam}</td>
+                  <td className="px-4 py-2">{it.type ?? "—"}</td>
+                  <td className="px-4 py-2">{it.status ?? "—"}</td>
+                  <td className="px-4 py-2">{it.groepId ?? "—"}</td>
+                  <td className="px-4 py-2">{it.start ?? "—"}</td>
+                  <td className="px-4 py-2">{it.eind ?? "—"}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

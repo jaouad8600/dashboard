@@ -1,68 +1,41 @@
-import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import fs from "fs/promises";
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
 
 export const runtime = "nodejs";
-export const revalidate = 0;
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-const DB = path.join(process.cwd(), "data", "app-data.json");
+const prisma = new PrismaClient();
 
-async function readDB(): Promise<any> {
-  try { return JSON.parse(await fs.readFile(DB, "utf8")); } catch { return {}; }
-}
-async function writeDB(db: any) {
-  await fs.mkdir(path.dirname(DB), { recursive: true });
-  await fs.writeFile(DB, JSON.stringify(db, null, 2));
-}
-
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const db = await readDB();
-  const items = Array.isArray(db?.indicaties?.items) ? db.indicaties.items : [];
-  const it = items.find((x: any) => String(x.id) === String(params.id));
-  if (!it) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });
-  return NextResponse.json(it, { headers: { "cache-control": "no-store" } });
+export async function GET(_: Request, { params }: { params: { id: string } }) {
+  try {
+    const item = await prisma.indicatie.findUnique({ where: { id: params.id } });
+    if (!item) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });
+    return NextResponse.json(item, { headers: { "Cache-Control": "no-store" } });
+  } catch (e: any) {
+    console.error("GET /api/indicaties/[id]", e);
+    return NextResponse.json({ error: e?.message || "DB fout" }, { status: 500 });
+  }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
-  const patch = await req.json().catch(() => ({}));
-  const db = await readDB();
-  const items = Array.isArray(db?.indicaties?.items) ? db.indicaties.items : [];
-  const idx = items.findIndex((x: any) => String(x.id) === String(params.id));
-  if (idx === -1) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });
+// Bewerken (PUT = hele record / gedeeltelijk toegestaan)
+export async function PUT(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const body = await req.json();
+    const data: any = {};
+    for (const k of ["naam","type","status","groepId","opmerking"]) {
+      if (k in body) data[k] = body[k] ?? null;
+    }
+    if ("start" in body) data.start = body.start ? new Date(body.start) : null;
+    if ("eind"  in body) data.eind  = body.eind  ? new Date(body.eind)  : null;
 
-  const cur = items[idx];
-  const next = {
-    ...cur,
-    naam: patch.naam ?? cur.naam,
-    type: patch.type ?? cur.type,
-    status: patch.status ?? cur.status,
-    groepId: patch.groepId ?? patch.groupId ?? cur.groepId ?? null,
-    start: patch.start ?? cur.start ?? null,
-    eind: patch.eind ?? cur.eind ?? null,
-    opmerking: patch.opmerking ?? cur.opmerking ?? null,
-    archived: typeof patch.archived === "boolean" ? patch.archived : cur.archived ?? false,
-    updatedAt: new Date().toISOString(),
-  };
-  items[idx] = next;
-  db.indicaties.items = items;
-  await writeDB(db);
-  return NextResponse.json(next, { headers: { "cache-control": "no-store" } });
-}
-
-export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
-  // alleen archiveren/terughalen
-  const body = await req.json().catch(() => ({}));
-  return PUT(new Request("http://x", { method: "PUT", body: JSON.stringify({ archived: !!body.archived }) }) as any, ctx);
-}
-
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
-  const db = await readDB();
-  const items = Array.isArray(db?.indicaties?.items) ? db.indicaties.items : [];
-  const idx = items.findIndex((x: any) => String(x.id) === String(params.id));
-  if (idx === -1) return NextResponse.json({ error: "Niet gevonden" }, { status: 404 });
-  const [removed] = items.splice(idx, 1);
-  db.indicaties.items = items;
-  await writeDB(db);
-  return NextResponse.json({ ok: true, removed }, { headers: { "cache-control": "no-store" } });
+    const item = await prisma.indicatie.update({
+      where: { id: params.id },
+      data,
+    });
+    return NextResponse.json(item);
+  } catch (e: any) {
+    console.error("PUT /api/indicaties/[id]", e);
+    return NextResponse.json({ error: e?.message || "DB updatefout" }, { status: 500 });
+  }
 }

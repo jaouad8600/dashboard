@@ -78,40 +78,14 @@ enum IndicatieStatus {
   AFGEROND
 }
 
-
-
-
-enum EvaluatieType {
-  TUSSEN
-  EIND
-}
-
 model Indicatie {
-  id             String     @id @default(cuid())
-  naam           String
-  type           String
-  status         String
-  groepId        String?
-  start          DateTime?
-  eind           DateTime?
-  opmerking      String?
-  archivedAt     DateTime?
-  archivedReason String?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-
-  evaluaties     Evaluatie[]
-
-  @@index([status])
-  @@index([groepId])
-}
-
-model Evaluatie {
-  id          String         @id @default(cuid())
-  indicatieId String
-  indicatie   Indicatie      @relation(fields: [indicatieId], references: [id], onDelete: Cascade)
-  type        EvaluatieType  @default(TUSSEN)
-  inhoud      String
-  ontvanger   String?
-  createdAt   DateTime       @default(now())
+  id        String           @id @default(cuid())
+  naam      String
+  type      String           @default("Sport")
+  start     DateTime?
+  eind      DateTime?
+  status    IndicatieStatus  @default(OPEN)
+  opmerking String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 }
