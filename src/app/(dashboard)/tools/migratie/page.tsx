@@ -123,22 +123,22 @@ export default function MigratieToolsPage() {
       <h1 className="text-2xl font-bold">Tools · Migratie & Back-up</h1>
 
       <div className="flex gap-2 flex-wrap">
-        <button className="rounded-lg border px-3 py-2 btn" onClick={refresh}>
+        <button className="btn btn-primary rounded-lg border px-3 py-2 btn" onClick={refresh}>
           Ververs
         </button>
         <button
-          className="rounded-lg border px-3 py-2 btn"
+          className="btn btn-primary rounded-lg border px-3 py-2 btn"
           onClick={migrateOverdrachten}
         >
           Migreer Overdrachten
         </button>
         <button
-          className="rounded-lg border px-3 py-2 btn"
+          className="btn btn-primary rounded-lg border px-3 py-2 btn"
           onClick={seedGroups}
         >
           Seed Groepen
         </button>
-        <button className="rounded-lg border px-3 py-2 btn" onClick={exportAll}>
+        <button className="btn btn-primary rounded-lg border px-3 py-2 btn" onClick={exportAll}>
           Exporteer alle localStorage
         </button>
         <label className="rounded-lg border px-3 py-2 cursor-pointer">

@@ -70,7 +70,7 @@ export default function Bestanden() {
           />
         </div>
         <div className="md:col-span-5">
-          <button onClick={add} className="px-3 py-2 rounded-xl border btn">
+          <button onClick={add} className="btn btn-primary px-3 py-2 rounded-xl border btn">
             Toevoegen
           </button>
         </div>
@@ -104,7 +104,7 @@ export default function Bestanden() {
                 <td className="p-2">{f.note}</td>
                 <td className="p-2 text-right">
                   <button
-                    className="btn"
+                    className="btn btn-primary btn"
                     onClick={() => remove(f.id)}
                     className="px-2 py-1 rounded-lg border"
                   >

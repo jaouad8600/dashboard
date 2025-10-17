@@ -46,7 +46,7 @@ export default function ExtraSportPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={prev}
-            className="rounded-lg border px-3 py-1 text-sm btn"
+            className="btn btn-primary rounded-lg border px-3 py-1 text-sm btn"
           >
             ← Vorige week
           </button>
@@ -55,7 +55,7 @@ export default function ExtraSportPage() {
           </div>
           <button
             onClick={next}
-            className="rounded-lg border px-3 py-1 text-sm btn"
+            className="btn btn-primary rounded-lg border px-3 py-1 text-sm btn"
           >
             Volgende week →
           </button>
@@ -90,21 +90,21 @@ export default function ExtraSportPage() {
                     <td className="p-3 text-right">
                       <div className="inline-flex items-center gap-2">
                         <button
-                          className="rounded-lg border px-2 py-1 btn"
+                          className="btn btn-primary rounded-lg border px-2 py-1 btn"
                           onClick={() => inc(g.id, -1, week)}
                           title="−1"
                         >
                           −
                         </button>
                         <button
-                          className="rounded-lg border px-2 py-1 btn"
+                          className="btn btn-primary rounded-lg border px-2 py-1 btn"
                           onClick={() => inc(g.id, +1, week)}
                           title="+1"
                         >
                           +
                         </button>
                         <button
-                          className="text-red-600 hover:underline btn"
+                          className="btn btn-primary text-red-600 hover:underline btn"
                           onClick={() => setCount(g.id, 0, week)}
                         >
                           Reset
@@ -122,7 +122,7 @@ export default function ExtraSportPage() {
               <td className="p-3 text-center font-semibold">{total}</td>
               <td className="p-3 text-right">
                 <button
-                  className="text-red-600 hover:underline btn"
+                  className="btn btn-primary text-red-600 hover:underline btn"
                   onClick={() => resetWeek(week)}
                   title="Reset alle groepen voor deze week"
                 >

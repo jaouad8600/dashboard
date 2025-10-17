@@ -46,7 +46,7 @@ export default function DagplanningTile(){
     <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Dagplanning</h2>
-        <button onClick={load} className="text-xs px-2 py-1 rounded border border-zinc-200 hover:bg-zinc-50">Vernieuw</button>
+        <button onClick={load} className="btn btn-primary text-xs px-2 py-1 rounded border border-zinc-200 hover:bg-zinc-50">Vernieuw</button>
       </div>
 
       {loading && <div className="text-sm text-zinc-500">Laden…</div>}

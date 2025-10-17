@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Huisstijl: Teylingereind groen */
+:root {
+  --brand: 16 185 129; /* emerald-500 */
+  --brand-600: 5 150 105; /* emerald-600 */
+  --brand-700: 4 120 87; /* emerald-700 */
+}
+
+/* Globale button-styling (alle knoppen groen) */
+button,
+.btn {
+  @apply inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium bg-emerald-600 text-white shadow-sm;
+}
+button:hover,
+.btn:hover {
+  @apply bg-emerald-700;
+}
+button:disabled,
+.btn:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+/* Subtle card + titel */
+.page-wrap {
+  @apply p-6 space-y-6;
+}
+.page-title {
+  @apply text-2xl font-bold;
+  letter-spacing: -0.01em;
+}
+.page-sub {
+  @apply text-sm text-zinc-500;
+}
+
+/* Chips (kleuren-selector op groepen) – laten eigen kleur zien */
+.chip {
+  @apply px-2 py-1 rounded text-xs border shadow-sm bg-white;
+}
+
+/* Extra huisstijl Teylingereind */
+.btn-green {
+  @apply bg-green-700 hover:bg-green-800 text-white font-medium py-1.5 px-3 rounded;
+}
+
+/* Overdrachten stijl */
+textarea,
+input {
+  @apply focus:ring-2 focus:ring-green-700 outline-none;
+}
+
+/* === Design layer: buttons & badges === */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply bg-emerald-600 hover:bg-emerald-700;
+  }
+  .btn-secondary {
+    @apply bg-slate-700 hover:bg-slate-800;
+  }
+  .btn-ghost {
+    @apply bg-transparent text-slate-700 hover:bg-slate-100 border border-slate-200;
+  }
+  .btn-danger {
+    @apply bg-rose-600 hover:bg-rose-700;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 h-6 rounded-full text-xs font-medium;
+  }
+  .badge-green {
+    @apply bg-emerald-50 text-emerald-700 border border-emerald-200;
+  }
+  .badge-indigo {
+    @apply bg-indigo-50 text-indigo-700 border border-indigo-200;
+  }
+  .badge-muted {
+    @apply bg-slate-100 text-slate-600 border border-slate-200;
+  }
+}
+
+/* === Sportmomenten groene knoppen (force) === */
+[data-page="sportmomenten"] button,
+[data-page="sportmomenten"] .btn,
+[data-page="sportmomenten"] a[role="button"] {
+  @apply bg-emerald-600 text-white hover:bg-emerald-700 border border-emerald-700;
+}
+
+/* === Toggle-cellen sportmomenten === */
+[data-page="sportmomenten"] table .toggle-cell{
+  background:#fff !important;
+  color:inherit !important;
+  width:2.5rem; height:2.5rem;
+  border:1px solid rgba(0,0,0,0.1);
+  border-radius:0.5rem;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.25rem; line-height:1; cursor:pointer;
+  user-select:none;
+}
+[data-page="sportmomenten"] table .toggle-cell.on{
+  background:#ecfdf5 !important;          /* emerald-50 */
+  color:#065f46 !important;               /* emerald-700 */
+  border-color:#059669 !important;        /* emerald-600 */
+  font-weight:700;
+}

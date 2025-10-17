@@ -103,14 +103,14 @@ export default function SeedPage() {
       </p>
       <div style={{ display: "flex", gap: 10 }}>
         <button
-          className="btn"
+          className="btn btn-primary btn"
           onClick={setDemo}
           style={btn("#1d4ed8", "#dbeafe")}
         >
           Zet demo-data
         </button>
         <button
-          className="btn"
+          className="btn btn-primary btn"
           onClick={clearAll}
           style={btn("#991b1b", "#fee2e2")}
         >

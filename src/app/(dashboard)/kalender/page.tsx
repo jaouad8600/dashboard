@@ -38,7 +38,7 @@ export default function KalenderPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Kalender</h1>
         <button
-          className="px-3 py-2 rounded-lg bg-gray-900 text-white"
+          className="btn btn-primary px-3 py-2 rounded-lg bg-gray-900 text-white"
           onClick={async () => {
             const api = (calRef.current as any)?.getApi?.();
             if (!api) return;

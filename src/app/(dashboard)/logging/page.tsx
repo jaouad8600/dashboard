@@ -48,11 +48,11 @@ export default function Logging() {
           placeholder="Korte notitie..."
         ></textarea>
         <div className="flex gap-2">
-          <button onClick={add} className="px-3 py-2 rounded-xl border btn">
+          <button onClick={add} className="btn btn-primary px-3 py-2 rounded-xl border btn">
             Opslaan
           </button>
           <button
-            className="btn"
+            className="btn btn-primary btn"
             onClick={() => dl("logging.csv", csv, "text/csv")}
             className="px-3 py-2 rounded-xl border"
           >
@@ -78,7 +78,7 @@ export default function Logging() {
                 <td className="p-2 whitespace-pre-wrap">{l.text}</td>
                 <td className="p-2 text-right">
                   <button
-                    className="btn"
+                    className="btn btn-primary btn"
                     onClick={() => remove(l.id)}
                     className="px-2 py-1 rounded-lg border"
                   >

@@ -46,12 +46,12 @@ Bijzonderheden: gevoetbald tegen de Duin, goede sfeer.`;
   return (
     <div className="p-4 grid gap-3">
       <h1 className="text-xl font-bold">Debug / Seed</h1>
-      <button onClick={seedEvents} className="px-3 py-2 rounded-xl border btn">
+      <button onClick={seedEvents} className="btn btn-primary px-3 py-2 rounded-xl border btn">
         Seed demo events
       </button>
       <button
         onClick={seedOverdracht}
-        className="px-3 py-2 rounded-xl border btn"
+        className="btn btn-primary px-3 py-2 rounded-xl border btn"
       >
         Seed demo overdracht
       </button>

@@ -107,3 +107,57 @@ input {
   border-color:#059669 !important;        /* emerald-600 */
   font-weight:700;
 }
+
+/*== BTN-HUISSTIJL ==*/
+:root{
+  /* Pas deze 3 variabelen aan voor je huisstijl */
+  --brand-600: #2563eb; /* primair (bv. blauw-600) */
+  --brand-700: #1d4ed8; /* hover */
+  --brand-ring: 0 0% 100%; /* ring kleur op dark/bg */
+}
+
+/* Basis button */
+@layer components{
+  .btn{
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-medium
+           transition-colors select-none border border-transparent focus:outline-none
+           disabled:opacity-50 disabled:cursor-not-allowed shadow-sm;
+    box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  }
+  .btn:focus-visible{
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, .2); /* focus ring */
+  }
+  /* Variants */
+  .btn-primary{
+    color: #fff;
+    background: var(--brand-600);
+  }
+  .btn-primary:hover{ background: var(--brand-700); }
+
+  .btn-secondary{
+    @apply bg-gray-100 text-gray-900;
+  }
+  .btn-secondary:hover{ @apply bg-gray-200; }
+
+  .btn-outline{
+    @apply bg-white text-gray-900 border border-gray-300;
+  }
+  .btn-outline:hover{ @apply bg-gray-50; }
+
+  .btn-ghost{
+    @apply bg-transparent text-gray-800;
+  }
+  .btn-ghost:hover{ @apply bg-gray-100; }
+
+  .btn-danger{
+    @apply bg-red-600 text-white;
+  }
+  .btn-danger:hover{ @apply bg-red-700; }
+
+  /* Maten */
+  .btn-sm{ @apply text-sm px-3 py-1.5; }
+  .btn-lg{ @apply text-base px-5 py-2.5; }
+
+  /* Icon only */
+  .btn-icon{ @apply p-2 rounded-xl w-9 h-9; }
+}

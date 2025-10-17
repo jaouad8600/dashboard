@@ -104,7 +104,7 @@ export default function DevPage() {
       <h1 className="text-2xl font-bold">Dev tools</h1>
       <div className="flex gap-2">
         <button
-          className="px-3 py-2 rounded bg-emerald-600 text-white btn"
+          className="btn btn-primary px-3 py-2 rounded bg-emerald-600 text-white btn"
           onClick={() => {
             seed();
             refresh();
@@ -113,7 +113,7 @@ export default function DevPage() {
           Seed demo-data
         </button>
         <button
-          className="px-3 py-2 rounded bg-red-600 text-white btn"
+          className="btn btn-primary px-3 py-2 rounded bg-red-600 text-white btn"
           onClick={() => {
             clearAll();
             refresh();

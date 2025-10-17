@@ -44,7 +44,7 @@ export default function InventarisPage(){
         <input type="number" value={form.aantal} onChange={e=>setForm(f=>({...f,aantal:e.target.value}))} placeholder="Aantal" className="border rounded-xl p-2"/>
         <input value={form.categorie||''} onChange={e=>setForm(f=>({...f,categorie:e.target.value}))} placeholder="Categorie" className="border rounded-xl p-2"/>
         <input value={form.locatie||''} onChange={e=>setForm(f=>({...f,locatie:e.target.value}))} placeholder="Locatie" className="border rounded-xl p-2"/>
-        <button disabled={saving} className="px-3 py-2 rounded-xl bg-gray-900 text-white hover:opacity-90">{form.id?'Bijwerken':'Toevoegen'}</button>
+        <button disabled={saving} className="btn btn-primary px-3 py-2 rounded-xl bg-gray-900 text-white hover:opacity-90">{form.id?'Bijwerken':'Toevoegen'}</button>
         <div className="md:col-span-5">
           <input value={form.opmerking||''} onChange={e=>setForm(f=>({...f,opmerking:e.target.value}))} placeholder="Opmerking" className="border rounded-xl p-2 w-full"/>
         </div>

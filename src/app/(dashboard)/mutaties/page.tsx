@@ -87,7 +87,7 @@ export default function MutatiesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Sportmutaties</h1>
         <button
-          className="btn"
+          className="btn btn-primary btn"
           onClick={() => setSel({ status: "open" })}
           className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded"
         >
@@ -117,7 +117,7 @@ export default function MutatiesPage() {
               <tr key={r.id} className="border-b">
                 <td className="px-3 py-2">
                   <button
-                    className="btn"
+                    className="btn btn-primary btn"
                     onClick={() => setSel(r)}
                     className="text-left text-blue-700 hover:underline"
                   >
@@ -131,14 +131,14 @@ export default function MutatiesPage() {
                 <td className="px-3 py-2">
                   <div className="flex gap-2 justify-end">
                     <button
-                      className="btn"
+                      className="btn btn-primary btn"
                       onClick={() => setSel(r)}
                       className="text-blue-600 hover:underline"
                     >
                       Bewerken
                     </button>
                     <button
-                      className="btn"
+                      className="btn btn-primary btn"
                       onClick={() => remove(r.id)}
                       className="text-rose-600 hover:underline"
                     >
@@ -218,7 +218,7 @@ export default function MutatiesPage() {
             </div>
             <div className="flex justify-end gap-2">
               <button
-                className="btn"
+                className="btn btn-primary btn"
                 onClick={() => setSel(undefined)}
                 className="px-3 py-1.5 rounded border"
               >
@@ -226,7 +226,7 @@ export default function MutatiesPage() {
               </button>
               <button
                 onClick={save}
-                className="px-3 py-1.5 rounded bg-green-600 text-white btn"
+                className="btn btn-primary px-3 py-1.5 rounded bg-green-600 text-white btn"
               >
                 Opslaan
               </button>

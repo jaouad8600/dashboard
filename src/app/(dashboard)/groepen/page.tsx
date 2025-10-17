@@ -182,7 +182,7 @@ function GroupCard({ group }: { group: Group }) {
           <button
             onClick={addNote}
             disabled={busy || noteText.trim().length===0}
-            className="px-4 py-2 rounded-md bg-emerald-600 text-white font-semibold disabled:opacity-50"
+            className="btn btn-primary px-4 py-2 rounded-md bg-emerald-600 text-white font-semibold disabled:opacity-50"
           >
             Toevoegen
           </button>

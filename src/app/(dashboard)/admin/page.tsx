@@ -249,7 +249,7 @@ export default function Admin() {
                     )}
                     <div className="text-right">
                       <button
-                        className="btn"
+                        className="btn btn-primary btn"
                         onClick={() => setDismissed((d) => [...d, a.id])}
                         className="px-2 py-1 rounded-lg border"
                       >
