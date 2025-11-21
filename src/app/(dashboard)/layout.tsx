@@ -1,4 +1,5 @@
-import Sidebar from "../../components/Sidebar";
+import RoleSwitcher from "@/components/ui/RoleSwitcher";
+import Sidebar from "@/components/ui/Sidebar";
 
 export default function DashboardLayout({
   children,
@@ -6,9 +7,15 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex">
+    <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
-      <main className="flex-1">{children}</main>
+
+      {/* Main Content */}
+      <main className="flex-1 ml-64 p-8">
+        {children}
+      </main>
+
+      <RoleSwitcher />
     </div>
   );
 }

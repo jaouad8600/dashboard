@@ -4,130 +4,275 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
 
-model Groep {
-  id        String     @id @default(uuid())
-  naam      String @unique
-  kleur     String     @default("gray")
-  afdeling   String?
-  notities  Notitie[]
-  createdAt DateTime   @default(now())
-}
-
-model Notitie {
+model User {
   id        String   @id @default(uuid())
-  tekst     String
-  auteur    String?
-  datumISO  DateTime @default(now())
-  groep     Groep    @relation(fields: [groepId], references: [id])
-  groepId   String
-}
-
-model Materiaal {
-  id        String   @id @default(uuid())
-  naam      String
-  aantal    Int
-  locatie   String
-  status    String
+  name      String
+  email     String   @unique
+  role      Role     @default(BEGELEIDER)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-model Overdracht {
+model Youth {
   id        String   @id @default(uuid())
-  auteur    String
-  bericht   String
-  datumISO  DateTime @default(now())
-  tijd      String
-  belangrijk Boolean  @default(false)
-}
-
-model Planning {
-  id        String   @id @default(uuid())
-  titel     String
-  locatie   String
-  start     DateTime
-  eind      DateTime
-  notitie   String?
+  firstName String
+  lastName  String   // Only visible to authorized roles
+  groupId   String?
+  group     Group?   @relation(fields: [groupId], references: [id])
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  mutations   SportMutation[]
+  indications SportIndication[]
 }
 
+model Group {
+  id                String   @id @default(uuid())
+  name              String   @unique
+  color             GroupColor? @default(GROEN) // Updated to Enum
+  department        String?
+  isActive          Boolean  @default(true)
+  status            GroupStatus @default(ACTIVE)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-enum SportMutatieStatus {
-  OPEN
-  IN_BEHANDELING
-  AFGEROND
+  reports           Report[]
+  // sessions          SportSession[] // Deprecated in favor of Report
+  extraSportMoments ExtraSportMoment[]
+  youths            Youth[]
+  notes             Note[]   // Relation to Note model
+  
+  // Master Spec additions
+  youthCount  Int      @default(0)
+  
+  // Medical Extensions
+  mutations     SportMutation[]
+  indications   SportIndication[]
+  materialUsage MaterialUsage[]
 }
 
-
-model Sportmutatie {
-  id         String             @id @default(cuid())
-  titel      String
-  opmerking  String?
-  status     SportMutatieStatus @default(OPEN)
-  groepNaam  String?
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
+model Note {
+  id        String   @id @default(uuid())
+  content   String
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  authorId  String?
 }
 
-// ========== Indicaties (sport) ==========
-enum IndicatieStatus {
-  OPEN
-  IN_BEHANDELING
-  AFGEROND
+model Report {
+  id          String     @id @default(uuid())
+  date        DateTime   @default(now()) // sessionDate
+  
+  groupId     String
+  group       Group      @relation(fields: [groupId], references: [id])
+  
+  type        ReportType @default(SESSION)
+  
+  // New Structured Data
+  presentYouth    Int      @default(0)
+  mood            String?
+  sessionSummary  String?
+  interventions   String?  // Stored as JSON string in SQLite
+  incidents       String?  // Stored as JSON string in SQLite
+  injuries        String?  // Stored as JSON string in SQLite
+  planForTomorrow String?
+  
+  rawText         String?  // Original pasted text
+  parsedAt        DateTime?
+  parsedBy        String?
+  confidenceScore Float?
+  
+  author      String?    // Legacy
+  authorId    String?    // Link to User
+  
+  isIncident  Boolean    @default(false)
+  
+  // Medical Extensions
+  indicationId    String?
+  indication      SportIndication? @relation(fields: [indicationId], references: [id])
+  materialUsage   MaterialUsage[]
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
-
-
-
-enum EvaluatieType {
-  TUSSEN
-  EIND
+model DailySummary {
+  id          String   @id @default(uuid())
+  date        DateTime @unique // Eén samenvatting per dag
+  content     String   // Gegenereerde HTML/Markdown van alle rapportages
+  generatedAt DateTime @default(now())
+  sentTo      String?  // Email adressen waarnaar verzonden
 }
 
-model Indicatie {
-  id             String     @id @default(cuid())
-  naam           String
-  type           String
-  status         String
-  groepId        String?
-  start          DateTime?
-  eind           DateTime?
-  opmerking      String?
-  archivedAt     DateTime?
-  archivedReason String?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-
-  evaluaties     Evaluatie[]
-
-  @@index([status])
-  @@index([groepId])
+model AuditLog {
+  id          String   @id @default(uuid())
+  action      String   // CREATE, UPDATE, DELETE
+  entity      String   // Group, Report, etc.
+  entityId    String
+  authorId    String?
+  details     String?  // JSON string met wijzigingen
+  timestamp   DateTime @default(now())
 }
 
-model Evaluatie {
-  id          String         @id @default(cuid())
-  indicatieId String
-  indicatie   Indicatie      @relation(fields: [indicatieId], references: [id], onDelete: Cascade)
-  type        EvaluatieType  @default(TUSSEN)
-  inhoud      String
-  ontvanger   String?
-  createdAt   DateTime       @default(now())
+model ExtraSportMoment {
+  id        String   @id @default(uuid())
+  date      DateTime
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([groupId, date]) // One checkmark per group per day
 }
 
-enum MutatieStatus {
-  OPEN
-  IN_BEHANDELING
-  AFGEROND
+model Program {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  type        String   // TRAINING, NUTRITION
+  content     String   // JSON or Text content of the program
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
-model SportMutatie {
-  id           String         @id @default(cuid())
-  titel        String
-  status       MutatieStatus  @default(OPEN)
-  groepId      String?
-  omschrijving String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+model Document {
+  id          String   @id @default(uuid())
+  title       String
+  category    String?  // PROTOCOL, PLAN, ETC
+  url         String   // Path or URL to file
+  createdAt   DateTime @default(now())
+}
+
+model SportMutation {
+  id          String             @id @default(uuid())
+  youthId     String
+  youth       Youth              @relation(fields: [youthId], references: [id])
+  groupId     String
+  group       Group              @relation(fields: [groupId], references: [id])
+  
+  reason      String
+  reasonType  MutationReasonType
+  
+  startDate   DateTime
+  endDate     DateTime?          // Null = tot nader order
+  isActive    Boolean            @default(true)
+  
+  createdBy   String             // User ID
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model SportIndication {
+  id          String          @id @default(uuid())
+  youthId     String
+  youth       Youth           @relation(fields: [youthId], references: [id])
+  groupId     String
+  group       Group           @relation(fields: [groupId], references: [id])
+  
+  description String
+  type        IndicationType
+  issuedBy    String          // e.g. "Medische Dienst"
+  
+  validFrom   DateTime
+  validUntil  DateTime?
+  isActive    Boolean         @default(true)
+  
+  reports     Report[]
+  
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+enum Role {
+  SPORTDOCENT
+  BEGELEIDER
+  GROEPSLEIDER
+  AV_MT
+  BEHEERDER
+}
+
+enum GroupStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum ReportType {
+  WARMING_UP
+  SESSION
+  BEHAVIOR
+  INCIDENT
+  GENERAL
+}
+
+enum GroupColor {
+  GROEN
+  GEEL
+  ORANJE
+  ROOD
+}
+
+enum MutationReasonType {
+  MEDISCH
+  GEDRAG
+  BLESSURE
+  OVERIG
+}
+
+enum IndicationType {
+  CARDIO
+  KRACHT
+  REVALIDATIE
+  MEDISCH
+  GEDRAG
+  OVERIG
+}
+
+enum MaterialCategory {
+  FITNESS
+  BALLEN
+  MATTEN
+  ELASTIEKEN
+  OVERIG
+}
+
+enum ConditionStatus {
+  GOED
+  LICHT_BESCHADIGD
+  KAPOT
+  TE_VERVANGEN
+}
+
+model Material {
+  id              String          @id @default(uuid())
+  name            String
+  category        MaterialCategory
+  description     String?
+  quantityTotal   Int             @default(0)
+  quantityUsable  Int             @default(0)
+  location        String
+  conditionStatus ConditionStatus @default(GOED)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  usage           MaterialUsage[]
+}
+
+model MaterialUsage {
+  id           String   @id @default(uuid())
+  materialId   String
+  material     Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  date         DateTime @default(now())
+  groupId      String?
+  group        Group?   @relation(fields: [groupId], references: [id])
+  reportId     String?
+  report       Report?  @relation(fields: [reportId], references: [id])
+  quantityUsed Int
+  notes        String?
+  createdBy    String
+  createdAt    DateTime @default(now())
 }

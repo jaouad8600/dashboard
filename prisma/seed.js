@@ -1,35 +1,42 @@
-const { PrismaClient } = require("@prisma/client");
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-const GROEPEN = [
-  "Eb",
-  "Poel",
-  "Lier",
-  "Zijl",
-  "Nes",
-  "Vliet",
-  "Gaag",
-  "Vloed",
-  "Kust",
-  "Golf",
-  "Zift",
-  "Lei",
-  "Kade",
-  "Kreek",
-  "Duin",
-  "Rak",
-  "Bron",
+const groups = [
+  "Gaag", "Vliet", "Zijl", "Lier", "Poel", "Nes", "Rak", "Kust", "Zift", "Bron",
+  "Dijk", "Kreek", "Duin", "Lei", "Poel A", "Poel B", "Golf"
 ];
 
+const colors = ["red", "blue", "green", "yellow", "purple", "pink", "indigo", "orange", "teal", "cyan"];
+
 async function main() {
-  for (const naam of GROEPEN) {
-    await prisma.groep.upsert({
-      where: { naam },
+  console.log('Start seeding ...');
+
+  for (let i = 0; i < groups.length; i++) {
+    const name = groups[i];
+    const color = colors[i % colors.length];
+
+    const group = await prisma.group.upsert({
+      where: { name: name },
       update: {},
-      create: { naam, kleur: "GREEN" },
+      create: {
+        name: name,
+        color: color,
+        isActive: true,
+        department: "Teylingereind",
+      },
     });
+    console.log(`Created group with id: ${group.id}`);
   }
-  console.log("✅ Groepen ge-seed");
+
+  console.log('Seeding finished.');
 }
 
-main().finally(() => prisma.$disconnect());
+main()
+  .then(async () => {
+    await prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error(e);
+    await prisma.$disconnect();
+    process.exit(1);
+  });

@@ -1,15 +1,26 @@
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import "./globals.css";
-import type { ReactNode } from "react";
-import ClientOnly from "@/components/ClientOnly";
+import { AuthProvider } from "@/components/providers/AuthContext";
 
-export const metadata = { title: "SportDash", description: "Teylingereind" };
+const inter = Inter({ subsets: ["latin"] });
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export const metadata: Metadata = {
+  title: "SportDash",
+  description: "Teylingereind",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html lang="nl">
-      <body suppressHydrationWarning className="min-h-screen bg-gray-50">
-        <ClientOnly>{children}</ClientOnly>
+    <html lang="en">
+      <body className={inter.className}>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
