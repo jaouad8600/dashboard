@@ -12,6 +12,7 @@ backups/
 *.bundle
 *.7z
 *.tar
+*.tgz
 
 # lokale data opslag
 data/

@@ -1,0 +1,113 @@
+// ✅ /api/indicaties (GET: lijst, POST: aanmaken)
+// - Prisma gebruikt als beschikbaar; anders file-store fallback.
+// - Geen caching: dynamic + revalidate = 0.
+
+import { NextResponse } from "next/server";
+import fs from "fs/promises";
+import path from "path";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+type IndicatieInput = {
+  naam: string;
+  type?: string | null;
+  status?: "OPEN" | "IN_BEHANDELING" | "AFGEROND" | string | null;
+  groepId?: string | null;
+  start?: string | null;
+  eind?: string | null;
+};
+
+const filePath = path.join(process.cwd(), "data", "indicaties.json");
+
+// Prisma optioneel laden zonder build stuk te maken
+let prisma: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { PrismaClient } = require("@prisma/client");
+  prisma = new PrismaClient();
+} catch (_e) {
+  prisma = null;
+}
+
+async function readFileStore() {
+  try {
+    const txt = await fs.readFile(filePath, "utf8");
+    return JSON.parse(txt);
+  } catch {
+    return [];
+  }
+}
+
+async function writeFileStore(newItem: any) {
+  const arr = await readFileStore();
+  arr.unshift(newItem);
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, JSON.stringify(arr, null, 2));
+  return newItem;
+}
+
+function normalizeInput(raw: any): IndicatieInput {
+  return {
+    naam: (raw?.naam ?? raw?.titel ?? "").toString().trim(),
+    type: (raw?.type ?? null) || null,
+    status: (raw?.status ?? "OPEN").toString().toUpperCase(),
+    groepId: (raw?.groep ?? raw?.groepId ?? null) || null,
+    start: raw?.start ?? null,
+    eind: raw?.eind ?? null,
+  };
+}
+
+export async function GET() {
+  try {
+    if (prisma?.indicatie) {
+      const all = await prisma.indicatie.findMany({
+        orderBy: { createdAt: "desc" },
+      });
+      return NextResponse.json(all, { headers: { "Cache-Control": "no-store" } });
+    } else {
+      const all = await readFileStore();
+      return NextResponse.json(all, { headers: { "Cache-Control": "no-store" } });
+    }
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "GET failed" }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const raw = await req.json();
+    const data = normalizeInput(raw);
+
+    if (!data.naam) {
+      return NextResponse.json({ error: "naam is verplicht" }, { status: 400 });
+    }
+
+    // Prisma pad
+    if (prisma?.indicatie) {
+      const created = await prisma.indicatie.create({
+        data: {
+          naam: data.naam,
+          type: data.type,
+          status: (data.status || "OPEN").toString(),
+          groepId: data.groepId,
+          start: data.start ? new Date(data.start) : null,
+          eind: data.eind ? new Date(data.eind) : null,
+        },
+      });
+      return NextResponse.json(created, { status: 201 });
+    }
+
+    // File fallback pad
+    const created = await writeFileStore({
+      id: Date.now().toString(),
+      ...data,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    return NextResponse.json(created, { status: 201 });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "POST failed" }, { status: 500 });
+  }
+}

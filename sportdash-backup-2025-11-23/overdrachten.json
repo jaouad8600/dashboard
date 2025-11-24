@@ -1,0 +1,19 @@
+[
+  {
+    "id": "debf6486-374c-40a2-8dee-97f8b579885d",
+    "titel": "test2",
+    "inhoud": "test2§",
+    "auteur": "test2",
+    "status": "afgerond",
+    "createdAt": "2025-10-06T07:48:37.442Z",
+    "updatedAt": "2025-10-06T07:48:46.217Z"
+  },
+  {
+    "id": "3a48df01-e73a-40a0-93a0-03fa4e177d9d",
+    "titel": "test",
+    "inhoud": "tes",
+    "auteur": "test",
+    "status": "open",
+    "createdAt": "2025-10-06T07:48:19.729Z"
+  }
+]

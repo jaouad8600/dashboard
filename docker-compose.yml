@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  sportdash:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sportdash-app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=file:/app/prisma/dev.db
+      - NODE_ENV=production
+    volumes:
+      # Persist the SQLite database
+      - ./prisma/dev.db:/app/prisma/dev.db
+      # Persist backups if you want them accessible on host
+      - ./backups:/app/backups

@@ -1,0 +1,20 @@
+node_modules
+.next
+
+/generated/prisma
+
+.next/
+
+# backups en archieven niet in git
+__bak/
+backups/
+*.zip
+*.bundle
+*.7z
+*.tar
+
+# lokale data opslag
+data/
+node_modules/
+
+.data/

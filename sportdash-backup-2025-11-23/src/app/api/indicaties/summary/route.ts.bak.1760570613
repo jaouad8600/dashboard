@@ -1,0 +1,29 @@
+// ✅ /api/indicaties/summary (GET)
+// Telt: open, inBehandeling, afgerond, totaal
+import { NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+async function getAll(): Promise<any[]> {
+  try {
+    // probeer runtime import van eigen GET handler
+    const mod = await import("../route");
+    const res = await mod.GET();
+    const j = await (res as any).json();
+    return Array.isArray(j) ? j : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function GET() {
+  const items = await getAll();
+  const norm = (s: string) => (s || "").toString().toUpperCase();
+  const open = items.filter((x: any) => norm(x.status) === "OPEN").length;
+  const inBehandeling = items.filter((x: any) => ["IN_BEHANDELING","INBEHANDELING"].includes(norm(x.status))).length;
+  const afgerond = items.filter((x: any) => norm(x.status) === "AFGEROND").length;
+  const totaal = items.length;
+  return NextResponse.json({ open, inBehandeling, afgerond, totaal }, { headers: { "Cache-Control": "no-store" } });
+}
