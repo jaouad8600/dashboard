@@ -249,6 +249,10 @@ model SportMutation {
   createdBy   String             // User ID
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
+  
+  // New boolean flags per user request
+  totaalSportverbod Boolean      @default(false)
+  alleenFitness     Boolean      @default(false)
 }
 
 model SportIndication {
@@ -259,12 +263,16 @@ model SportIndication {
   group       Group           @relation(fields: [groupId], references: [id])
   
   // Basic info
-  description String
+  description String          // Summary or full text
   type        IndicationType
   issuedBy    String          // e.g. "Medische Dienst", "GW"
   
   // Additional medical service fields
+  youthName            String?         // Fallback if youthId is null
   leefgroep            String?         // Living group
+  activities           String?         // JSON or comma-separated list of activities
+  advice               String?         // Advies/suggestie inhoud activiteit
+  reasoning            String?         // Onderbouwing indicering
   responsiblePersons   String?         // e.g. "Orlando, Sebastiaan, Tim"
   feedbackTo           String?         // Who to report progress to
   canCombineWithGroup  Boolean         @default(true)
@@ -293,6 +301,10 @@ model SportIndication {
   
   reports     Report[]
   
+  // Import metadata
+  source      String?         // e.g. "outlook", "handmatig"
+  receivedAt  DateTime?       // When it was received/imported
+
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 }

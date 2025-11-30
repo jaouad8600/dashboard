@@ -38,6 +38,7 @@ type IndicationWithRelations = SportIndication & {
     group: Group;
     youth: Youth;
     evaluations: Evaluation[];
+    youthName?: string | null;
 };
 
 const INDICATION_TYPES = ["SPORT", "KRACHT", "REVALIDATIE", "OVERIG"];
@@ -88,6 +89,90 @@ export default function SportIndicationsPage() {
     const [onderbouwingIndicering, setOnderbouwingIndicering] = useState("");
     const [bejegeningstips, setBejegeningstips] = useState("");
     const [leerdoelen, setLeerdoelen] = useState("");
+
+    // Bulk Actions State
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            const allIds = indications.map(i => i.id);
+            setSelectedIds(allIds);
+        } else {
+            setSelectedIds([]);
+        }
+    };
+
+    const handleSelectOne = (id: string) => {
+        if (selectedIds.includes(id)) {
+            setSelectedIds(selectedIds.filter(i => i !== id));
+        } else {
+            setSelectedIds([...selectedIds, id]);
+        }
+    };
+
+    const handleBulkArchive = async () => {
+        setConfirmDialog({
+            isOpen: true,
+            title: "Geselecteerde Archiveren",
+            message: `Weet je zeker dat je ${selectedIds.length} indicaties wilt archiveren?`,
+            variant: "warning",
+            confirmLabel: "Archiveren",
+            onConfirm: async () => {
+                try {
+                    await Promise.all(selectedIds.map(id => updateIndication.mutateAsync({ id, isActive: false })));
+                    toast.success(`${selectedIds.length} indicaties gearchiveerd`);
+                    setSelectedIds([]);
+                    closeConfirmDialog();
+                } catch (error) {
+                    console.error("Error archiving indications", error);
+                    toast.error("Fout bij archiveren");
+                }
+            }
+        });
+    };
+
+    const handleBulkRestore = async () => {
+        // Warning about potential duplicates is generic here
+        setConfirmDialog({
+            isOpen: true,
+            title: "Geselecteerde Herstellen",
+            message: `Weet je zeker dat je ${selectedIds.length} indicaties wilt herstellen? Let op: dit kan leiden tot dubbele actieve indicaties als er al een actieve indicatie bestaat.`,
+            variant: "info",
+            confirmLabel: "Herstellen",
+            onConfirm: async () => {
+                try {
+                    await Promise.all(selectedIds.map(id => updateIndication.mutateAsync({ id, isActive: true })));
+                    toast.success(`${selectedIds.length} indicaties hersteld`);
+                    setSelectedIds([]);
+                    closeConfirmDialog();
+                } catch (error) {
+                    console.error("Error restoring indications", error);
+                    toast.error("Fout bij herstellen");
+                }
+            }
+        });
+    };
+
+    const handleBulkDelete = async () => {
+        setConfirmDialog({
+            isOpen: true,
+            title: "Geselecteerde Verwijderen",
+            message: `Weet je zeker dat je ${selectedIds.length} indicaties definitief wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`,
+            variant: "danger",
+            confirmLabel: "Verwijderen",
+            onConfirm: async () => {
+                try {
+                    await Promise.all(selectedIds.map(id => deleteIndication.mutateAsync(id)));
+                    toast.success(`${selectedIds.length} indicaties verwijderd`);
+                    setSelectedIds([]);
+                    closeConfirmDialog();
+                } catch (error) {
+                    console.error("Error deleting indications", error);
+                    toast.error("Fout bij verwijderen");
+                }
+            }
+        });
+    };
 
     // Confirm Dialog State
     const [confirmDialog, setConfirmDialog] = useState<{
@@ -218,7 +303,7 @@ export default function SportIndicationsPage() {
         setConfirmDialog({
             isOpen: true,
             title: "Indicatie Verwijderen",
-            message: `Weet je zeker dat je de indicatie voor ${indication.youth.firstName} ${indication.youth.lastName} definitief wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`,
+            message: `Weet je zeker dat je de indicatie voor ${indication.youth ? `${indication.youth.firstName} ${indication.youth.lastName}` : (indication.youthName || "Onbekend")} definitief wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`,
             variant: "danger",
             confirmLabel: "Verwijderen",
             onConfirm: async () => {
@@ -261,8 +346,8 @@ export default function SportIndicationsPage() {
         // Check for existing active indications
         try {
             const response = await axios.post('/api/indicaties/check-duplicate', {
-                firstName: indication.youth.firstName,
-                lastName: indication.youth.lastName
+                firstName: indication.youth ? indication.youth.firstName : (indication.youthName?.split(' ')[0] || ""),
+                lastName: indication.youth ? indication.youth.lastName : (indication.youthName?.split(' ').slice(1).join(' ') || "")
             });
 
             const hasActive = response.data.indications.some((i: any) => i.isActive && i.id !== id);
@@ -271,7 +356,7 @@ export default function SportIndicationsPage() {
                 setConfirmDialog({
                     isOpen: true,
                     title: "Dubbele Actieve Indicatie",
-                    message: `Er is al een actieve indicatie voor ${indication.youth.firstName} ${indication.youth.lastName}. Weet je zeker dat je deze ook wilt activeren?`,
+                    message: `Er is al een actieve indicatie voor ${indication.youth ? `${indication.youth.firstName} ${indication.youth.lastName}` : (indication.youthName || "Onbekend")}. Weet je zeker dat je deze ook wilt activeren?`,
                     variant: "warning",
                     confirmLabel: "Toch Herstellen",
                     onConfirm: async () => {
@@ -563,6 +648,89 @@ export default function SportIndicationsPage() {
                 </div>
             </motion.div>
 
+            {/* Bulk Actions Bar */}
+            <AnimatePresence>
+                {selectedIds.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-xl mb-6 flex items-center justify-between"
+                    >
+                        <div className="flex items-center gap-3">
+                            <span className="font-medium text-blue-900 dark:text-blue-100">
+                                {selectedIds.length} geselecteerd
+                            </span>
+                            <button
+                                onClick={() => setSelectedIds([])}
+                                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                                Deselecteren
+                            </button>
+                        </div>
+                        <div className="flex gap-3">
+                            {showArchived ? (
+                                <button
+                                    onClick={handleBulkRestore}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors border border-blue-200 dark:border-blue-800 shadow-sm"
+                                >
+                                    <RotateCcw size={18} />
+                                    Herstellen
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={handleBulkArchive}
+                                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-gray-700 transition-colors border border-orange-200 dark:border-orange-800 shadow-sm"
+                                >
+                                    <Archive size={18} />
+                                    Archiveren
+                                </button>
+                            )}
+                            <button
+                                onClick={handleBulkDelete}
+                                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-gray-700 transition-colors border border-red-200 dark:border-red-800 shadow-sm"
+                            >
+                                <Trash2 size={18} />
+                                Verwijderen
+                            </button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Notification Block for Recent Imports */}
+            {(() => {
+                const recentImports = (indications as any[])?.filter(m => m.source === 'outlook' && new Date(m.createdAt).getTime() > Date.now() - 24 * 60 * 60 * 1000) || [];
+                if (recentImports.length === 0) return null;
+
+                return (
+                    <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
+                        <div className="flex items-start gap-3 mb-3">
+                            <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+                                <FileText size={20} />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-blue-900">Nieuwe imports via Outlook ({recentImports.length})</h3>
+                                <p className="text-sm text-blue-700 mt-1">
+                                    De volgende indicaties zijn recent binnengekomen:
+                                </p>
+                            </div>
+                        </div>
+                        <div className="pl-12 space-y-2">
+                            {recentImports.map((imp) => (
+                                <div key={imp.id} className="flex items-center gap-3 text-sm text-blue-800 bg-white/50 p-2 rounded-lg border border-blue-100">
+                                    <span className="font-bold">{imp.youth?.firstName ? `${imp.youth.firstName} ${imp.youth.lastName}` : (imp.youthName || "Onbekend")}</span>
+                                    <span className="text-blue-400">|</span>
+                                    <span className="font-medium">{imp.group?.name || imp.leefgroep || "Onbekend"}</span>
+                                    <span className="text-blue-400">|</span>
+                                    <span className="text-blue-600">{new Date(imp.receivedAt || imp.createdAt).toLocaleString('nl-NL')}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })()}
+
             {/* Filters - Animated with delay */}
             <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -595,70 +763,71 @@ export default function SportIndicationsPage() {
                     <table className="w-full text-left">
                         <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0">
                             <tr>
-                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide w-[12%]">Jongere</th>
-                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide w-[8%]">Groep</th>
-                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide w-[6%]">Type</th>
-                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide w-[20%]">Beschrijving</th>
-                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide w-[9%]">Geldig Vanaf</th>
-                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide w-[9%]">Geldig Tot</th>
-                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide w-[10%]">Issued By</th>
-                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide w-[8%]">Feedback</th>
-                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide w-[8%]">Combinatie</th>
-                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide text-right w-[10%]">Actie</th>
+                                <th className="px-4 py-3 w-[40px]">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedIds.length === indications.length && indications.length > 0}
+                                        onChange={handleSelectAll}
+                                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                    />
+                                </th>
+                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide w-[20%]">Jongere</th>
+                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide w-[10%]">Groep</th>
+                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide w-[10%]">Type</th>
+                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide w-[15%]">Geldig Vanaf</th>
+                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide w-[15%]">Geldig Tot</th>
+                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide w-[15%]">Afgifte</th>
+                                <th className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide text-right w-[15%]">Actie</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                             {indications.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} className="px-6 py-12 text-center text-gray-400">
+                                    <td colSpan={8} className="px-6 py-12 text-center text-gray-400">
                                         <User className="w-12 h-12 mx-auto mb-3 opacity-30" />
                                         <p className="font-medium">Geen indicaties gevonden</p>
                                         <p className="text-sm mt-1">Klik op "Nieuwe Indicatie" om te beginnen</p>
                                     </td>
                                 </tr>
                             ) : (
-                                indications.map((m, index) => (
-                                    <motion.tr
-                                        key={m.id}
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.3, delay: 0.3 + (index * 0.03) }}
-                                        onClick={() => setShowDetailModal(m)}
-                                        className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer group"
+                                indications.map((indication, index) => (
+                                    <tr
+                                        key={indication.id}
+                                        className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                                     >
-                                        {/* Jongere */}
-                                        <td className="px-4 py-3.5">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-                                                    <User size={14} className="text-blue-600 dark:text-blue-400" />
+                                        <td className="px-4 py-3">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.includes(indication.id)}
+                                                onChange={() => handleSelectOne(indication.id)}
+                                                className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                                            />
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center">
+                                                <div className="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold text-xs mr-3">
+                                                    {indication.youth ? indication.youth.firstName.charAt(0) : (indication.youthName?.charAt(0) || "?")}
+                                                    {indication.youth ? indication.youth.lastName.charAt(0) : ""}
                                                 </div>
-                                                <span className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">
-                                                    {m.youth ? `${m.youth.firstName} ${m.youth.lastName} ` : "Onbekend"}
-                                                </span>
+                                                <div>
+                                                    <div className="font-medium text-gray-900 dark:text-white text-sm">
+                                                        {indication.youth ? `${indication.youth.firstName} ${indication.youth.lastName}` : (indication.youthName || "Onbekend")}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </td>
-
                                         {/* Groep */}
                                         <td className="px-4 py-3.5">
                                             <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                                                {m.group?.name || "?"}
+                                                {indication.group?.name || "?"}
                                             </span>
                                         </td>
 
                                         {/* Type */}
                                         <td className="px-4 py-3.5">
                                             <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                                                {m.type === "CARDIO" ? "SPORT" : m.type}
+                                                {indication.type === "CARDIO" ? "SPORT" : indication.type}
                                             </span>
-                                        </td>
-
-                                        {/* Beschrijving - truncated */}
-                                        <td className="px-4 py-3.5">
-                                            <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2 leading-relaxed">
-                                                {m.description && m.description.length > 100
-                                                    ? `${m.description.substring(0, 100)}...`
-                                                    : m.description || "Geen omschrijving"}
-                                            </p>
                                         </td>
 
                                         {/* Geldig Vanaf */}
@@ -666,18 +835,18 @@ export default function SportIndicationsPage() {
                                             <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
                                                 <Calendar size={12} className="text-gray-400 flex-shrink-0" />
                                                 <span className="font-medium">
-                                                    {format(new Date(m.validFrom), "dd MMM yyyy", { locale: nl })}
+                                                    {format(new Date(indication.validFrom), "dd MMM yyyy", { locale: nl })}
                                                 </span>
                                             </div>
                                         </td>
 
                                         {/* Geldig Tot */}
                                         <td className="px-4 py-3.5">
-                                            {m.validUntil && new Date(m.validUntil).getFullYear() > 1900 ? (
+                                            {indication.validUntil && new Date(indication.validUntil).getFullYear() > 1900 ? (
                                                 <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
                                                     <Calendar size={12} className="text-gray-400 flex-shrink-0" />
                                                     <span className="font-medium">
-                                                        {format(new Date(m.validUntil), "dd MMM yyyy", { locale: nl })}
+                                                        {format(new Date(indication.validUntil), "dd MMM yyyy", { locale: nl })}
                                                     </span>
                                                 </div>
                                             ) : (
@@ -688,30 +857,8 @@ export default function SportIndicationsPage() {
                                         {/* Issued By */}
                                         <td className="px-4 py-3.5">
                                             <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">
-                                                {m.issuedBy || "-"}
+                                                {indication.issuedBy || "-"}
                                             </span>
-                                        </td>
-
-                                        {/* Feedback To */}
-                                        <td className="px-4 py-3.5">
-                                            <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">
-                                                {m.feedbackTo || "-"}
-                                            </span>
-                                        </td>
-
-                                        {/* Can Combine */}
-                                        <td className="px-4 py-3.5">
-                                            {m.canCombineWithGroup ? (
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs font-semibold border border-green-200 dark:border-green-800">
-                                                    <CheckCircle size={12} />
-                                                    Ja
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full text-xs font-semibold border border-gray-200 dark:border-gray-600">
-                                                    <X size={12} />
-                                                    Nee
-                                                </span>
-                                            )}
                                         </td>
 
                                         {/* Actions Column in Table */}
@@ -719,20 +866,20 @@ export default function SportIndicationsPage() {
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
                                                     onClick={() => {
-                                                        setEditingIndication(m);
-                                                        setNaamJongere(`${m.youth.firstName} ${m.youth.lastName}`);
-                                                        setLeefgroep(m.group.name);
+                                                        setEditingIndication(indication);
+                                                        setNaamJongere(indication.youth ? `${indication.youth.firstName} ${indication.youth.lastName}` : (indication.youthName || ""));
+                                                        setLeefgroep(indication.group.name);
                                                         // Note: activities and advice are merged into description, so we can't easily pre-fill them separately without parsing
                                                         setIndicatieActiviteiten([]);
                                                         setAdviesInhoudActiviteit("");
-                                                        setGeldigVanaf(format(new Date(m.validFrom), "yyyy-MM-dd"));
-                                                        setGeldigTot(m.validUntil ? format(new Date(m.validUntil), "yyyy-MM-dd") : "");
-                                                        setIndicatieAfgegevenDoor(m.issuedBy || "");
-                                                        setTerugkoppelingAan(m.feedbackTo || "");
-                                                        setKanCombinerenMetGroepsgenoot(m.canCombineWithGroup);
-                                                        setOnderbouwingIndicering(m.description);
-                                                        setBejegeningstips(m.guidanceTips || "");
-                                                        setLeerdoelen(m.learningGoals || "");
+                                                        setGeldigVanaf(format(new Date(indication.validFrom), "yyyy-MM-dd"));
+                                                        setGeldigTot(indication.validUntil ? format(new Date(indication.validUntil), "yyyy-MM-dd") : "");
+                                                        setIndicatieAfgegevenDoor(indication.issuedBy || "");
+                                                        setTerugkoppelingAan(indication.feedbackTo || "");
+                                                        setKanCombinerenMetGroepsgenoot(indication.canCombineWithGroup);
+                                                        setOnderbouwingIndicering(indication.description);
+                                                        setBejegeningstips(indication.guidanceTips || "");
+                                                        setLeerdoelen(indication.learningGoals || "");
                                                         setShowModal(true);
                                                     }}
                                                     className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
@@ -743,10 +890,10 @@ export default function SportIndicationsPage() {
 
                                                 <button
                                                     onClick={() => {
-                                                        setEditingIndication(m);
+                                                        setEditingIndication(indication);
                                                         setEvaluationNotes("");
                                                         setEvaluationAuthor("");
-                                                        setShowEvaluationModal(m);
+                                                        setShowEvaluationModal(indication);
                                                     }}
                                                     className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
                                                     title="Nieuwe Evaluatie"
@@ -756,7 +903,7 @@ export default function SportIndicationsPage() {
 
                                                 {/* Delete Button */}
                                                 <button
-                                                    onClick={() => handleDelete(m)}
+                                                    onClick={() => handleDelete(indication)}
                                                     className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                                     title="Verwijderen"
                                                 >
@@ -765,7 +912,7 @@ export default function SportIndicationsPage() {
 
                                                 {!showArchived ? (
                                                     <button
-                                                        onClick={() => handleArchive(m.id)}
+                                                        onClick={() => handleArchive(indication.id)}
                                                         className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors"
                                                         title="Archiveren"
                                                     >
@@ -773,7 +920,7 @@ export default function SportIndicationsPage() {
                                                     </button>
                                                 ) : (
                                                     <button
-                                                        onClick={() => handleRestore(m.id)}
+                                                        onClick={() => handleRestore(indication.id)}
                                                         className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
                                                         title="Herstellen"
                                                     >
@@ -782,7 +929,7 @@ export default function SportIndicationsPage() {
                                                 )}
                                             </div>
                                         </td>
-                                    </motion.tr>
+                                    </tr>
                                 ))
                             )}
                         </tbody>
@@ -979,7 +1126,7 @@ export default function SportIndicationsPage() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                            Indicatie afgegeven door
+                                            Indicatie afgegeven op
                                         </label>
                                         <input
                                             type="text"

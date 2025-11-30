@@ -9,7 +9,23 @@ import { SportIndication, Group, Youth } from '@prisma/client';
 type IndicationWithRelations = SportIndication & {
     group: Group;
     youth: Youth;
+    evaluations: Evaluation[];
+    // Explicitly add new fields to avoid lint errors if Prisma types lag
+    activities?: string | null;
+    advice?: string | null;
+    youthName?: string | null;
 };
+
+interface Evaluation {
+    id: string;
+    indicationId: string;
+    date: Date;
+    summary: string;
+    author: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    emailedAt?: Date | null;
+}
 
 interface IndicationDetailModalProps {
     indication: IndicationWithRelations | null;
@@ -54,7 +70,7 @@ export default function IndicationDetailModal({ indication, isOpen, onClose }: I
                                                 </div>
                                                 <div>
                                                     <h2 className="text-2xl font-bold text-white">
-                                                        {indication.youth ? `${indication.youth.firstName} ${indication.youth.lastName}` : "Onbe kend"}
+                                                        {indication.youth ? `${indication.youth.firstName} ${indication.youth.lastName}` : (indication.youthName || "Onbekend")}
                                                     </h2>
                                                     <p className="text-purple-100 text-sm">
                                                         Sportindicatie Details
@@ -174,6 +190,45 @@ export default function IndicationDetailModal({ indication, isOpen, onClose }: I
                                         </div>
                                     </div>
 
+                                    {/* Activities & Advice */}
+                                    {(indication.activities || indication.advice) && (
+                                        <div className="mb-8">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <Activity className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                                                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                                                    Activiteiten & Advies
+                                                </h3>
+                                            </div>
+                                            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800 space-y-3">
+                                                {indication.activities && (
+                                                    <div>
+                                                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Activiteiten:</span>
+                                                        <div className="flex flex-wrap gap-2 mt-1">
+                                                            {(() => {
+                                                                try {
+                                                                    const acts = JSON.parse(indication.activities);
+                                                                    return Array.isArray(acts) ? acts.map((a: string, i: number) => (
+                                                                        <span key={i} className="px-2 py-1 bg-white dark:bg-gray-800 rounded border border-yellow-300 dark:border-yellow-700 text-sm font-medium text-gray-800 dark:text-gray-200">
+                                                                            {a}
+                                                                        </span>
+                                                                    )) : <span className="text-sm text-gray-800">{indication.activities}</span>;
+                                                                } catch {
+                                                                    return <span className="text-sm text-gray-800">{indication.activities}</span>;
+                                                                }
+                                                            })()}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {indication.advice && (
+                                                    <div>
+                                                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Advies:</span>
+                                                        <p className="text-sm text-gray-800 dark:text-gray-200 mt-1">{indication.advice}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Onderbouwing Indicering */}
                                     {indication.description && (
                                         <div className="mb-8">
@@ -221,6 +276,41 @@ export default function IndicationDetailModal({ indication, isOpen, onClose }: I
                                                 <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whit espace-pre-wrap">
                                                     {indication.learningGoals}
                                                 </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Evaluaties */}
+                                    {indication.evaluations && indication.evaluations.length > 0 && (
+                                        <div className="mb-8">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <Activity className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                                                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                                                    Evaluaties
+                                                </h3>
+                                            </div>
+                                            <div className="space-y-4">
+                                                {indication.evaluations.map((evalItem) => (
+                                                    <div key={evalItem.id} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                                                                    {format(new Date(evalItem.createdAt), "d MMMM yyyy", { locale: nl })}
+                                                                </span>
+                                                                <span className="text-xs text-gray-500 dark:text-gray-400">• {evalItem.author || "Onbekend"}</span>
+                                                            </div>
+                                                            {evalItem.emailedAt && (
+                                                                <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                                                                    <CheckCircle size={12} />
+                                                                    <span>Gemaild</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                                                            {evalItem.summary}
+                                                        </p>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
                                     )}

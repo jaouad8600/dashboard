@@ -24,6 +24,21 @@ async function main() {
     });
 
     console.log({ admin });
+
+    // Seed Groups
+    const groups = ["Nes", "Tessel", "Vlieland", "Ameland", "Terschelling", "Onbekend"];
+    for (const name of groups) {
+        await prisma.group.upsert({
+            where: { name },
+            update: {},
+            create: {
+                name,
+                status: "ACTIVE",
+                department: "JJI"
+            }
+        });
+    }
+    console.log("Groups seeded");
 }
 
 main()

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import Button from "../ui/Button";
+import Button from "../ui/button";
 import Badge from "../ui/Badge";
 
 type RawGroup = any;
@@ -54,7 +54,7 @@ export default function GroupCard({ raw }: { raw: RawGroup }) {
   useEffect(() => {
     fetchNotes(group.id)
       .then(setNotes)
-      .catch(() => {});
+      .catch(() => { });
   }, [group.id]);
 
   const addNote = async () => {

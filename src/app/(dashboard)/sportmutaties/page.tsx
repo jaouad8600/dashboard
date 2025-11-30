@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, Filter, Calendar, User, AlertCircle, X, Trash2, Edit2, Archive, CheckCircle } from "lucide-react";
+import { Plus, Filter, Calendar, User, AlertCircle, X, Trash2, Edit2, Archive, CheckCircle, FileText, Clipboard } from "lucide-react";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { useSportMutations, useGroups } from "@/hooks/useSportData";
@@ -34,26 +34,23 @@ export default function SportMutationsPage() {
     // Cast data to the correct type with relations
     const allMutations = mutationsData as unknown as SportMutationWithRelations[] || [];
 
-    // Filter by active status based on showArchived toggle
-    // Assuming the API returns all, or we need to filter client side if API doesn't support filtering yet.
-    // My API returns all. I should filter client side for now or update API to filter.
-    // Let's filter client side for simplicity as data volume is likely low for now.
-    // Actually, standard is usually isActive=true by default.
-    // Let's assume the API returns everything and we filter here.
     const mutations = allMutations.filter(m => showArchived ? !m.isActive : m.isActive !== false);
 
     const [showModal, setShowModal] = useState(false);
+    const [activeTab, setActiveTab] = useState<"manual" | "paste">("manual");
+    const [pastedText, setPastedText] = useState("");
 
     // Form State
     const [selectedGroup, setSelectedGroup] = useState("");
     const [youthName, setYouthName] = useState("");
-    const [reason, setReason] = useState("");
+    const [reason, setReason] = useState(""); // Bijzonderheden
     const [reasonType, setReasonType] = useState("MEDISCH");
-    const [restrictionType, setRestrictionType] = useState<"TOTAAL_SPORTVERBOD" | "ALLEEN_FITNESS" | "ANDERS" | null>(null);
-    const [customRestriction, setCustomRestriction] = useState("");
-    const [injuryDetails, setInjuryDetails] = useState("");
     const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
     const [endDate, setEndDate] = useState("");
+
+    // New boolean flags
+    const [totaalSportverbod, setTotaalSportverbod] = useState(false);
+    const [alleenFitness, setAlleenFitness] = useState(false);
 
     // Filters
     const [filterGroup, setFilterGroup] = useState("");
@@ -66,38 +63,127 @@ export default function SportMutationsPage() {
         }
     }, [searchParams]);
 
+    const parseSportMutatieText = (text: string) => {
+        const lines = text.split('\n');
+        let parsedName = "";
+        let parsedGroup = "";
+        let parsedStartDate = "";
+        let parsedEndDate = "";
+        let parsedReason = "";
+        let parsedTotaal = false;
+        let parsedFitness = false;
+
+        // Helper to find value after label
+        const findValue = (label: string) => {
+            const regex = new RegExp(`${label}[:\\s]+(.*)`, 'i');
+            for (const line of lines) {
+                const match = line.match(regex);
+                if (match) return match[1].trim();
+            }
+            return "";
+        };
+
+        parsedName = findValue("Naam");
+        const groupName = findValue("Afdeling");
+
+        // Try to match group name to ID
+        if (groupName && groups) {
+            const group = groups.find(g => g.name.toLowerCase() === groupName.toLowerCase());
+            if (group) parsedGroup = group.id;
+        }
+
+        const rawStartDate = findValue("Begindatum");
+        if (rawStartDate) {
+            // Try parsing DD-MM-YY or DD-MM-YYYY
+            const parts = rawStartDate.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
+            if (parts) {
+                const day = parts[1].padStart(2, '0');
+                const month = parts[2].padStart(2, '0');
+                let year = parts[3];
+                if (year.length === 2) year = "20" + year;
+                parsedStartDate = `${year}-${month}-${day}`;
+            }
+        }
+
+        const rawEndDate = findValue("Stopdatum");
+        if (rawEndDate) {
+            const parts = rawEndDate.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
+            if (parts) {
+                const day = parts[1].padStart(2, '0');
+                const month = parts[2].padStart(2, '0');
+                let year = parts[3];
+                if (year.length === 2) year = "20" + year;
+                parsedEndDate = `${year}-${month}-${day}`;
+            }
+        }
+
+        parsedReason = findValue("Bijzonderheden");
+
+        // Checkboxes
+        // Look for lines containing the text and a checkmark
+        const checkmarkRegex = /[☒xX\[\]\u2611]/; // Basic check for marked box characters
+
+        for (const line of lines) {
+            if (line.toLowerCase().includes("totaal sportverbod")) {
+                // Check if line starts with or contains a checkmark indicator
+                if (line.match(checkmarkRegex) || line.toLowerCase().includes("ja")) {
+                    // Simple heuristic: if it has a box char that isn't empty square, or just assumes the line existing with context implies checked if format is strict
+                    // The user example: "☒ Totaal sportverbod" vs "☐ Alleen fitness"
+                    if (line.includes("☒") || line.includes("[x]") || line.includes("[X]")) {
+                        parsedTotaal = true;
+                    }
+                }
+            }
+            if (line.toLowerCase().includes("alleen fitness")) {
+                if (line.includes("☒") || line.includes("[x]") || line.includes("[X]")) {
+                    parsedFitness = true;
+                }
+            }
+        }
+
+        // Apply parsed values
+        if (parsedName) setYouthName(parsedName);
+        if (parsedGroup) setSelectedGroup(parsedGroup);
+        if (parsedStartDate) setStartDate(parsedStartDate);
+        if (parsedEndDate) setEndDate(parsedEndDate);
+        if (parsedReason) setReason(parsedReason);
+        setTotaalSportverbod(parsedTotaal);
+        setAlleenFitness(parsedFitness);
+
+        toast.success("Tekst geanalyseerd! Controleer de gegevens.");
+        setActiveTab("manual");
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!selectedGroup || !youthName || !reason) {
+        if (!selectedGroup || !youthName || !startDate || !reason) {
             toast.warning("Vul alle verplichte velden in");
             return;
         }
 
-        const finalRestriction = restrictionType === "ANDERS" ? customRestriction : restrictionType;
-
         try {
+            const mutationData = {
+                groupId: selectedGroup,
+                reason: `${reason} (Jongere: ${youthName})`, // Keeping legacy format for reason string for now, but could be cleaner
+                reasonType: reasonType as any,
+                // restriction string is legacy/fallback, we use booleans now
+                restriction: totaalSportverbod ? "TOTAAL_SPORTVERBOD" : (alleenFitness ? "ALLEEN_FITNESS" : undefined),
+                injuryDetails: "", // Not used in new form
+                startDate: new Date(startDate),
+                endDate: endDate ? new Date(endDate) : undefined,
+                totaalSportverbod,
+                alleenFitness
+            };
+
             if (editingMutation) {
                 await updateMutation.mutateAsync({
                     id: editingMutation.id,
-                    reason: `${reason} (Jongere: ${youthName})`,
-                    reasonType: reasonType as any,
-                    restriction: finalRestriction || undefined,
-                    injuryDetails: injuryDetails || undefined,
-                    startDate: new Date(startDate),
-                    endDate: endDate ? new Date(endDate) : undefined,
+                    ...mutationData
                 });
                 toast.success("Mutatie succesvol bijgewerkt!");
             } else {
-                await createMutation.mutateAsync({
-                    groupId: selectedGroup,
-                    reason: `${reason} (Jongere: ${youthName})`,
-                    reasonType: reasonType as any,
-                    restriction: finalRestriction || undefined,
-                    injuryDetails: injuryDetails || undefined,
-                    startDate: new Date(startDate),
-                    endDate: endDate ? new Date(endDate) : undefined,
-                });
+                await createMutation.mutateAsync(mutationData);
                 toast.success("Mutatie succesvol toegevoegd!");
             }
 
@@ -126,29 +212,27 @@ export default function SportMutationsPage() {
     const startEditMutation = (mutation: SportMutationWithRelations) => {
         setEditingMutation(mutation);
         setSelectedGroup(mutation.groupId);
+
+        // Extract name from reason if not linked
         const nameMatch = mutation.reason.match(/\(Jongere: (.*?)\)/);
         const cleanReason = mutation.reason.replace(/\(Jongere: .*?\)/, "").trim();
 
         setYouthName(mutation.youth ? `${mutation.youth.firstName} ${mutation.youth.lastName}` : (nameMatch ? nameMatch[1] : ""));
         setReason(cleanReason);
         setReasonType(mutation.reasonType);
-        setInjuryDetails((mutation as any).injuryDetails || "");
-
-        const currentRestriction = (mutation as any).restriction;
-        if (currentRestriction === "TOTAAL_SPORTVERBOD" || currentRestriction === "ALLEEN_FITNESS") {
-            setRestrictionType(currentRestriction);
-            setCustomRestriction("");
-        } else if (currentRestriction) {
-            setRestrictionType("ANDERS");
-            setCustomRestriction(currentRestriction);
-        } else {
-            setRestrictionType(null);
-            setCustomRestriction("");
-        }
 
         setStartDate(new Date(mutation.startDate).toISOString().split('T')[0]);
         setEndDate(mutation.endDate ? new Date(mutation.endDate).toISOString().split('T')[0] : "");
 
+        // Set booleans
+        // Fallback to legacy restriction string if booleans are false (migration support)
+        const isTotaal = (mutation as any).totaalSportverbod || (mutation.restriction === "TOTAAL_SPORTVERBOD");
+        const isFitness = (mutation as any).alleenFitness || (mutation.restriction === "ALLEEN_FITNESS");
+
+        setTotaalSportverbod(isTotaal);
+        setAlleenFitness(isFitness);
+
+        setActiveTab("manual");
         setShowModal(true);
     };
 
@@ -158,11 +242,12 @@ export default function SportMutationsPage() {
         setYouthName("");
         setReason("");
         setReasonType("MEDISCH");
-        setRestrictionType(null);
-        setCustomRestriction("");
-        setInjuryDetails("");
         setStartDate(new Date().toISOString().split("T")[0]);
         setEndDate("");
+        setTotaalSportverbod(false);
+        setAlleenFitness(false);
+        setPastedText("");
+        setActiveTab("manual");
     };
 
     const filteredMutations = mutations?.filter(m => {
@@ -235,10 +320,10 @@ export default function SportMutationsPage() {
                         <tr>
                             <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Jongere</th>
                             <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Groep</th>
-                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Categorie</th>
-                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Type (Beperking)</th>
+                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Startdatum</th>
+                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Stopdatum</th>
+                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Beperking</th>
                             <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Bijzonderheden</th>
-                            <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Periode</th>
                             <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase">Actie</th>
                         </tr>
                     </thead>
@@ -250,83 +335,78 @@ export default function SportMutationsPage() {
                                 </td>
                             </tr>
                         ) : (
-                            filteredMutations.map((m) => (
-                                <tr key={m.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center">
-                                            <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 mr-3">
-                                                <User size={14} />
-                                            </div>
-                                            <span className="font-medium text-gray-900">
-                                                {m.youth ? `${m.youth.firstName} ${m.youth.lastName}` : (m.reason.match(/\(Jongere: (.*?)\)/)?.[1] || "Onbekend")}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-50 text-orange-700">
-                                            {m.group?.name || "Onbekend"}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${m.reasonType === "MEDISCH" ? "bg-red-50 text-red-700" :
-                                            m.reasonType === "BLESSURE" ? "bg-yellow-50 text-yellow-700" :
-                                                m.reasonType === "GEDRAG" ? "bg-purple-50 text-purple-700" :
-                                                    "bg-gray-50 text-gray-700"
-                                            }`}>
-                                            {MUTATION_TYPES.find(t => t.value === m.reasonType)?.label || m.reasonType}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        {(m as any).restriction ? (
-                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                                                {(m as any).restriction === "TOTAAL_SPORTVERBOD" ? "Totaal Sportverbod" :
-                                                    (m as any).restriction === "ALLEEN_FITNESS" ? "Alleen Fitness" :
-                                                        (m as any).restriction}
-                                            </span>
-                                        ) : (
-                                            <span className="text-gray-400 text-xs">-</span>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-col">
-                                            <span className="text-sm text-gray-600">{m.reason.replace(/\(Jongere: .*?\)/, "").trim()}</span>
-                                            {(m as any).injuryDetails && (
-                                                <span className="text-xs text-gray-400 mt-1 italic">
-                                                    Blessure: {(m as any).injuryDetails}
+                            filteredMutations.map((m) => {
+                                const isTotaal = (m as any).totaalSportverbod || (m.restriction === "TOTAAL_SPORTVERBOD");
+                                const isFitness = (m as any).alleenFitness || (m.restriction === "ALLEEN_FITNESS");
+
+                                return (
+                                    <tr key={m.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center">
+                                                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 mr-3">
+                                                    <User size={14} />
+                                                </div>
+                                                <span className="font-medium text-gray-900">
+                                                    {m.youth ? `${m.youth.firstName} ${m.youth.lastName}` : (m.reason.match(/\(Jongere: (.*?)\)/)?.[1] || "Onbekend")}
                                                 </span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center text-sm text-gray-600">
-                                            <Calendar size={14} className="mr-2 text-gray-400" />
-                                            {format(new Date(m.startDate), "d MMM", { locale: nl })}
-                                            {" - "}
-                                            {m.endDate ? format(new Date(m.endDate), "d MMM", { locale: nl }) : "..."}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => startEditMutation(m)}
-                                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                                title="Bewerken"
-                                            >
-                                                <Edit2 size={16} />
-                                            </button>
-                                            {!showArchived && (
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-50 text-orange-700">
+                                                {m.group?.name || "Onbekend"}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-600">
+                                            {format(new Date(m.startDate), "d MMM yyyy", { locale: nl })}
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-600">
+                                            {m.endDate ? format(new Date(m.endDate), "d MMM yyyy", { locale: nl }) : "-"}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col gap-1">
+                                                {isTotaal && (
+                                                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200 w-fit">
+                                                        Totaal Sportverbod
+                                                    </span>
+                                                )}
+                                                {isFitness && (
+                                                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 w-fit">
+                                                        Alleen Fitness
+                                                    </span>
+                                                )}
+                                                {!isTotaal && !isFitness && (
+                                                    <span className="text-gray-400 text-xs">-</span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <p className="text-sm text-gray-600 line-clamp-2">
+                                                {m.reason.replace(/\(Jongere: .*?\)/, "").trim()}
+                                            </p>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
                                                 <button
-                                                    onClick={() => handleArchive(m.id)}
-                                                    className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                                                    title="Archiveren"
+                                                    onClick={() => startEditMutation(m)}
+                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                    title="Bewerken / Details"
                                                 >
-                                                    <Archive size={16} />
+                                                    <Edit2 size={16} />
                                                 </button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
+                                                {!showArchived && (
+                                                    <button
+                                                        onClick={() => handleArchive(m.id)}
+                                                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                                        title="Archiveren"
+                                                    >
+                                                        <Archive size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )
+                            })
                         )}
                     </tbody>
                 </table>
@@ -335,7 +415,7 @@ export default function SportMutationsPage() {
             {/* Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full overflow-hidden max-h-[90vh] overflow-y-auto">
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                             <h2 className="text-xl font-bold text-gray-800 flex items-center">
                                 <AlertCircle className="mr-2 text-orange-500" />
@@ -346,179 +426,175 @@ export default function SportMutationsPage() {
                             </button>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Groep <span className="text-red-500">*</span>
-                                    </label>
-                                    <select
-                                        required
-                                        value={selectedGroup}
-                                        onChange={(e) => setSelectedGroup(e.target.value)}
-                                        className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                                        disabled={!!editingMutation}
-                                    >
-                                        <option value="">Selecteer Groep</option>
-                                        {groups?.map(g => (
-                                            <option key={g.id} value={g.id}>
-                                                {g.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Naam Jongere <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={youthName}
-                                        onChange={(e) => setYouthName(e.target.value)}
-                                        className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                                        placeholder="bijv. Jan Jansen"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Startdatum <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="date"
-                                        required
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Einddatum (optioneel)
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                        className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Restriction Selection */}
-                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Type Mutatie (Beperking)
-                                </label>
-                                <div className="space-y-2">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="radio"
-                                            name="restriction"
-                                            value="TOTAAL_SPORTVERBOD"
-                                            checked={restrictionType === "TOTAAL_SPORTVERBOD"}
-                                            onChange={() => setRestrictionType("TOTAAL_SPORTVERBOD")}
-                                            className="w-4 h-4 text-orange-600 focus:ring-orange-500"
-                                        />
-                                        <span className="text-sm text-gray-700">Totaal sportverbod</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="radio"
-                                            name="restriction"
-                                            value="ALLEEN_FITNESS"
-                                            checked={restrictionType === "ALLEEN_FITNESS"}
-                                            onChange={() => setRestrictionType("ALLEEN_FITNESS")}
-                                            className="w-4 h-4 text-orange-600 focus:ring-orange-500"
-                                        />
-                                        <span className="text-sm text-gray-700">Alleen fitness</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            type="radio"
-                                            name="restriction"
-                                            value="ANDERS"
-                                            checked={restrictionType === "ANDERS"}
-                                            onChange={() => setRestrictionType("ANDERS")}
-                                            className="w-4 h-4 text-orange-600 focus:ring-orange-500"
-                                        />
-                                        <span className="text-sm text-gray-700">Anders, namelijk:</span>
-                                    </label>
-
-                                    {restrictionType === "ANDERS" && (
-                                        <input
-                                            type="text"
-                                            value={customRestriction}
-                                            onChange={(e) => setCustomRestriction(e.target.value)}
-                                            placeholder="Vul type beperking in..."
-                                            className="w-full mt-2 p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-sm"
-                                        />
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Categorie (Oorzaak)</label>
-                                    <select
-                                        value={reasonType}
-                                        onChange={(e) => setReasonType(e.target.value)}
-                                        className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                                    >
-                                        {MUTATION_TYPES.map(t => (
-                                            <option key={t.value} value={t.value}>{t.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            {/* Injury Details (Optional) */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Specificatie Blessure (optioneel)
-                                </label>
-                                <input
-                                    type="text"
-                                    value={injuryDetails}
-                                    onChange={(e) => setInjuryDetails(e.target.value)}
-                                    className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                                    placeholder="Bijv. gebroken hand, verstuikte enkel..."
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Bijzonderheden <span className="text-red-500">*</span>
-                                </label>
-                                <textarea
-                                    required
-                                    value={reason}
-                                    onChange={(e) => setReason(e.target.value)}
-                                    className="w-full p-3 border border-gray-200 rounded-lg h-24 focus:ring-2 focus:ring-orange-500 outline-none"
-                                    placeholder="Bijv. Vermoeden lichte hersenschudding..."
-                                />
-                            </div>
-
-                            <div className="pt-4 flex justify-end space-x-3">
+                        {/* Tabs */}
+                        {!editingMutation && (
+                            <div className="flex border-b border-gray-200">
                                 <button
-                                    type="button"
-                                    onClick={() => setShowModal(false)}
-                                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                                    onClick={() => setActiveTab("manual")}
+                                    className={`flex-1 py-3 text-sm font-medium text-center transition-colors ${activeTab === "manual"
+                                            ? "text-orange-600 border-b-2 border-orange-600 bg-orange-50/50"
+                                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                                        }`}
                                 >
-                                    Annuleren
+                                    <Edit2 size={16} className="inline mr-2" />
+                                    Handmatig
                                 </button>
                                 <button
-                                    type="submit"
-                                    className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center"
+                                    onClick={() => setActiveTab("paste")}
+                                    className={`flex-1 py-3 text-sm font-medium text-center transition-colors ${activeTab === "paste"
+                                            ? "text-orange-600 border-b-2 border-orange-600 bg-orange-50/50"
+                                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                                        }`}
                                 >
-                                    <CheckCircle size={18} className="mr-2" />
-                                    {editingMutation ? "Bijwerken" : "Opslaan"}
+                                    <Clipboard size={16} className="inline mr-2" />
+                                    Plak Tekst
                                 </button>
                             </div>
-                        </form>
+                        )}
+
+                        <div className="p-6">
+                            {activeTab === "paste" ? (
+                                <div className="space-y-4">
+                                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm text-blue-800">
+                                        <p className="font-medium mb-1">Instructie:</p>
+                                        <p>Kopieer de tekst uit het Word-document (CTRL+A, CTRL+C) en plak het hieronder. Klik daarna op "Analyseren".</p>
+                                    </div>
+                                    <textarea
+                                        value={pastedText}
+                                        onChange={(e) => setPastedText(e.target.value)}
+                                        className="w-full h-64 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-mono text-sm"
+                                        placeholder="Plak hier de tekst van het formulier..."
+                                    />
+                                    <div className="flex justify-end">
+                                        <button
+                                            onClick={() => parseSportMutatieText(pastedText)}
+                                            className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center font-medium"
+                                            disabled={!pastedText.trim()}
+                                        >
+                                            <FileText size={18} className="mr-2" />
+                                            Analyseren & Invullen
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <form onSubmit={handleSubmit} className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Naam <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={youthName}
+                                                onChange={(e) => setYouthName(e.target.value)}
+                                                className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                                                placeholder="Naam jongere"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Afdeling <span className="text-red-500">*</span>
+                                            </label>
+                                            <select
+                                                required
+                                                value={selectedGroup}
+                                                onChange={(e) => setSelectedGroup(e.target.value)}
+                                                className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                                            >
+                                                <option value="">Selecteer Afdeling</option>
+                                                {groups?.map(g => (
+                                                    <option key={g.id} value={g.id}>
+                                                        {g.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Begindatum <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                required
+                                                value={startDate}
+                                                onChange={(e) => setStartDate(e.target.value)}
+                                                className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Stopdatum
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={endDate}
+                                                onChange={(e) => setEndDate(e.target.value)}
+                                                className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Bijzonderheden <span className="text-red-500">*</span>
+                                        </label>
+                                        <textarea
+                                            required
+                                            value={reason}
+                                            onChange={(e) => setReason(e.target.value)}
+                                            className="w-full p-3 border border-gray-200 rounded-lg h-24 focus:ring-2 focus:ring-orange-500 outline-none"
+                                            placeholder="Bijv. Vermoeden lichte hersenschudding..."
+                                        />
+                                    </div>
+
+                                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-3">
+                                        <label className="flex items-start gap-3 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={totaalSportverbod}
+                                                onChange={(e) => setTotaalSportverbod(e.target.checked)}
+                                                className="mt-1 w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
+                                            />
+                                            <span className="text-sm text-gray-700 font-medium">
+                                                Totaal sportverbod – geldt voor school en tijdens het luchten en de avondrecreatie.
+                                            </span>
+                                        </label>
+                                        <label className="flex items-center gap-3 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={alleenFitness}
+                                                onChange={(e) => setAlleenFitness(e.target.checked)}
+                                                className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
+                                            />
+                                            <span className="text-sm text-gray-700 font-medium">
+                                                Alleen fitness
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    <div className="pt-4 flex justify-end space-x-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowModal(false)}
+                                            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                                        >
+                                            Annuleren
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center"
+                                        >
+                                            <CheckCircle size={18} className="mr-2" />
+                                            {editingMutation ? "Bijwerken" : "Opslaan"}
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

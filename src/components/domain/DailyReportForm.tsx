@@ -252,7 +252,7 @@ export default function DailyReportForm() {
                 <div className="space-y-6">
                     {reportItems.length === 0 ? (
                         <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-                            <p className="text-gray-500">Klik op "Item Toevoegen" om te beginnen.</p>
+                            <p className="text-gray-500">Klik op &quot;Item Toevoegen&quot; om te beginnen.</p>
                         </div>
                     ) : (
                         reportItems.map((item, index) => (
@@ -469,6 +469,6 @@ export default function DailyReportForm() {
                     </button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

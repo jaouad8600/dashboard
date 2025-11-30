@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { groupId, reason, reasonType, restriction, injuryDetails, startDate, endDate } = body;
+        const { groupId, reason, reasonType, restriction, injuryDetails, startDate, endDate, totaalSportverbod, alleenFitness } = body;
 
         if (!groupId || !reason || !reasonType || !startDate) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -58,6 +58,8 @@ export async function POST(request: Request) {
                 injuryDetails,
                 startDate: new Date(startDate),
                 endDate: endDate ? new Date(endDate) : null,
+                totaalSportverbod: totaalSportverbod || false,
+                alleenFitness: alleenFitness || false,
                 createdBy: 'SYSTEM', // TODO: Get from session
             },
         });
@@ -72,7 +74,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
-        const { id, reason, reasonType, startDate, endDate, isActive, restriction } = body;
+        const { id, reason, reasonType, startDate, endDate, isActive, restriction, totaalSportverbod, alleenFitness } = body;
 
         if (!id) {
             return NextResponse.json({ error: 'ID required' }, { status: 400 });
@@ -85,6 +87,8 @@ export async function PUT(request: Request) {
         if (startDate) data.startDate = new Date(startDate);
         if (endDate !== undefined) data.endDate = endDate ? new Date(endDate) : null;
         if (isActive !== undefined) data.isActive = isActive;
+        if (totaalSportverbod !== undefined) data.totaalSportverbod = totaalSportverbod;
+        if (alleenFitness !== undefined) data.alleenFitness = alleenFitness;
 
         const mutation = await prisma.sportMutation.update({
             where: { id },
