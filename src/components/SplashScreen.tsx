@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Image from "next/image";
+
 
 export default function SplashScreen({ onComplete }: { onComplete: () => void }) {
     const [phase, setPhase] = useState(1);
@@ -61,12 +61,10 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
                     transition={{ duration: 1, ease: "easeOut" }}
                 >
                     <div className="relative w-full h-full overflow-hidden">
-                        <Image
+                        <img
                             src="/logo-white-blue.jpg"
                             alt="Teylingereind Logo White"
-                            fill
-                            className="object-contain"
-                            priority
+                            className="absolute inset-0 w-full h-full object-contain"
                         />
                         {/* Shimmer Effect */}
                         {phase === 2 && (
@@ -87,12 +85,10 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
                     animate={phase >= 3 ? { opacity: 1, scale: 1 } : { opacity: 0 }}
                     transition={{ duration: 0.5 }}
                 >
-                    <Image
+                    <img
                         src="/logo-orange-white.jpg"
                         alt="Teylingereind Logo Orange"
-                        fill
-                        className="object-contain"
-                        priority
+                        className="absolute inset-0 w-full h-full object-contain"
                     />
                 </motion.div>
             </div>

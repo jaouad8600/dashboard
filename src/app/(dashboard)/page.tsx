@@ -7,6 +7,8 @@ import TodaySchedule from '@/components/dashboard/TodaySchedule';
 import RestorativeTalksList from '@/components/dashboard/RestorativeTalksList';
 import ExtraSportPriorityWidget from '@/components/dashboard/ExtraSportPriorityWidget';
 
+import RedGroupsWidget from '@/components/dashboard/RedGroupsWidget';
+
 export default function DashboardPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
@@ -14,24 +16,29 @@ export default function DashboardPage() {
       <StatsOverview />
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         {/* Today's Schedule */}
-        <div className="lg:col-span-1 h-full">
+        <div className="h-full">
           <TodaySchedule />
         </div>
 
         {/* Restorative Talks */}
-        <div className="lg:col-span-1 h-full">
+        <div className="h-full">
           <RestorativeTalksList />
         </div>
 
         {/* Extra Sport Priority */}
-        <div className="lg:col-span-1 h-full">
+        <div className="h-full">
           <ExtraSportPriorityWidget />
         </div>
+
+        {/* Red Groups */}
+        <div className="h-full">
+          <RedGroupsWidget />
+        </div>
       </div>
-
-
     </div>
   );
 }
+
+

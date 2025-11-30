@@ -11,7 +11,8 @@ export default function ExtraSportPriorityWidget() {
 
     if (isLoading) return <Skeleton />;
 
-    const priorityGroups = stats?.extraSportPriority?.slice(0, 3) || [];
+    const priorityGroups = (stats?.extraSportPriority || [])
+        .slice(0, 3);
 
     return (
         <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden h-full">
@@ -54,7 +55,7 @@ export default function ExtraSportPriorityWidget() {
                                         className={`h-full rounded-full ${group.score > 80 ? 'bg-green-500' :
                                             group.score > 50 ? 'bg-yellow-500' : 'bg-red-500'
                                             }`}
-                                        style={{ width: `${Math.min(group.score, 100)}%` }}
+                                        style={{ width: `${Math.max(group.score, 10)}%` }}
                                     />
                                 </div>
                                 <div className="flex justify-between mt-1">

@@ -12,7 +12,7 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // 1. Check if route is public
-  if (path === '/login' || path.startsWith('/api/auth') || path.startsWith('/_next') || path.startsWith('/static')) {
+  if (path === '/login' || path.startsWith('/api/auth') || path.startsWith('/_next') || path.startsWith('/static') || /\.(jpg|jpeg|png|gif|svg|webp|ico)$/i.test(path)) {
     return NextResponse.next();
   }
 

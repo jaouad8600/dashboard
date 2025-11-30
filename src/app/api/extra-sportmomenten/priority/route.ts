@@ -24,9 +24,8 @@ export async function GET() {
         // We can also add logic for "refused" moments if needed, but keeping it simple for now.
         const priorityList = groups.map((group) => {
             const momentCount = group.extraSportMoments.length;
-            // Simple score: 100 - count (so 0 moments = 100 priority)
-            // In a real app, this might be more complex (weighted by days since last moment, etc.)
-            const score = Math.max(0, 100 - (momentCount * 10));
+            // Score: 0 moments = 0 score (Red/High Priority), 10+ moments = 100 score (Green/Low Priority)
+            const score = Math.min(100, momentCount * 10);
 
             return {
                 id: group.id,
@@ -36,8 +35,8 @@ export async function GET() {
             };
         });
 
-        // Sort by score descending (highest priority first)
-        priorityList.sort((a, b) => b.score - a.score);
+        // Sort by score ascending (lowest score = highest priority)
+        priorityList.sort((a, b) => a.score - b.score);
 
         return NextResponse.json(priorityList);
     } catch (error) {
