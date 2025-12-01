@@ -57,8 +57,8 @@ export default function TodaySchedule() {
             </div>
 
             <div className="p-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-800 text-center">
-                <Link href="/kalender" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline">
-                    Bekijk volledige kalender
+                <Link href="/dagplanning" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline">
+                    Bekijk volledige dagplanning
                 </Link>
             </div>
         </div>

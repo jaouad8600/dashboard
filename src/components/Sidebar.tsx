@@ -30,7 +30,7 @@ import { useAuth } from '@/components/providers/AuthContext';
 const NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/groepen', label: 'Groepen', icon: Users },
-  { href: '/sportmomenten', label: 'Dagplanning', icon: CalendarDays },
+  { href: '/dagplanning', label: 'Dagplanning', icon: CalendarDays },
 
   { href: '/rapportage', label: 'Rapportages', icon: ClipboardList },
   { href: '/incidenten', label: 'Incidenten', icon: AlertTriangle },
