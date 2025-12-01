@@ -81,8 +81,8 @@ export default function ProgramsPage() {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Trainingsprogramma's</h1>
-                    <p className="text-gray-500">Bibliotheek met sportactiviteiten en schema's</p>
+                    <h1 className="text-2xl font-bold text-gray-900">Trainingsprogramma&apos;s</h1>
+                    <p className="text-gray-500">Bibliotheek met sportactiviteiten en schema&apos;s</p>
                 </div>
                 <button
                     onClick={() => setIsModalOpen(true)}

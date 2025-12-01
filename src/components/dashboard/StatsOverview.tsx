@@ -46,7 +46,7 @@ export default function StatsOverview() {
                 bgColor="bg-red-50"
                 borderColor="border-red-100"
                 items={stats.restrictions.active}
-                href="/incidenten" // Or specific restrictions page if available
+                href="#" // Decoupled from incidents
             />
         </div>
     );

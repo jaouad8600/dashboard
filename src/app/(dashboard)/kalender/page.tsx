@@ -16,29 +16,29 @@ export default function KalenderPage() {
           <button
             onClick={() => setActiveTab("ALL")}
             className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all ${activeTab === "ALL"
-                ? "bg-teylingereind-blue text-white shadow-md"
-                : "text-gray-600 hover:bg-gray-100"
+              ? "bg-teylingereind-blue text-white shadow-md"
+              : "text-gray-600 hover:bg-gray-100"
               }`}
           >
-            📅 Volledig Rooster
+            Volledig Rooster
           </button>
           <button
             onClick={() => setActiveTab("EB")}
             className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all ${activeTab === "EB"
-                ? "bg-teylingereind-royal text-white shadow-md"
-                : "text-gray-600 hover:bg-gray-100"
+              ? "bg-teylingereind-royal text-white shadow-md"
+              : "text-gray-600 hover:bg-gray-100"
               }`}
           >
-            🏛️ EB (Oudbouw)
+            EB (Oudbouw)
           </button>
           <button
             onClick={() => setActiveTab("VLOED")}
             className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all ${activeTab === "VLOED"
-                ? "bg-teylingereind-orange text-white shadow-md"
-                : "text-gray-600 hover:bg-gray-100"
+              ? "bg-teylingereind-orange text-white shadow-md"
+              : "text-gray-600 hover:bg-gray-100"
               }`}
           >
-            🌊 Vloed (Nieuwbouw)
+            Vloed (Nieuwbouw)
           </button>
         </div>
       </div>

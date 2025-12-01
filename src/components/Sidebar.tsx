@@ -54,7 +54,7 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
 
   return (
-    <aside className="w-64 min-h-screen bg-black text-white flex flex-col shrink-0 border-r border-gray-900">
+    <aside className="w-64 min-h-screen bg-slate-900 text-white flex flex-col shrink-0 border-r border-gray-800">
       {/* Logo & Branding */}
       {/* Logo & Branding */}
       <div className="p-6 border-b border-gray-900 relative overflow-hidden group">

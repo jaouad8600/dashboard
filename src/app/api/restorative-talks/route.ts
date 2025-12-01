@@ -7,10 +7,15 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const status = searchParams.get('status') as RestorativeTalkStatus | 'all' | null;
+        const groupId = searchParams.get('groupId');
 
         const whereClause: any = {
             archived: false,
         };
+
+        if (groupId) {
+            whereClause.groupId = groupId;
+        }
 
         if (status && status !== 'all') {
             whereClause.status = status;
@@ -29,6 +34,9 @@ export async function GET(request: Request) {
                     select: {
                         name: true,
                     },
+                },
+                evaluations: {
+                    orderBy: { createdAt: 'desc' },
                 },
             },
             orderBy: {
@@ -101,19 +109,28 @@ export async function DELETE(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
+        const permanent = searchParams.get('permanent') === 'true';
 
         if (!id) {
             return NextResponse.json({ error: 'ID is verplicht' }, { status: 400 });
         }
 
-        const talk = await prisma.restorativeTalk.update({
-            where: { id },
-            data: { archived: true },
-        });
-
-        return NextResponse.json(talk);
+        if (permanent) {
+            // Permanent delete
+            await prisma.restorativeTalk.delete({
+                where: { id },
+            });
+            return NextResponse.json({ success: true });
+        } else {
+            // Archive (soft delete)
+            const talk = await prisma.restorativeTalk.update({
+                where: { id },
+                data: { archived: true, archivedAt: new Date() },
+            });
+            return NextResponse.json(talk);
+        }
     } catch (error) {
-        console.error('Error archiving restorative talk:', error);
+        console.error('Error deleting/archiving restorative talk:', error);
         return NextResponse.json({ error: 'Er is iets misgegaan' }, { status: 500 });
     }
 }

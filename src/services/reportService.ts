@@ -65,7 +65,7 @@ export const generateDailySummary = async (date: Date) => {
         const glCount = r.leaderCount || 0;
         const warmingUp = r.warmingUp || "nvt";
         const sportmoment = r.activity || "nvt";
-        const bijzonderheden = r.cleanedText || r.sessionSummary || r.notes || "Geen";
+        const bijzonderheden = r.cleanedText || r.sessionSummary || "Geen";
 
         summary += `Groep: ${groupName} (${youthCount} jongeren, ${glCount}-GL)\n\n`;
         summary += `Warming-up: ${warmingUp}\n`;

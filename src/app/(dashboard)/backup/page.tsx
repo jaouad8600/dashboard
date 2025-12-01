@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Button from "@/components/ui/button";
+import Button from "@/components/ui/Button";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 

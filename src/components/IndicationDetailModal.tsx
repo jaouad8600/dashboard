@@ -36,6 +36,17 @@ interface IndicationDetailModalProps {
 export default function IndicationDetailModal({ indication, isOpen, onClose }: IndicationDetailModalProps) {
     if (!indication) return null;
 
+    const safeDateFormat = (dateStr: string | Date | null | undefined, formatStr: string) => {
+        if (!dateStr) return null;
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return null;
+            return format(date, formatStr, { locale: nl });
+        } catch (e) {
+            return null;
+        }
+    };
+
     return (
         <AnimatePresence>
             {isOpen && (
@@ -112,7 +123,7 @@ export default function IndicationDetailModal({ indication, isOpen, onClose }: I
                                                     Geldig Vanaf
                                                 </p>
                                                 <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                                                    {format(new Date(indication.validFrom), "dd MMMM yyyy", { locale: nl })}
+                                                    {safeDateFormat(indication.validFrom, "dd MMMM yyyy") || "Onbekend"}
                                                 </p>
                                             </div>
                                         </div>
@@ -128,7 +139,7 @@ export default function IndicationDetailModal({ indication, isOpen, onClose }: I
                                                 </p>
                                                 <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
                                                     {indication.validUntil && new Date(indication.validUntil).getFullYear() > 1900
-                                                        ? format(new Date(indication.validUntil), "dd MMMM yyyy", { locale: nl })
+                                                        ? safeDateFormat(indication.validUntil, "dd MMMM yyyy")
                                                         : "Onbepaald"}
                                                 </p>
                                             </div>
@@ -145,7 +156,10 @@ export default function IndicationDetailModal({ indication, isOpen, onClose }: I
                                                         Afgegeven Door
                                                     </p>
                                                     <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                                                        {indication.issuedBy}
+                                                        {(() => {
+                                                            const formatted = safeDateFormat(indication.issuedBy, "dd MMMM yyyy");
+                                                            return formatted && indication.issuedBy.includes("-") ? formatted : indication.issuedBy;
+                                                        })()}
                                                     </p>
                                                 </div>
                                             </div>
@@ -295,7 +309,7 @@ export default function IndicationDetailModal({ indication, isOpen, onClose }: I
                                                         <div className="flex justify-between items-start mb-2">
                                                             <div className="flex items-center gap-2">
                                                                 <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                                                                    {format(new Date(evalItem.createdAt), "d MMMM yyyy", { locale: nl })}
+                                                                    {safeDateFormat(evalItem.createdAt, "d MMMM yyyy") || "Datum onbekend"}
                                                                 </span>
                                                                 <span className="text-xs text-gray-500 dark:text-gray-400">• {evalItem.author || "Onbekend"}</span>
                                                             </div>

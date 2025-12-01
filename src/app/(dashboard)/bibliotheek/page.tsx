@@ -338,7 +338,7 @@ export default function LibraryPage() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
                         <h2 className="text-xl font-bold mb-2">Boek Uitlenen</h2>
-                        <p className="text-gray-500 mb-6">"{showLoanModal.title}" uitlenen aan:</p>
+                        <p className="text-gray-500 mb-6">&quot;{showLoanModal.title}&quot; uitlenen aan:</p>
                         <div className="space-y-4">
                             <input
                                 className="w-full p-2.5 border border-gray-200 rounded-xl"
@@ -359,7 +359,8 @@ export default function LibraryPage() {
                         </div>
                     </div>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }

@@ -9,7 +9,7 @@ export default function ChatPage() {
                     Interne Chat
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400 mt-2">
-                    Communiceer direct met collega's en deel updates.
+                    Communiceer direct met collega&apos;s en deel updates.
                 </p>
             </div>
 

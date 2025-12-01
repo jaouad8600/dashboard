@@ -70,10 +70,8 @@ export default function SportPriorityPage() {
     }, [timeRange]);
 
     useEffect(() => {
-        if (activeTab === "TALLY") {
-            fetchMoments();
-        }
-    }, [weekStart, activeTab]);
+        fetchMoments();
+    }, [weekStart]);
 
     const fetchGroups = async () => {
         try {
@@ -179,8 +177,20 @@ export default function SportPriorityPage() {
                 });
                 setMoments(prev => prev.filter(m => m.id !== existingMoment.id));
             }
-            // Refresh priorities to keep stats in sync
-            fetchPriorities();
+
+            // Refresh priorities to keep stats in sync - await to ensure it completes
+            await fetchPriorities();
+
+            // If stats modal is open, refresh it after a small delay
+            if (selectedGroupStats) {
+                const group = groups.find(g => g.id === selectedGroupStats.groupId);
+                if (group) {
+                    // Refetch moments to get the latest data for the modal
+                    await fetchMoments();
+                    // Then update the modal
+                    setTimeout(() => handleGroupClick(group), 150);
+                }
+            }
         } catch (error) {
             console.error("Failed to toggle moment", error);
             fetchMoments(); // Revert on error
@@ -232,24 +242,32 @@ export default function SportPriorityPage() {
         groupId: string;
         groupName: string;
         weekTotal: number;
+        weekRefused: number;
         monthTotal: number;
         refusedTotal: number;
     } | null>(null);
 
     const handleGroupClick = async (group: Group) => {
-        // Calculate stats for the clicked group
+        // Calculate stats for the clicked group from the week data in memory
         const weekTotal = moments.filter(m =>
             m.groupId === group.id &&
             m.status === "COMPLETED" &&
             weekDays.some(d => d.toISOString().split('T')[0] === new Date(m.date).toISOString().split('T')[0])
         ).length;
 
-        // Fetch month and refused stats (simplified for now, ideally from API)
-        // For this implementation, we'll fetch specific stats for the group
+        const weekRefused = moments.filter(m =>
+            m.groupId === group.id &&
+            m.status === "REFUSED" &&
+            weekDays.some(d => d.toISOString().split('T')[0] === new Date(m.date).toISOString().split('T')[0])
+        ).length;
+
+        // Fetch month data from API with proper date range
         try {
             const now = new Date();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-            const res = await fetch(`/api/extra-sport?start=${startOfMonth}&end=${now.toISOString()}`);
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+            const res = await fetch(`/api/extra-sport?start=${startOfMonth.toISOString()}&end=${endOfMonth.toISOString()}`);
             const monthData: ExtraSportMoment[] = await res.json();
 
             const monthTotal = monthData.filter(m => m.groupId === group.id && m.status === "COMPLETED").length;
@@ -259,11 +277,21 @@ export default function SportPriorityPage() {
                 groupId: group.id,
                 groupName: group.name,
                 weekTotal,
+                weekRefused,
                 monthTotal,
                 refusedTotal
             });
         } catch (error) {
             console.error("Failed to fetch group stats", error);
+            // Fallback to showing at least the week stats
+            setSelectedGroupStats({
+                groupId: group.id,
+                groupName: group.name,
+                weekTotal,
+                weekRefused,
+                monthTotal: 0,
+                refusedTotal: 0
+            });
         }
     };
 
@@ -297,236 +325,95 @@ export default function SportPriorityPage() {
                     >
                         {isSplitView ? "Samengevoegd Weergeven" : "Splits Vloed/Eb"}
                     </button>
-                    <div className="bg-gray-100 p-1 rounded-lg flex">
-                        <button
-                            onClick={() => setActiveTab("PRIORITY")}
-                            className={`px-4 py-2 rounded-md transition-all ${activeTab === "PRIORITY"
-                                ? "bg-white shadow-sm text-teylingereind-royal font-semibold"
-                                : "text-gray-600 hover:text-gray-900"
-                                }`}
-                        >
-                            <Phone className="w-4 h-4 inline mr-2" />
-                            Belvolgorde
-                        </button>
-                        <button
-                            onClick={() => setActiveTab("TALLY")}
-                            className={`px-4 py-2 rounded-md transition-all ${activeTab === "TALLY"
-                                ? "bg-white shadow-sm text-teylingereind-orange font-semibold"
-                                : "text-gray-600 hover:text-gray-900"
-                                }`}
-                        >
-                            <CheckCircle className="w-4 h-4 inline mr-2" />
-                            Turven
-                        </button>
-                    </div>
                 </div>
             </div>
 
-            {/* Time Range Filter (Only for Priority Tab) */}
-            {activeTab === "PRIORITY" && (
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-                    <span className="font-medium text-gray-700">Periode:</span>
-                    {["ALL", "WEEK", "MONTH", "YEAR"].map((range) => (
-                        <button
-                            key={range}
-                            onClick={() => setTimeRange(range as typeof timeRange)}
-                            className={`px-4 py-2 rounded-lg transition-all ${timeRange === range
-                                ? "bg-teylingereind-royal text-white font-semibold"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                }`}
-                        >
-                            {range === "ALL" && "Alles"}
-                            {range === "WEEK" && "Deze Week"}
-                            {range === "MONTH" && "Deze Maand"}
-                            {range === "YEAR" && "Dit Jaar"}
-                        </button>
-                    ))}
-                </div>
-            )}
 
             {/* Priority Tab */}
-            {activeTab === "PRIORITY" ? (
-                <>
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-2xl shadow-xl">
-                            <div className="flex items-center justify-between mb-2">
-                                <h3 className="text-sm font-medium opacity-90">Totaal Groepen</h3>
-                                <Trophy className="opacity-80" size={24} />
-                            </div>
-                            <p className="text-4xl font-bold">{priorities.length}</p>
-                        </div>
-                        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-2xl shadow-xl">
-                            <div className="flex items-center justify-between mb-2">
-                                <h3 className="text-sm font-medium opacity-90">Hoogste Prioriteit</h3>
-                                <Award className="opacity-80" size={24} />
-                            </div>
-                            <p className="text-4xl font-bold">{priorities[0]?.groupName || "-"}</p>
-                        </div>
-                        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-2xl shadow-xl">
-                            <div className="flex items-center justify-between mb-2">
-                                <h3 className="text-sm font-medium opacity-90">Totaal Extra Momenten</h3>
-                                <Calendar className="opacity-80" size={24} />
-                            </div>
-                            <p className="text-4xl font-bold">
-                                {priorities.reduce((sum, g) => sum + g.extraMoments, 0)}
-                            </p>
-                        </div>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-2xl shadow-xl">
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-medium opacity-90">Totaal Groepen</h3>
+                        <Trophy className="opacity-80" size={24} />
                     </div>
-
-                    {/* Priority List */}
-                    {isSplitView ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {/* VLOED Column */}
-                            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-                                <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6">
-                                    <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                                        <Phone className="w-6 h-6" />
-                                        Vloed
-                                    </h2>
-                                </div>
-                                <PriorityList
-                                    items={priorities.filter(p => getCategory(p.groupName) === 'VLOED')}
-                                    loading={loading}
-                                    registering={registering}
-                                    onRegister={handleRegisterMoment}
-                                    getPriorityBadgeColor={getPriorityBadgeColor}
-                                    getPriorityIcon={getPriorityIcon}
-                                    colorMap={colorMap}
-                                />
-                            </div>
-
-                            {/* EB Column */}
-                            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-                                <div className="bg-gradient-to-r from-teal-600 to-teal-800 p-6">
-                                    <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                                        <Phone className="w-6 h-6" />
-                                        Eb
-                                    </h2>
-                                </div>
-                                <PriorityList
-                                    items={priorities.filter(p => getCategory(p.groupName) === 'EB')}
-                                    loading={loading}
-                                    registering={registering}
-                                    onRegister={handleRegisterMoment}
-                                    getPriorityBadgeColor={getPriorityBadgeColor}
-                                    getPriorityIcon={getPriorityIcon}
-                                    colorMap={colorMap}
-                                />
-                            </div>
-
-                            {/* OVERIG Column (Only if there are items) */}
-                            {priorities.some(p => getCategory(p.groupName) === 'OVERIG') && (
-                                <div className="md:col-span-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-                                    <div className="bg-gray-600 p-6">
-                                        <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                                            <Phone className="w-6 h-6" />
-                                            Overig
-                                        </h2>
-                                    </div>
-                                    <PriorityList
-                                        items={priorities.filter(p => getCategory(p.groupName) === 'OVERIG')}
-                                        loading={loading}
-                                        registering={registering}
-                                        onRegister={handleRegisterMoment}
-                                        getPriorityBadgeColor={getPriorityBadgeColor}
-                                        getPriorityIcon={getPriorityIcon}
-                                        colorMap={colorMap}
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-                            <div className="bg-gradient-to-r from-teylingereind-blue to-teylingereind-royal p-6">
-                                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                                    <Phone className="w-6 h-6" />
-                                    Belvolgorde voor Extra Sportmomenten
-                                </h2>
-                                <p className="text-blue-100 mt-1">Bel groepen in deze volgorde bij beschikbaarheid</p>
-                            </div>
-                            <PriorityList
-                                items={priorities}
-                                loading={loading}
-                                registering={registering}
-                                onRegister={handleRegisterMoment}
-                                getPriorityBadgeColor={getPriorityBadgeColor}
-                                getPriorityIcon={getPriorityIcon}
-                                colorMap={colorMap}
-                            />
-                        </div>
-                    )}
-                </>
-            ) : (
-                <div className="space-y-6">
-                    {/* Week Navigation */}
-                    <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                        <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                            <CheckCircle className="w-6 h-6 text-teylingereind-orange" />
-                            Turf Extra Sport
-                        </h2>
-                        <div className="flex items-center space-x-4">
-                            <button onClick={() => changeWeek(-1)} className="p-2 hover:bg-gray-100 rounded-full">
-                                <ChevronLeft size={20} />
-                            </button>
-                            <span className="font-medium text-gray-700 min-w-[150px] text-center">
-                                Week {getWeekNumber(weekStart)} - {weekStart.getFullYear()}
-                            </span>
-                            <button onClick={() => changeWeek(1)} className="p-2 hover:bg-gray-100 rounded-full">
-                                <ChevronRight size={20} />
-                            </button>
-                        </div>
+                    <p className="text-4xl font-bold">{priorities.length}</p>
+                </div>
+                <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-2xl shadow-xl">
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-medium opacity-90">Hoogste Prioriteit</h3>
+                        <Award className="opacity-80" size={24} />
                     </div>
+                    <p className="text-4xl font-bold">{priorities[0]?.groupName || "-"}</p>
+                </div>
+                <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-2xl shadow-xl">
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-medium opacity-90">Totaal Extra Momenten</h3>
+                        <Calendar className="opacity-80" size={24} />
+                    </div>
+                    <p className="text-4xl font-bold">
+                        {priorities.reduce((sum, g) => sum + g.extraMoments, 0)}
+                    </p>
+                </div>
+            </div>
 
-                    {/* Tally Table */}
-                    {isSplitView ? (
-                        <div className="space-y-8">
-                            <TallyTable
-                                title="Vloed"
-                                groups={groups.filter(g => getCategory(g.name) === 'VLOED')}
-                                moments={moments}
-                                weekDays={weekDays}
-                                isToday={isToday}
-                                handleGroupClick={handleGroupClick}
-                                toggleMoment={toggleMoment}
-                                headerColor="bg-blue-600"
-                            />
-                            <TallyTable
-                                title="Eb"
-                                groups={groups.filter(g => getCategory(g.name) === 'EB')}
-                                moments={moments}
-                                weekDays={weekDays}
-                                isToday={isToday}
-                                handleGroupClick={handleGroupClick}
-                                toggleMoment={toggleMoment}
-                                headerColor="bg-teal-600"
-                            />
-                            {groups.some(g => getCategory(g.name) === 'OVERIG') && (
-                                <TallyTable
-                                    title="Overig"
-                                    groups={groups.filter(g => getCategory(g.name) === 'OVERIG')}
-                                    moments={moments}
-                                    weekDays={weekDays}
-                                    isToday={isToday}
-                                    handleGroupClick={handleGroupClick}
-                                    toggleMoment={toggleMoment}
-                                    headerColor="bg-gray-600"
-                                />
-                            )}
-                        </div>
-                    ) : (
+            <div className="space-y-6">
+                {/* Week Navigation */}
+                <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                        <CheckCircle className="w-6 h-6 text-teylingereind-orange" />
+                        Turf Extra Sport
+                    </h2>
+                    <div className="flex items-center space-x-4">
+                        <button onClick={() => changeWeek(-1)} className="p-2 hover:bg-gray-100 rounded-full">
+                            <ChevronLeft size={20} />
+                        </button>
+                        <span className="font-medium text-gray-700 min-w-[150px] text-center">
+                            Week {getWeekNumber(weekStart)} - {weekStart.getFullYear()}
+                        </span>
+                        <button onClick={() => changeWeek(1)} className="p-2 hover:bg-gray-100 rounded-full">
+                            <ChevronRight size={20} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Tally Table */}
+                {isSplitView ? (
+                    <div className="space-y-8">
                         <TallyTable
-                            title="Alle Groepen"
-                            groups={groups}
+                            title="Vloed"
+                            groups={groups.filter(g => getCategory(g.name) === 'VLOED')}
                             moments={moments}
                             weekDays={weekDays}
                             isToday={isToday}
                             handleGroupClick={handleGroupClick}
                             toggleMoment={toggleMoment}
+                            headerColor="bg-blue-600"
                         />
-                    )}
-                </div>
-            )}
+                        <TallyTable
+                            title="Eb"
+                            groups={groups.filter(g => getCategory(g.name) === 'EB')}
+                            moments={moments}
+                            weekDays={weekDays}
+                            isToday={isToday}
+                            handleGroupClick={handleGroupClick}
+                            toggleMoment={toggleMoment}
+                            headerColor="bg-teal-600"
+                        />
+
+                    </div>
+                ) : (
+                    <TallyTable
+                        title="Alle Groepen"
+                        groups={groups}
+                        moments={moments}
+                        weekDays={weekDays}
+                        isToday={isToday}
+                        handleGroupClick={handleGroupClick}
+                        toggleMoment={toggleMoment}
+                    />
+                )}
+            </div>
 
             {/* Stats Popup Modal */}
             {selectedGroupStats && (
@@ -551,6 +438,16 @@ export default function SportPriorityPage() {
                                     <span className="font-medium text-gray-700">Totaal deze week</span>
                                 </div>
                                 <span className="text-2xl font-bold text-blue-700">{selectedGroupStats.weekTotal}</span>
+                            </div>
+
+                            <div className="bg-orange-50 p-4 rounded-xl flex justify-between items-center">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-orange-100 p-2 rounded-lg text-orange-600">
+                                        <X size={20} />
+                                    </div>
+                                    <span className="font-medium text-gray-700">Geweigerd (Week)</span>
+                                </div>
+                                <span className="text-2xl font-bold text-orange-700">{selectedGroupStats.weekRefused}</span>
                             </div>
 
                             <div className="bg-purple-50 p-4 rounded-xl flex justify-between items-center">

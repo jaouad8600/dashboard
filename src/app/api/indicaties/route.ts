@@ -118,6 +118,7 @@ export async function POST(request: Request) {
                 canCombineWithGroup,
                 guidanceTips,
                 learningGoals,
+                activities,
             },
         });
 
@@ -133,7 +134,7 @@ export async function PUT(request: Request) {
         const body = await request.json();
         const {
             id, validUntil, isActive, evaluations,
-            description, type, feedbackTo, canCombineWithGroup, guidanceTips, learningGoals
+            description, type, feedbackTo, canCombineWithGroup, guidanceTips, learningGoals, activities
         } = body;
 
         if (!id) {
@@ -152,6 +153,7 @@ export async function PUT(request: Request) {
         if (canCombineWithGroup !== undefined) data.canCombineWithGroup = canCombineWithGroup;
         if (guidanceTips !== undefined) data.guidanceTips = guidanceTips;
         if (learningGoals !== undefined) data.learningGoals = learningGoals;
+        if (activities !== undefined) data.activities = activities;
 
         const indication = await prisma.sportIndication.update({
             where: { id },

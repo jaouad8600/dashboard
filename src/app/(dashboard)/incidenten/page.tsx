@@ -43,7 +43,9 @@ interface Incident {
 
 import { useSearchParams } from 'next/navigation';
 
-export default function IncidentsPage() {
+import { Suspense } from 'react';
+
+function IncidentsContent() {
     const searchParams = useSearchParams();
     const [incidents, setIncidents] = useState<Incident[]>([]);
     const [groups, setGroups] = useState<Group[]>([]);
@@ -478,5 +480,13 @@ export default function IncidentsPage() {
                 )}
             </AnimatePresence>
         </div>
+    );
+}
+
+export default function IncidentsPage() {
+    return (
+        <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div></div>}>
+            <IncidentsContent />
+        </Suspense>
     );
 }

@@ -1,0 +1,11 @@
+-- CreateTable
+CREATE TABLE "WeekNote" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "content" TEXT NOT NULL,
+    "date" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "author" TEXT NOT NULL,
+    "groupId" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "WeekNote_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "Group" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);

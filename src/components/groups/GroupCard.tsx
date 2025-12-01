@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import Button from "../ui/button";
+import Button from "../ui/Button";
 import Badge from "../ui/Badge";
 
 type RawGroup = any;

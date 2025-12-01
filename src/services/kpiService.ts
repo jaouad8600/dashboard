@@ -27,12 +27,13 @@ export const getDashboardKPIs = async () => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const sessions = await prisma.sportSession.groupBy({
+    const sessions = await prisma.report.groupBy({
         by: ['groupId'],
         _count: {
             id: true,
         },
         where: {
+            type: 'SESSION',
             date: {
                 gte: thirtyDaysAgo,
             },

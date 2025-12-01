@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Package, Plus, Search, AlertTriangle, CheckCircle, Edit2, Trash2, Folder, ChevronRight, ChevronDown, Upload, Download, Image as ImageIcon, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import ExportDialog from "@/components/materials/ExportDialog";
 
 interface Material {
   id: string;
@@ -59,6 +60,7 @@ export default function MaterialsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
 
   // Navigation State
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({ "Middelen": true });
@@ -165,33 +167,7 @@ export default function MaterialsPage() {
     }
   };
 
-  const handleExport = () => {
-    const headers = ["Naam", "Categorie", "Locatie", "Totaal", "Bruikbaar", "Kapot", "Te Bestellen", "Conditie", "Afbeelding URL"];
-    const csvContent = [
-      headers.join(","),
-      ...materials.map(m => [
-        `"${m.name}"`,
-        `"${m.category}"`,
-        `"${m.location}"`,
-        m.quantityTotal,
-        m.quantityUsable,
-        m.quantityBroken,
-        m.quantityToOrder,
-        `"${m.conditionStatus}"`,
-        `"${m.imageUrl || ""}"`
-      ].join(","))
-    ].join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `materialen_export_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   // Filter Logic
   const filteredMaterials = materials.filter(m => {
@@ -286,9 +262,16 @@ export default function MaterialsPage() {
               />
             </div>
             <button
-              onClick={handleExport}
+              onClick={() => window.print()}
               className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 flex items-center gap-2 transition-colors"
-              title="Exporteer naar CSV"
+              title="Print Lijst"
+            >
+              <span className="hidden sm:inline">Print</span>
+            </button>
+            <button
+              onClick={() => setIsExportDialogOpen(true)}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 flex items-center gap-2 transition-colors"
+              title="Exporteer Materialen"
             >
               <Download size={20} />
               <span className="hidden sm:inline">Export</span>
@@ -516,6 +499,12 @@ export default function MaterialsPage() {
           </div>
         )}
       </AnimatePresence>
+
+      <ExportDialog
+        isOpen={isExportDialogOpen}
+        onClose={() => setIsExportDialogOpen(false)}
+        materials={materials}
+      />
     </div>
   );
 }

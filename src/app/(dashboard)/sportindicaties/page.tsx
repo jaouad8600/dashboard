@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
     Search, Plus, Filter, FileText, Calendar, User,
@@ -43,7 +43,7 @@ type IndicationWithRelations = SportIndication & {
 
 const INDICATION_TYPES = ["SPORT", "KRACHT", "REVALIDATIE", "OVERIG"];
 
-export default function SportIndicationsPage() {
+function SportIndicationsContent() {
     const searchParams = useSearchParams();
     const [showArchived, setShowArchived] = useState(false);
     const toast = useToast();
@@ -83,7 +83,7 @@ export default function SportIndicationsPage() {
     const [adviesInhoudActiviteit, setAdviesInhoudActiviteit] = useState("");
     const [geldigVanaf, setGeldigVanaf] = useState(new Date().toISOString().split("T")[0]);
     const [geldigTot, setGeldigTot] = useState("");
-    const [indicatieAfgegevenDoor, setIndicatieAfgegevenDoor] = useState("Medische Dienst");
+    const [indicatieAfgegevenOp, setIndicatieAfgegevenOp] = useState(new Date().toISOString().split("T")[0]);
     const [terugkoppelingAan, setTerugkoppelingAan] = useState("");
     const [kanCombinerenMetGroepsgenoot, setKanCombinerenMetGroepsgenoot] = useState(true);
     const [onderbouwingIndicering, setOnderbouwingIndicering] = useState("");
@@ -242,7 +242,7 @@ export default function SportIndicationsPage() {
                     type,
                     validFrom: new Date(geldigVanaf),
                     validUntil: geldigTot ? new Date(geldigTot) : undefined,
-                    issuedBy: indicatieAfgegevenDoor,
+                    issuedBy: indicatieAfgegevenOp,
                     feedbackTo: terugkoppelingAan,
                     canCombineWithGroup: kanCombinerenMetGroepsgenoot,
                     guidanceTips: bejegeningstips,
@@ -252,19 +252,31 @@ export default function SportIndicationsPage() {
                     advice: adviesInhoudActiviteit,
                 };
 
-                await createIndication.mutateAsync(body);
+                if (editingIndication) {
+                    await updateIndication.mutateAsync({ ...body, id: editingIndication.id });
+                    toast.success("Indicatie succesvol bijgewerkt!");
+                } else {
+                    await createIndication.mutateAsync(body);
+                    toast.success("Indicatie succesvol toegevoegd!");
+                }
 
                 setShowModal(false);
+                setEditingIndication(null); // Clear editing state
                 resetForm();
-                toast.success("Indicatie succesvol toegevoegd!");
             } catch (error) {
                 console.error("Error saving indication", error);
                 toast.error("Fout bij opslaan.");
             }
         };
 
+        if (editingIndication) {
+            // Skip duplicate check for edits
+            await submitIndication();
+            return;
+        }
+
         try {
-            // Check for duplicates
+            // Check for duplicates only on create
             const checkResponse = await fetch('/api/indicaties/check-duplicate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -529,10 +541,29 @@ export default function SportIndicationsPage() {
 
     const startEditIndication = (indication: IndicationWithRelations) => {
         setEditingIndication(indication);
+        setNaamJongere(indication.youth ? `${indication.youth.firstName} ${indication.youth.lastName}` : (indication.youthName || ""));
+        setLeefgroep(indication.group?.name || "");
+
+        // Parse activities from string or default to empty
+        let activities = indication.activities ? indication.activities.split(", ") : [];
+
+        // Fallback for legacy data: if no activities but type is CARDIO, assume Sport
+        if (activities.length === 0 && indication.type === "CARDIO") {
+            activities = ["Sport"];
+        }
+
+        setIndicatieActiviteiten(activities);
+
+        setAdviesInhoudActiviteit(indication.advice || "");
+        setGeldigVanaf(indication.validFrom ? format(new Date(indication.validFrom), "yyyy-MM-dd") : new Date().toISOString().split("T")[0]);
+        setGeldigTot(indication.validUntil ? format(new Date(indication.validUntil), "yyyy-MM-dd") : "");
+        setIndicatieAfgegevenOp(indication.issuedBy || new Date().toISOString().split("T")[0]);
+        setTerugkoppelingAan(indication.feedbackTo || "");
+        setKanCombinerenMetGroepsgenoot(indication.canCombineWithGroup);
         setOnderbouwingIndicering(indication.description);
-        setGeldigTot(indication.validUntil ? new Date(indication.validUntil).toISOString().split('T')[0] : "");
         setBejegeningstips(indication.guidanceTips || "");
         setLeerdoelen(indication.learningGoals || "");
+
         setShowModal(true);
         setActiveTab("manual");
     };
@@ -544,7 +575,7 @@ export default function SportIndicationsPage() {
         setAdviesInhoudActiviteit("");
         setGeldigVanaf(new Date().toISOString().split("T")[0]);
         setGeldigTot("");
-        setIndicatieAfgegevenDoor("Medische Dienst");
+        setIndicatieAfgegevenOp(new Date().toISOString().split("T")[0]);
         setTerugkoppelingAan("");
         setKanCombinerenMetGroepsgenoot(true);
         setOnderbouwingIndicering("");
@@ -576,8 +607,8 @@ export default function SportIndicationsPage() {
             setGeldigTot(parsed.geldigTot);
         }
 
-        // 6. Indicatie afgegeven door
-        setIndicatieAfgegevenDoor(parsed.indicatieAfgegevenDoor || "Medische Dienst");
+        // 6. Indicatie afgegeven op (default to today as parser extracts 'door')
+        setIndicatieAfgegevenOp(new Date().toISOString().split("T")[0]);
 
         // 7. Terugkoppeling aan
         setTerugkoppelingAan(parsed.terugkoppelingAan || "");
@@ -639,7 +670,11 @@ export default function SportIndicationsPage() {
                         {showArchived ? "Toon Actief" : "Archief"}
                     </button>
                     <button
-                        onClick={() => setShowModal(true)}
+                        onClick={() => {
+                            setEditingIndication(null);
+                            resetForm();
+                            setShowModal(true);
+                        }}
                         className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all shadow-lg shadow-purple-200 font-medium"
                     >
                         <Plus size={20} />
@@ -786,20 +821,22 @@ export default function SportIndicationsPage() {
                                     <td colSpan={8} className="px-6 py-12 text-center text-gray-400">
                                         <User className="w-12 h-12 mx-auto mb-3 opacity-30" />
                                         <p className="font-medium">Geen indicaties gevonden</p>
-                                        <p className="text-sm mt-1">Klik op "Nieuwe Indicatie" om te beginnen</p>
+                                        <p className="text-sm mt-1">Klik op &quot;Nieuwe Indicatie&quot; om te beginnen</p>
                                     </td>
                                 </tr>
                             ) : (
                                 indications.map((indication, index) => (
                                     <tr
                                         key={indication.id}
-                                        className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                                        onClick={() => setShowDetailModal(indication)}
+                                        className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
                                     >
                                         <td className="px-4 py-3">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedIds.includes(indication.id)}
                                                 onChange={() => handleSelectOne(indication.id)}
+                                                onClick={(e) => e.stopPropagation()}
                                                 className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                                             />
                                         </td>
@@ -857,31 +894,20 @@ export default function SportIndicationsPage() {
                                         {/* Issued By */}
                                         <td className="px-4 py-3.5">
                                             <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">
-                                                {indication.issuedBy || "-"}
+                                                {(() => {
+                                                    const date = new Date(indication.issuedBy || "");
+                                                    return !isNaN(date.getTime()) && indication.issuedBy?.includes("-")
+                                                        ? format(date, "dd MMM yyyy", { locale: nl })
+                                                        : (indication.issuedBy || "-");
+                                                })()}
                                             </span>
                                         </td>
 
                                         {/* Actions Column in Table */}
-                                        <td className="px-4 py-3.5 text-right">
+                                        <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
-                                                    onClick={() => {
-                                                        setEditingIndication(indication);
-                                                        setNaamJongere(indication.youth ? `${indication.youth.firstName} ${indication.youth.lastName}` : (indication.youthName || ""));
-                                                        setLeefgroep(indication.group.name);
-                                                        // Note: activities and advice are merged into description, so we can't easily pre-fill them separately without parsing
-                                                        setIndicatieActiviteiten([]);
-                                                        setAdviesInhoudActiviteit("");
-                                                        setGeldigVanaf(format(new Date(indication.validFrom), "yyyy-MM-dd"));
-                                                        setGeldigTot(indication.validUntil ? format(new Date(indication.validUntil), "yyyy-MM-dd") : "");
-                                                        setIndicatieAfgegevenDoor(indication.issuedBy || "");
-                                                        setTerugkoppelingAan(indication.feedbackTo || "");
-                                                        setKanCombinerenMetGroepsgenoot(indication.canCombineWithGroup);
-                                                        setOnderbouwingIndicering(indication.description);
-                                                        setBejegeningstips(indication.guidanceTips || "");
-                                                        setLeerdoelen(indication.learningGoals || "");
-                                                        setShowModal(true);
-                                                    }}
+                                                    onClick={() => startEditIndication(indication)}
                                                     className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                                                     title="Bewerken"
                                                 >
@@ -935,298 +961,300 @@ export default function SportIndicationsPage() {
                         </tbody>
                     </table>
                 </div>
-            </motion.div>
+            </motion.div >
 
             {/* Detail Modal */}
-            <IndicationDetailModal
+            < IndicationDetailModal
                 indication={showDetailModal}
-                isOpen={!!showDetailModal}
+                isOpen={!!showDetailModal
+                }
                 onClose={() => setShowDetailModal(null)}
             />
 
             {/* Modal */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                        <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
-                            <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center">
-                                <Activity className="mr-2 text-purple-500" />
-                                Nieuwe Sportindicatie
-                            </h2>
-                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                                <X size={24} />
-                            </button>
-                        </div>
-
-                        {/* Tabs */}
-                        <div className="flex border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-6 sticky top-[73px] z-10 pt-2">
-                            <button
-                                type="button"
-                                onClick={() => setActiveTab("manual")}
-                                className={`flex items - center gap - 2 px - 6 py - 4 font - medium text - sm transition - all relative ${activeTab === "manual"
-                                    ? "text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400 bg-purple-50/50 dark:bg-purple-900/10 rounded-t-lg"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-t-lg"
-                                    } `}
-                            >
-                                <Edit2 size={18} />
-                                Handmatig
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setActiveTab("paste")}
-                                className={`flex items - center gap - 2 px - 6 py - 4 font - medium text - sm transition - all relative ${activeTab === "paste"
-                                    ? "text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400 bg-purple-50/50 dark:bg-purple-900/10 rounded-t-lg"
-                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-t-lg"
-                                    } `}
-                            >
-                                <FileText size={18} />
-                                Plak Tekst
-                            </button>
-                        </div>
-
-                        {/* Paste Tab Content */}
-                        {activeTab === "paste" && (
-                            <div className="p-6">
-                                <IndicationTextParser onParsed={handleParsedData} />
+            {
+                showModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
+                                <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center">
+                                    <Activity className="mr-2 text-purple-500" />
+                                    Nieuwe Sportindicatie
+                                </h2>
+                                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                    <X size={24} />
+                                </button>
                             </div>
-                        )}
+
+                            {/* Tabs */}
+                            <div className="flex border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-6 sticky top-[73px] z-10 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab("manual")}
+                                    className={`flex items - center gap - 2 px - 6 py - 4 font - medium text - sm transition - all relative ${activeTab === "manual"
+                                        ? "text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400 bg-purple-50/50 dark:bg-purple-900/10 rounded-t-lg"
+                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-t-lg"
+                                        } `}
+                                >
+                                    <Edit2 size={18} />
+                                    Handmatig
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab("paste")}
+                                    className={`flex items - center gap - 2 px - 6 py - 4 font - medium text - sm transition - all relative ${activeTab === "paste"
+                                        ? "text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400 bg-purple-50/50 dark:bg-purple-900/10 rounded-t-lg"
+                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-t-lg"
+                                        } `}
+                                >
+                                    <FileText size={18} />
+                                    Plak Tekst
+                                </button>
+                            </div>
+
+                            {/* Paste Tab Content */}
+                            {activeTab === "paste" && (
+                                <div className="p-6">
+                                    <IndicationTextParser onParsed={handleParsedData} />
+                                </div>
+                            )}
 
 
-                        {/* Manual Tab Content - NIEUWE STRUCTUUR */}
-                        {activeTab === "manual" && (
-                            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                                {/* Rij 1: Naam jongere + Leefgroep */}
-                                <div className="grid grid-cols-2 gap-4">
+                            {/* Manual Tab Content - NIEUWE STRUCTUUR */}
+                            {activeTab === "manual" && (
+                                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                                    {/* Rij 1: Naam jongere + Leefgroep */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                Naam jongere <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                required
+                                                value={naamJongere}
+                                                onChange={(e) => setNaamJongere(e.target.value)}
+                                                className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
+                                                placeholder="bijv. Pablo de Jeger"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                Leefgroep <span className="text-red-500">*</span>
+                                            </label>
+                                            <select
+                                                required
+                                                value={leefgroep}
+                                                onChange={(e) => setLeefgroep(e.target.value)}
+                                                className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
+                                            >
+                                                <option value="">Selecteer Leefgroep</option>
+                                                {groups?.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Rij 2: Indicatie voor (checkboxes) - ZONDER NAMEN */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            Indicatie voor* <span className="text-red-500">*</span>
+                                            <span className="text-xs text-gray-500 ml-2">* zet een X achter welke activiteit van toepassing is</span>
+                                        </label>
+                                        <div className="space-y-2">
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={indicatieActiviteiten.includes("Sport")}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setIndicatieActiviteiten([...indicatieActiviteiten, "Sport"]);
+                                                        } else {
+                                                            setIndicatieActiviteiten(indicatieActiviteiten.filter(a => a !== "Sport"));
+                                                        }
+                                                    }}
+                                                    className="w-4 h-4 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+                                                />
+                                                <span className="text-sm text-gray-700 dark:text-gray-300">Sport</span>
+                                            </label>
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={indicatieActiviteiten.includes("Muziek")}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setIndicatieActiviteiten([...indicatieActiviteiten, "Muziek"]);
+                                                        } else {
+                                                            setIndicatieActiviteiten(indicatieActiviteiten.filter(a => a !== "Muziek"));
+                                                        }
+                                                    }}
+                                                    className="w-4 h-4 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+                                                />
+                                                <span className="text-sm text-gray-700 dark:text-gray-300">Muziek</span>
+                                            </label>
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={indicatieActiviteiten.includes("Creatief aanbod")}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setIndicatieActiviteiten([...indicatieActiviteiten, "Creatief aanbod"]);
+                                                        } else {
+                                                            setIndicatieActiviteiten(indicatieActiviteiten.filter(a => a !== "Creatief aanbod"));
+                                                        }
+                                                    }}
+                                                    className="w-4 h-4 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+                                                />
+                                                <span className="text-sm text-gray-700 dark:text-gray-300">Creatief aanbod</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {/* Rij 3: Advies/suggestie */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                            Naam jongere <span className="text-red-500">*</span>
+                                            Advies/suggestie betreft inhoud activiteit
                                         </label>
                                         <input
                                             type="text"
-                                            required
-                                            value={naamJongere}
-                                            onChange={(e) => setNaamJongere(e.target.value)}
+                                            value={adviesInhoudActiviteit}
+                                            onChange={(e) => setAdviesInhoudActiviteit(e.target.value)}
                                             className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
-                                            placeholder="bijv. Pablo de Jeger"
+                                            placeholder="bijv. Focus op individuele begeleiding"
                                         />
                                     </div>
+
+                                    {/* Rij 4: Datums (Van - Tot) */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                Indicatie afgegeven van <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                required
+                                                value={geldigVanaf}
+                                                onChange={(e) => setGeldigVanaf(e.target.value)}
+                                                className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                Tot <span className="text-xs text-gray-500">(optioneel)</span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={geldigTot}
+                                                onChange={(e) => setGeldigTot(e.target.value)}
+                                                className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Rij 5: Indicatie afgegeven door + Terugkoppeling aan */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                Indicatie afgegeven op
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={indicatieAfgegevenOp}
+                                                onChange={(e) => setIndicatieAfgegevenOp(e.target.value)}
+                                                className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                Terugkoppelen voortgang aan
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={terugkoppelingAan}
+                                                onChange={(e) => setTerugkoppelingAan(e.target.value)}
+                                                className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
+                                                placeholder="bijv. GW"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Rij 6: Kan gecombineerd worden (toggle) */}
+                                    <div>
+                                        <label className="flex items-center space-x-3 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={kanCombinerenMetGroepsgenoot}
+                                                onChange={(e) => setKanCombinerenMetGroepsgenoot(e.target.checked)}
+                                                className="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+                                            />
+                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                Kan gecombineerd worden met groepsgenoot met indicatie?
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    {/* Rij 7: Onderbouwing indicering (grote textarea) */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                            Leefgroep <span className="text-red-500">*</span>
+                                            Onderbouwing indicering <span className="text-red-500">*</span>
                                         </label>
-                                        <select
+                                        <textarea
                                             required
-                                            value={leefgroep}
-                                            onChange={(e) => setLeefgroep(e.target.value)}
-                                            className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
+                                            value={onderbouwingIndicering}
+                                            onChange={(e) => setOnderbouwingIndicering(e.target.value)}
+                                            className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-lg h-32 focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
+                                            placeholder="Uitgebreide onderbouwing van de indicatie..."
+                                        />
+                                    </div>
+
+                                    {/* Rij 8: Bejegeningstips */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Bejegeningstips in het licht van de diagnostiek
+                                        </label>
+                                        <textarea
+                                            value={bejegeningstips}
+                                            onChange={(e) => setBejegeningstips(e.target.value)}
+                                            className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-lg h-32 focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
+                                            placeholder="• Geef duidelijke instructies&#10;• Houdt rekening met..."
+                                        />
+                                    </div>
+
+                                    {/* Rij 9: Leerdoelen */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Leerdoelen <span className="text-xs text-gray-500">(indien van toepassing)</span>
+                                        </label>
+                                        <textarea
+                                            value={leerdoelen}
+                                            onChange={(e) => setLeerdoelen(e.target.value)}
+                                            className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-lg h-24 focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
+                                            placeholder="N.v.t. of specifieke leerdoelen..."
+                                        />
+                                    </div>
+
+                                    {/* Submit buttons */}
+                                    <div className="pt-4 flex justify-end space-x-3 border-t border-gray-200 dark:border-gray-700">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowModal(false)}
+                                            className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
                                         >
-                                            <option value="">Selecteer Leefgroep</option>
-                                            {groups?.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
-                                        </select>
+                                            Annuleren
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center transition"
+                                        >
+                                            <CheckCircle size={18} className="mr-2" />
+                                            Opslaan
+                                        </button>
                                     </div>
-                                </div>
-
-                                {/* Rij 2: Indicatie voor (checkboxes) - ZONDER NAMEN */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Indicatie voor* <span className="text-red-500">*</span>
-                                        <span className="text-xs text-gray-500 ml-2">* zet een X achter welke activiteit van toepassing is</span>
-                                    </label>
-                                    <div className="space-y-2">
-                                        <label className="flex items-center space-x-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={indicatieActiviteiten.includes("Sport")}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        setIndicatieActiviteiten([...indicatieActiviteiten, "Sport"]);
-                                                    } else {
-                                                        setIndicatieActiviteiten(indicatieActiviteiten.filter(a => a !== "Sport"));
-                                                    }
-                                                }}
-                                                className="w-4 h-4 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
-                                            />
-                                            <span className="text-sm text-gray-700 dark:text-gray-300">Sport</span>
-                                        </label>
-                                        <label className="flex items-center space-x-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={indicatieActiviteiten.includes("Muziek")}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        setIndicatieActiviteiten([...indicatieActiviteiten, "Muziek"]);
-                                                    } else {
-                                                        setIndicatieActiviteiten(indicatieActiviteiten.filter(a => a !== "Muziek"));
-                                                    }
-                                                }}
-                                                className="w-4 h-4 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
-                                            />
-                                            <span className="text-sm text-gray-700 dark:text-gray-300">Muziek</span>
-                                        </label>
-                                        <label className="flex items-center space-x-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={indicatieActiviteiten.includes("Creatief aanbod")}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        setIndicatieActiviteiten([...indicatieActiviteiten, "Creatief aanbod"]);
-                                                    } else {
-                                                        setIndicatieActiviteiten(indicatieActiviteiten.filter(a => a !== "Creatief aanbod"));
-                                                    }
-                                                }}
-                                                className="w-4 h-4 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
-                                            />
-                                            <span className="text-sm text-gray-700 dark:text-gray-300">Creatief aanbod</span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                {/* Rij 3: Advies/suggestie */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Advies/suggestie betreft inhoud activiteit
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={adviesInhoudActiviteit}
-                                        onChange={(e) => setAdviesInhoudActiviteit(e.target.value)}
-                                        className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
-                                        placeholder="bijv. Focus op individuele begeleiding"
-                                    />
-                                </div>
-
-                                {/* Rij 4: Datums (Van - Tot) */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                            Indicatie afgegeven van <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="date"
-                                            required
-                                            value={geldigVanaf}
-                                            onChange={(e) => setGeldigVanaf(e.target.value)}
-                                            className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                            Tot <span className="text-xs text-gray-500">(optioneel)</span>
-                                        </label>
-                                        <input
-                                            type="date"
-                                            value={geldigTot}
-                                            onChange={(e) => setGeldigTot(e.target.value)}
-                                            className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Rij 5: Indicatie afgegeven door + Terugkoppeling aan */}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                            Indicatie afgegeven op
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={indicatieAfgegevenDoor}
-                                            onChange={(e) => setIndicatieAfgegevenDoor(e.target.value)}
-                                            className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
-                                            placeholder="bijv. Medische Dienst"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                            Terugkoppelen voortgang aan
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={terugkoppelingAan}
-                                            onChange={(e) => setTerugkoppelingAan(e.target.value)}
-                                            className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
-                                            placeholder="bijv. GW"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Rij 6: Kan gecombineerd worden (toggle) */}
-                                <div>
-                                    <label className="flex items-center space-x-3 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={kanCombinerenMetGroepsgenoot}
-                                            onChange={(e) => setKanCombinerenMetGroepsgenoot(e.target.checked)}
-                                            className="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
-                                        />
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            Kan gecombineerd worden met groepsgenoot met indicatie?
-                                        </span>
-                                    </label>
-                                </div>
-
-                                {/* Rij 7: Onderbouwing indicering (grote textarea) */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Onderbouwing indicering <span className="text-red-500">*</span>
-                                    </label>
-                                    <textarea
-                                        required
-                                        value={onderbouwingIndicering}
-                                        onChange={(e) => setOnderbouwingIndicering(e.target.value)}
-                                        className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-lg h-32 focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
-                                        placeholder="Uitgebreide onderbouwing van de indicatie..."
-                                    />
-                                </div>
-
-                                {/* Rij 8: Bejegeningstips */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Bejegeningstips in het licht van de diagnostiek
-                                    </label>
-                                    <textarea
-                                        value={bejegeningstips}
-                                        onChange={(e) => setBejegeningstips(e.target.value)}
-                                        className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-lg h-32 focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
-                                        placeholder="• Geef duidelijke instructies&#10;• Houdt rekening met..."
-                                    />
-                                </div>
-
-                                {/* Rij 9: Leerdoelen */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Leerdoelen <span className="text-xs text-gray-500">(indien van toepassing)</span>
-                                    </label>
-                                    <textarea
-                                        value={leerdoelen}
-                                        onChange={(e) => setLeerdoelen(e.target.value)}
-                                        className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-lg h-24 focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
-                                        placeholder="N.v.t. of specifieke leerdoelen..."
-                                    />
-                                </div>
-
-                                {/* Submit buttons */}
-                                <div className="pt-4 flex justify-end space-x-3 border-t border-gray-200 dark:border-gray-700">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowModal(false)}
-                                        className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
-                                    >
-                                        Annuleren
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center transition"
-                                    >
-                                        <CheckCircle size={18} className="mr-2" />
-                                        Opslaan
-                                    </button>
-                                </div>
-                            </form>
-                        )}
+                                </form>
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Evaluation Modal */}
             <AnimatePresence>
@@ -1508,6 +1536,14 @@ export default function SportIndicationsPage() {
                     </>
                 )}
             </AnimatePresence>
-        </div>
+        </div >
+    );
+}
+
+export default function SportIndicationsPage() {
+    return (
+        <Suspense fallback={<div className="p-8">Laden...</div>}>
+            <SportIndicationsContent />
+        </Suspense>
     );
 }

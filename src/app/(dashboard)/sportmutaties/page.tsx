@@ -22,7 +22,9 @@ const MUTATION_TYPES = [
     { value: "OVERIG", label: "Overig" }
 ];
 
-export default function SportMutationsPage() {
+import { Suspense } from 'react';
+
+function SportMutationsContent() {
     const searchParams = useSearchParams();
     const { data: mutationsData, isLoading: loadingMutations, createMutation, updateMutation, deleteMutation } = useSportMutations();
     const { data: groups, isLoading: loadingGroups } = useGroups();
@@ -206,6 +208,17 @@ export default function SportMutationsPage() {
         } catch (error) {
             console.error("Error archiving mutation", error);
             toast.error("Fout bij archiveren");
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!confirm("Weet je zeker dat je deze mutatie definitief wilt verwijderen? Dit kan niet ongedaan worden gemaakt.")) return;
+        try {
+            await deleteMutation.mutateAsync(id);
+            toast.success("Mutatie verwijderd");
+        } catch (error) {
+            console.error("Error deleting mutation", error);
+            toast.error("Fout bij verwijderen");
         }
     };
 
@@ -402,6 +415,13 @@ export default function SportMutationsPage() {
                                                         <Archive size={16} />
                                                     </button>
                                                 )}
+                                                <button
+                                                    onClick={() => handleDelete(m.id)}
+                                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                    title="Verwijderen"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -432,8 +452,8 @@ export default function SportMutationsPage() {
                                 <button
                                     onClick={() => setActiveTab("manual")}
                                     className={`flex-1 py-3 text-sm font-medium text-center transition-colors ${activeTab === "manual"
-                                            ? "text-orange-600 border-b-2 border-orange-600 bg-orange-50/50"
-                                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                                        ? "text-orange-600 border-b-2 border-orange-600 bg-orange-50/50"
+                                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                                         }`}
                                 >
                                     <Edit2 size={16} className="inline mr-2" />
@@ -442,8 +462,8 @@ export default function SportMutationsPage() {
                                 <button
                                     onClick={() => setActiveTab("paste")}
                                     className={`flex-1 py-3 text-sm font-medium text-center transition-colors ${activeTab === "paste"
-                                            ? "text-orange-600 border-b-2 border-orange-600 bg-orange-50/50"
-                                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                                        ? "text-orange-600 border-b-2 border-orange-600 bg-orange-50/50"
+                                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                                         }`}
                                 >
                                     <Clipboard size={16} className="inline mr-2" />
@@ -457,7 +477,7 @@ export default function SportMutationsPage() {
                                 <div className="space-y-4">
                                     <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-sm text-blue-800">
                                         <p className="font-medium mb-1">Instructie:</p>
-                                        <p>Kopieer de tekst uit het Word-document (CTRL+A, CTRL+C) en plak het hieronder. Klik daarna op "Analyseren".</p>
+                                        <p>Kopieer de tekst uit het Word-document (CTRL+A, CTRL+C) en plak het hieronder. Klik daarna op &quot;Analyseren&quot;.</p>
                                     </div>
                                     <textarea
                                         value={pastedText}
@@ -599,5 +619,13 @@ export default function SportMutationsPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function SportMutationsPage() {
+    return (
+        <Suspense fallback={<div className="p-8">Laden...</div>}>
+            <SportMutationsContent />
+        </Suspense>
     );
 }

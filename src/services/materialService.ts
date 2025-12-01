@@ -11,7 +11,7 @@ export async function getMaterials(filters?: {
         where: {
             ...(filters?.category && { category: filters.category }),
             ...(filters?.conditionStatus && { conditionStatus: filters.conditionStatus }),
-            ...(filters?.location && { location: { contains: filters.location, mode: "insensitive" } }),
+            ...(filters?.location && { location: { contains: filters.location } }),
         },
         orderBy: { name: "asc" },
     });

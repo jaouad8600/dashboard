@@ -62,6 +62,7 @@ model Group {
   extraSportMoments ExtraSportMoment[]
   youths            Youth[]
   notes             Note[]   // Relation to Note model
+  weekNotes         WeekNote[] // Relation to WeekNote model
   restorativeTalks  RestorativeTalk[] // New standalone talks
   
   // Master Spec additions
@@ -103,6 +104,8 @@ model RestorativeTalk {
   completedAt   DateTime?
   archivedAt    DateTime?
   archived      Boolean                 @default(false)
+  
+  evaluations   Evaluation[]            // Evaluations for this talk
 }
 
 model Report {
@@ -518,15 +521,17 @@ model File {
 }
 
 model Evaluation {
-  id           String          @id @default(uuid())
-  indicationId String
-  indication   SportIndication @relation(fields: [indicationId], references: [id], onDelete: Cascade)
-  date         DateTime        @default(now())
-  summary      String
-  author       String?
-  emailedAt    DateTime?       // Track when the evaluation was emailed
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id                 String           @id @default(uuid())
+  indicationId       String?
+  indication         SportIndication? @relation(fields: [indicationId], references: [id], onDelete: Cascade)
+  restorativeTalkId  String?
+  restorativeTalk    RestorativeTalk? @relation(fields: [restorativeTalkId], references: [id], onDelete: Cascade)
+  date               DateTime         @default(now())
+  summary            String
+  author             String?
+  emailedAt          DateTime?        // Track when the evaluation was emailed
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 }
 
 model PhoneNumber {
@@ -537,4 +542,15 @@ model PhoneNumber {
   description String?  // Omschrijving
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model WeekNote {
+  id        String   @id @default(uuid())
+  content   String
+  date      DateTime @default(now())
+  author    String
+  groupId   String?
+  group     Group?   @relation(fields: [groupId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

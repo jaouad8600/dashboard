@@ -18,7 +18,7 @@ export default function TestParserPage() {
                     Indicatie Tekst Parser - Demo
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400 mt-2">
-                    Test de nieuwe parser voor "Aanmelding geïndiceerde activiteiten"
+                    Test de nieuwe parser voor &quot;Aanmelding geïndiceerde activiteiten&quot;
                 </p>
             </div>
 

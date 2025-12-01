@@ -201,7 +201,7 @@ export default function TelefoonnummersPage() {
                             ) : (
                                 <tr>
                                     <td colSpan={5} className="p-8 text-center text-gray-500">
-                                        Geen resultaten gevonden voor "{searchTerm}"
+                                        Geen resultaten gevonden voor &quot;{searchTerm}&quot;
                                     </td>
                                 </tr>
                             )}

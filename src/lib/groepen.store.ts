@@ -55,14 +55,14 @@ export async function listGroepen(): Promise<Groep[]> {
       ...SEED_EB.map((n) => ({
         id: randomUUID(),
         naam: n,
-        afdeling: "EB",
+        afdeling: "EB" as "EB",
         kleur: "GREEN" as Kleur,
         notities: [],
       })),
       ...SEED_VLOED.map((n) => ({
         id: randomUUID(),
         naam: n,
-        afdeling: "VLOED",
+        afdeling: "VLOED" as "VLOED",
         kleur: "GREEN" as Kleur,
         notities: [],
       })),

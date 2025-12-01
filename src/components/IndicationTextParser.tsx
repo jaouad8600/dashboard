@@ -57,7 +57,7 @@ export default function IndicationTextParser({ onParsed }: IndicationTextParserP
             <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
                     <FileText className="w-4 h-4" />
-                    Plak hier de tekst van "Aanmelding geïndiceerde activiteiten"
+                    Plak hier de tekst van &quot;Aanmelding geïndiceerde activiteiten&quot;
                 </label>
 
                 <textarea

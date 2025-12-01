@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { MessageCircle, Plus, CheckCircle2, XCircle, Archive, Clock, Filter, Search } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import RestorativeTalkDetailModal from '@/components/RestorativeTalkDetailModal';
 
 type RestorativeTalk = {
     id: string;
@@ -22,10 +23,16 @@ type RestorativeTalk = {
 };
 
 export default function HerstelgesprekkenPage() {
-    const [showForm, setShowForm] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+    const [editingTalk, setEditingTalk] = useState<RestorativeTalk | null>(null);
+    const [detailTalk, setDetailTalk] = useState<RestorativeTalk | null>(null);
     const [filterStatus, setFilterStatus] = useState<'all' | 'PENDING' | 'COMPLETED' | 'FAILED'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const queryClient = useQueryClient();
+
+    const handleRowClick = (talk: RestorativeTalk) => {
+        setDetailTalk(talk);
+    };
 
     // Fetch all talks
     const { data: talks = [], isLoading } = useQuery({
@@ -43,7 +50,7 @@ export default function HerstelgesprekkenPage() {
     const { data: groups = [] } = useQuery({
         queryKey: ['groups'],
         queryFn: async () => {
-            const { data } = await axios.get('/api/groepen');
+            const { data } = await axios.get('/api/groups');
             return data;
         },
     });
@@ -55,7 +62,7 @@ export default function HerstelgesprekkenPage() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['restorative-talks'] });
-            setShowForm(false);
+            setShowModal(false);
         },
     });
 
@@ -89,6 +96,16 @@ export default function HerstelgesprekkenPage() {
         },
     });
 
+    // Delete mutation
+    const deleteTalk = useMutation({
+        mutationFn: async (id: string) => {
+            await axios.delete(`/api/restorative-talks?id=${id}&permanent=true`);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['restorative-talks'] });
+        },
+    });
+
     const filteredTalks = talks.filter(talk =>
         talk.youthName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         talk.group?.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -97,11 +114,11 @@ export default function HerstelgesprekkenPage() {
     const getStatusBadge = (status: string) => {
         switch (status) {
             case 'PENDING':
-                return <span className="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-1 rounded">Pending</span>;
+                return <span className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-bold px-2 py-1 rounded">Open</span>;
             case 'COMPLETED':
-                return <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded">Gelukt</span>;
+                return <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold px-2 py-1 rounded">Succesvol</span>;
             case 'FAILED':
-                return <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded">Te herhalen</span>;
+                return <span className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-bold px-2 py-1 rounded">Niet gelukt</span>;
             default:
                 return null;
         }
@@ -121,7 +138,10 @@ export default function HerstelgesprekkenPage() {
                     </div>
                 </div>
                 <button
-                    onClick={() => setShowForm(!showForm)}
+                    onClick={() => {
+                        setEditingTalk(null);
+                        setShowModal(true);
+                    }}
                     className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-colors shadow-lg shadow-purple-500/30"
                 >
                     <Plus size={20} />
@@ -129,75 +149,31 @@ export default function HerstelgesprekkenPage() {
                 </button>
             </div>
 
-            {/* New Talk Form */}
-            {showForm && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h2 className="text-xl font-bold text-gray-900 mb-4">Nieuw Herstelgesprek</h2>
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            const formData = new FormData(e.currentTarget);
-                            createTalk.mutate({
-                                groupId: formData.get('groupId') as string,
-                                youthName: formData.get('youthName') as string,
-                                reason: formData.get('reason') as string,
-                            });
-                        }}
-                        className="space-y-4"
-                    >
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Groep</label>
-                                <select
-                                    name="groupId"
-                                    required
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                >
-                                    <option value="">Selecteer groep...</option>
-                                    {groups.map((group: any) => (
-                                        <option key={group.id} value={group.id}>{group.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Jongere</label>
-                                <input
-                                    type="text"
-                                    name="youthName"
-                                    required
-                                    placeholder="Naam van de jongere"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Reden</label>
-                            <textarea
-                                name="reason"
-                                rows={3}
-                                placeholder="Beschrijf de reden voor het herstelgesprek..."
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                            />
-                        </div>
-                        <div className="flex gap-3">
-                            <button
-                                type="submit"
-                                disabled={createTalk.isPending}
-                                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-                            >
-                                {createTalk.isPending ? 'Opslaan...' : 'Opslaan'}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setShowForm(false)}
-                                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2 rounded-lg font-medium transition-colors"
-                            >
-                                Annuleren
-                            </button>
-                        </div>
-                    </form>
+            {/* Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                    <div className="text-sm text-gray-500">Totaal</div>
+                    <div className="text-2xl font-bold text-gray-900">{talks.length}</div>
                 </div>
-            )}
+                <div className="bg-yellow-50 rounded-xl border border-yellow-200 p-4">
+                    <div className="text-sm text-yellow-700">Open</div>
+                    <div className="text-2xl font-bold text-yellow-900">
+                        {talks.filter(t => t.status === 'PENDING').length}
+                    </div>
+                </div>
+                <div className="bg-red-50 rounded-xl border border-red-200 p-4">
+                    <div className="text-sm text-red-700">Niet gelukt</div>
+                    <div className="text-2xl font-bold text-red-900">
+                        {talks.filter(t => t.status === 'FAILED').length}
+                    </div>
+                </div>
+                <div className="bg-green-50 rounded-xl border border-green-200 p-4">
+                    <div className="text-sm text-green-700">Succesvol</div>
+                    <div className="text-2xl font-bold text-green-900">
+                        {talks.filter(t => t.status === 'COMPLETED').length}
+                    </div>
+                </div>
+            </div>
 
             {/* Filters */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
@@ -217,12 +193,13 @@ export default function HerstelgesprekkenPage() {
                         <select
                             value={filterStatus}
                             onChange={(e) => setFilterStatus(e.target.value as any)}
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white appearance-none"
+                            style={{ WebkitAppearance: 'none' }}
                         >
-                            <option value="all">Alle statussen</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="FAILED">Te herhalen</option>
-                            <option value="COMPLETED">Gelukt</option>
+                            <option value="all" className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white">Alle statussen</option>
+                            <option value="PENDING" className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white">Open</option>
+                            <option value="FAILED" className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white">Niet gelukt</option>
+                            <option value="COMPLETED" className="bg-white dark:bg-gray-700 text-gray-900 dark:text-white">Succesvol</option>
                         </select>
                     </div>
                 </div>
@@ -249,17 +226,17 @@ export default function HerstelgesprekkenPage() {
                             </thead>
                             <tbody className="divide-y divide-gray-200">
                                 {filteredTalks.map((talk) => (
-                                    <tr key={talk.id} className="hover:bg-gray-50 transition-colors">
+                                    <tr key={talk.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => handleRowClick(talk)}>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="font-medium text-gray-900">{talk.youthName}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="bg-gray-100 px-2 py-1 rounded text-sm text-gray-700">
+                                            <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                                                 {talk.group?.name || 'Onbekend'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <p className="text-sm text-gray-600 line-clamp-2 max-w-md">
+                                            <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 max-w-md">
                                                 {talk.reason || '-'}
                                             </p>
                                         </td>
@@ -272,7 +249,7 @@ export default function HerstelgesprekkenPage() {
                                                 {new Date(talk.createdAt).toLocaleDateString('nl-NL')}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center gap-2">
                                                 {talk.status !== 'COMPLETED' && (
                                                     <button
@@ -312,31 +289,112 @@ export default function HerstelgesprekkenPage() {
                 )}
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                    <div className="text-sm text-gray-500">Totaal</div>
-                    <div className="text-2xl font-bold text-gray-900">{talks.length}</div>
-                </div>
-                <div className="bg-yellow-50 rounded-xl border border-yellow-200 p-4">
-                    <div className="text-sm text-yellow-700">Pending</div>
-                    <div className="text-2xl font-bold text-yellow-900">
-                        {talks.filter(t => t.status === 'PENDING').length}
+            {/* Modal for New/Edit Talk */}
+            {showModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl">
+                        <h2 className="text-xl font-bold mb-6 text-gray-900">
+                            {editingTalk ? "Herstelgesprek Bewerken" : "Nieuw Herstelgesprek"}
+                        </h2>
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.currentTarget);
+                                if (editingTalk) {
+                                    // TODO: Update mutation
+                                } else {
+                                    createTalk.mutate({
+                                        groupId: formData.get('groupId') as string,
+                                        youthName: formData.get('youthName') as string,
+                                        reason: formData.get('reason') as string,
+                                    });
+                                }
+                                setShowModal(false);
+                            }}
+                            className="space-y-4"
+                        >
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Groep</label>
+                                    <select
+                                        name="groupId"
+                                        required
+                                        defaultValue={editingTalk?.groupId || ""}
+                                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white appearance-none"
+                                        style={{ WebkitAppearance: 'none' }}
+                                    >
+                                        <option value="">Selecteer groep...</option>
+                                        {groups.map((group: any) => (
+                                            <option key={group.id} value={group.id}>
+                                                {group.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Jongere</label>
+                                    <input
+                                        type="text"
+                                        name="youthName"
+                                        required
+                                        defaultValue={editingTalk?.youthName || ""}
+                                        placeholder="Naam van de jongere"
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Reden</label>
+                                <textarea
+                                    name="reason"
+                                    rows={3}
+                                    defaultValue={editingTalk?.reason || ""}
+                                    placeholder="Beschrijf de reden voor het herstelgesprek..."
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                />
+                            </div>
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="submit"
+                                    disabled={createTalk.isPending}
+                                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+                                >
+                                    {createTalk.isPending ? 'Opslaan...' : 'Opslaan'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModal(false)}
+                                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2 rounded-lg font-medium transition-colors"
+                                >
+                                    Annuleren
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
-                <div className="bg-red-50 rounded-xl border border-red-200 p-4">
-                    <div className="text-sm text-red-700">Te herhalen</div>
-                    <div className="text-2xl font-bold text-red-900">
-                        {talks.filter(t => t.status === 'FAILED').length}
-                    </div>
-                </div>
-                <div className="bg-green-50 rounded-xl border border-green-200 p-4">
-                    <div className="text-sm text-green-700">Gelukt</div>
-                    <div className="text-2xl font-bold text-green-900">
-                        {talks.filter(t => t.status === 'COMPLETED').length}
-                    </div>
-                </div>
-            </div>
+            )}
+
+            {/* Detail Modal */}
+            <RestorativeTalkDetailModal
+                talk={detailTalk}
+                isOpen={!!detailTalk}
+                onClose={() => setDetailTalk(null)}
+                onComplete={(id) => completeTalk.mutate(id)}
+                onFail={(id) => failTalk.mutate(id)}
+                onArchive={(id) => archiveTalk.mutate(id)}
+                onDelete={(id) => deleteTalk.mutate(id)}
+                onCreateFollowUp={(talk) => {
+                    setEditingTalk({
+                        ...talk,
+                        id: '',
+                        status: 'PENDING',
+                        createdAt: new Date().toISOString(),
+                        reason: `Vervolggesprek naar aanleiding van: ${talk.reason}`,
+                    } as any);
+                    setShowModal(true);
+                }}
+                onRefresh={() => queryClient.invalidateQueries({ queryKey: ['restorative-talks'] })}
+            />
         </div>
     );
 }

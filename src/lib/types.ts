@@ -15,3 +15,12 @@ export type Group = {
   note?: string; // laatste notitie tekst (samenvatting)
   notes?: Note[]; // volledige notitielijst
 };
+
+export type DB = {
+  groups: Group[];
+  sportmutaties: any[];
+  overdrachten: any[];
+  plannerEvents: any[];
+  indicaties: any[];
+  lastUpdated: number;
+};

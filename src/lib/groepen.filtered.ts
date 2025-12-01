@@ -6,11 +6,10 @@ import { GROEPEN_BLACKLIST } from "./groepen-blacklist";
  * Alle andere exports (setKleur, addGroep, deleteGroep, etc.) blijven werken.
  */
 
-export const listGroepen = (): ReturnType<typeof base.listGroepen> => {
+export const listGroepen = async (): ReturnType<typeof base.listGroepen> => {
   try {
-    return base
-      .listGroepen()
-      .filter((g: any) => !GROEPEN_BLACKLIST.has((g as any).naam));
+    const groepen = await base.listGroepen();
+    return groepen.filter((g: any) => !GROEPEN_BLACKLIST.has((g as any).naam));
   } catch {
     return [];
   }
@@ -20,11 +19,6 @@ export const listGroepen = (): ReturnType<typeof base.listGroepen> => {
 export const {
   onGroepenChange,
   setKleur,
-  addGroep,
-  deleteGroep,
-  updateGroep,
-  getGroepById,
-  resetGroepen,
 } = base;
 
 export type { Groep } from "./groepen";

@@ -1,5 +1,5 @@
 import "server-only";
-import { readJSON, writeJSON } from "@/lib/fsjson";
+import { readJSON, writeJSON } from "@/lib/store";
 import { randomUUID } from "node:crypto";
 
 export type Overdracht = {
