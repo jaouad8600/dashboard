@@ -30,9 +30,10 @@ async function ensureSeed() {
   try {
     await fs.access(FILE);
     return;
-  } catch {}
+  } catch { }
   const seed: Groep[] = [
-    { id: uuid(), naam: "Poel", kleur: "red", notities: [] },
+    { id: uuid(), naam: "Poel A", kleur: "red", notities: [] },
+    { id: uuid(), naam: "Poel B", kleur: "red", notities: [] },
     { id: uuid(), naam: "Vloed", kleur: "green", notities: [] },
     { id: uuid(), naam: "Eb", kleur: "yellow", notities: [] },
   ];

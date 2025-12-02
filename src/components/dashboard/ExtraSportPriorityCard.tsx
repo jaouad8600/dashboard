@@ -10,7 +10,7 @@ export default function ExtraSportPriorityCard() {
         { rank: 2, group: "Zift", score: 4, reason: "" },
         { rank: 3, group: "Vliet", score: 5, reason: "" },
         { rank: 4, group: "Gaag", score: 6, reason: "" },
-        { rank: 5, group: "Poel", score: 7, reason: "" },
+
     ];
 
     return (

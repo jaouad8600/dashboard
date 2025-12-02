@@ -68,7 +68,7 @@ type DBShape = {
   materialen?: { id: string; naam: string; aantal: number; categorie?: string }[];
 };
 
-const EB = ["Poel", "Lier", "Zijl", "Nes", "Vliet", "Gaag", "Kust", "Golf"];
+const EB = ["Poel A", "Poel B", "Lier", "Zijl", "Nes", "Vliet", "Gaag", "Kust", "Golf"];
 const VLOED = ["Zift", "Lei", "Kade", "Kreek", "Duin", "Rak", "Bron", "Dijk"];
 
 function seedGroups(): Groep[] {

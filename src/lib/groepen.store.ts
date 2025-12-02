@@ -26,7 +26,8 @@ type DB = {
 };
 
 const SEED_EB = [
-  "Poel",
+  "Poel A",
+  "Poel B",
   "Lier",
   "Zijl",
   "Nes",

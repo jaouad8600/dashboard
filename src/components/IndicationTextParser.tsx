@@ -67,7 +67,7 @@ export default function IndicationTextParser({ onParsed }: IndicationTextParserP
                     placeholder={`Plak hier de volledige tekst, bijvoorbeeld:
 
 Aanmelding geïndiceerde activiteiten
-Naam jongere: Pablo de Jeger
+Naam jongere: Jan Jansen
 Leefgroep: Nes
 ...`}
                 />

@@ -2,7 +2,7 @@ export type IndicatieType = "Sport" | "Muziek" | "Creatief";
 export type Indicatie = {
   id: string;
   naam: string; // naam jongere
-  groep: string; // bv. Golf, Poel, Zijl, ...
+  groep: string; // bv. Golf, Poel A, Zijl, ...
   type: IndicatieType;
   van: string; // ISO yyyy-mm-dd
   tot: string; // ISO yyyy-mm-dd

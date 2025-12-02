@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 
 const GROUPS = [
-  "Poel",
+  "Poel A",
+  "Poel B",
   "Lier",
   "Zijl",
   "Nes",

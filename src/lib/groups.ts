@@ -7,7 +7,8 @@ export type Group = {
 };
 
 export const GROUPS: Group[] = [
-  { id: "poel", name: "Poel", tide: "Eb", color: "blue", notes: [] },
+  { id: "poel_a", name: "Poel A", tide: "Eb", color: "blue", notes: [] },
+  { id: "poel_b", name: "Poel B", tide: "Eb", color: "blue", notes: [] },
   { id: "lier", name: "Lier", tide: "Eb", color: "green", notes: [] },
   { id: "zijl", name: "Zijl", tide: "Eb", color: "orange", notes: [] },
   { id: "nes", name: "Nes", tide: "Eb", color: "purple", notes: [] },

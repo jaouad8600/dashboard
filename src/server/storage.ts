@@ -88,7 +88,8 @@ function uuid() {
 }
 
 const EB_GROEPEN = [
-  "Poel",
+  "Poel A",
+  "Poel B",
   "Lier",
   "Zijl",
   "Nes",

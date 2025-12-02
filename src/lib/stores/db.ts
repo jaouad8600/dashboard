@@ -5,7 +5,8 @@ import type { DB, Indicatie, Mutatie, Groep, Kleur } from "./schema";
 
 const PATH = "data/app-data.json";
 const SEED_GROEPEN = [
-  "Poel",
+  "Poel A",
+  "Poel B",
   "Lier",
   "Zijl",
   "Nes",

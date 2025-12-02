@@ -34,12 +34,12 @@ const WEEKEND_SLOTS = [
 // This mimics the "image" the user referred to by assigning groups to slots.
 const FIXED_SCHEDULE: Record<number, Record<number, string>> = {
     1: { 0: "Gaag", 2: "Zijl", 3: "Lier", 4: "Vliet" }, // Monday
-    2: { 0: "Poel", 2: "Kust", 3: "Golf", 4: "Zift" },  // Tuesday
+    2: { 0: "Poel A", 2: "Kust", 3: "Golf", 4: "Zift" },  // Tuesday
     3: { 0: "Gaag", 2: "Zijl", 3: "Lier", 4: "Vliet" }, // Wednesday
-    4: { 0: "Poel", 2: "Kust", 3: "Golf", 4: "Zift" },  // Thursday
+    4: { 0: "Poel A", 2: "Kust", 3: "Golf", 4: "Zift" },  // Thursday
     5: { 0: "Gaag", 2: "Zijl", 3: "Lier", 4: "Vliet" }, // Friday
-    6: { 0: "Poel", 1: "Kust", 3: "Golf", 4: "Zift", 5: "Gaag", 7: "Zijl" }, // Saturday
-    0: { 0: "Lier", 1: "Vliet", 3: "Poel", 4: "Kust", 5: "Golf", 7: "Zift" }, // Sunday
+    6: { 0: "Poel A", 1: "Kust", 3: "Golf", 4: "Zift", 5: "Gaag", 7: "Zijl" }, // Saturday
+    0: { 0: "Lier", 1: "Vliet", 3: "Poel A", 4: "Kust", 5: "Golf", 7: "Zift" }, // Sunday
 };
 
 export default function LibraryRoster({ loans, books, onAddLoan }: LibraryRosterProps) {

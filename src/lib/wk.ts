@@ -43,7 +43,7 @@ export function normalizeGroup(s: string) {
     .replace(/\s+/g, " ")
     .trim();
   const map: Record<string, string> = {
-    Poel: "Poel A",
+
     "Poel a": "Poel A",
     "Poel b": "Poel B",
   };
@@ -90,7 +90,7 @@ function lsSetObj(k: string, v: any) {
   if (typeof window !== "undefined") {
     try {
       localStorage.setItem(k, JSON.stringify(v));
-    } catch {}
+    } catch { }
   }
 }
 const wkKey = (w: Date, t: Tide) => `${getWeekKey(w)}-${t}`;

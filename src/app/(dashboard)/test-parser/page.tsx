@@ -35,7 +35,7 @@ export default function TestParserPage() {
                     </summary>
                     <pre className="mt-3 p-4 bg-white dark:bg-gray-900 rounded border border-blue-200 dark:border-blue-700 text-xs overflow-x-auto whitespace-pre-wrap">
                         {`Aanmelding geïndiceerde activiteiten
-Naam jongere: Pablo de Jeger
+Naam jongere: Jan Jansen
 Leefgroep: Nes
 Indicatie voor*
 * zet een X achter welke activiteit van toepassing is
@@ -48,9 +48,9 @@ Indicatie afgegeven van – tot: 14-11-2025
 Indicatie afgegeven door: 16-12-2025
 Terugkoppelen voortgang aan: GW
 Kan gecombineerd worden met groepsgenoot met indicatie? Ja
-Onderbouwing indicering: Op de leefgroep wordt Pablo gezien als een impulsieve jongen, die sterk gebaat is bij duidelijkheid en structuur. Hij is snel afgeleid door externe prikkels en kan zich daardoor moeilijk concentreren op een taak. Pablo is gebaat bij een positieve bejegening, alleen staat zijn impulsiviteit hem vaak in de weg.
+Onderbouwing indicering: Op de leefgroep wordt Jan gezien als een impulsieve jongen, die sterk gebaat is bij duidelijkheid en structuur. Hij is snel afgeleid door externe prikkels en kan zich daardoor moeilijk concentreren op een taak. Jan is gebaat bij een positieve bejegening, alleen staat zijn impulsiviteit hem vaak in de weg.
 Bejegeningstips in het licht van de diagnostiek:
-- Sluit aan bij Pablo en luister naar hem. Als hij goed en vertrouwd contact ervaart, is er meer ruimte om hem positief te beïnvloeden.
+- Sluit aan bij Jan en luister naar hem. Als hij goed en vertrouwd contact ervaart, is er meer ruimte om hem positief te beïnvloeden.
 - Als er regels worden uitgelegd, probeer dan ook het waarom uit te leggen.
 - Werk met korte time-outs: minimaal 15 minuten en maximaal 30 minuten.
 Leerdoelen: ( indien van toepassing) N.v.t.`}

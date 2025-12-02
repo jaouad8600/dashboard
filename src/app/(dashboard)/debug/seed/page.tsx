@@ -7,11 +7,11 @@ export default function Seed() {
     const evts = [
       {
         id: crypto.randomUUID(),
-        title: "Fitness (Poel)",
+        title: "Fitness (Poel A)",
         start: mk(12, 0),
         end: mk(12, 45),
         tide: "eb",
-        group: "Poel",
+        group: "Poel A",
       },
       {
         id: crypto.randomUUID(),
@@ -23,7 +23,7 @@ export default function Seed() {
       },
     ];
     localStorage.setItem("rbc-events-v1", JSON.stringify(evts));
-    localStorage.setItem("active-group", "Poel");
+    localStorage.setItem("active-group", "Poel A");
     alert("Events seeded.");
   }
   function seedOverdracht() {

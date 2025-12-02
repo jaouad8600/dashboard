@@ -175,7 +175,8 @@ export default function SchedulePage() {
           >
             {[
               "Algemeen",
-              "Poel",
+              "Poel A",
+              "Poel B",
               "Lier",
               "Zijl",
               "Nes",

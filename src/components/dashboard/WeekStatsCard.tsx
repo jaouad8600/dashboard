@@ -9,7 +9,7 @@ export default function WeekStatsCard() {
         totalMoments: 32,
         attendance: 78,
         cancellations: [
-            { group: "Poel", count: 3 },
+            { group: "Poel A", count: 3 },
             { group: "Zijl", count: 2 },
             { group: "Vliet", count: 2 }
         ],

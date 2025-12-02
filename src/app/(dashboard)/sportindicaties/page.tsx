@@ -1035,7 +1035,7 @@ function SportIndicationsContent() {
                                                 value={naamJongere}
                                                 onChange={(e) => setNaamJongere(e.target.value)}
                                                 className="w-full p-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-700 dark:text-white"
-                                                placeholder="bijv. Pablo de Jeger"
+                                                placeholder="bijv. Jan Jansen"
                                             />
                                         </div>
                                         <div>

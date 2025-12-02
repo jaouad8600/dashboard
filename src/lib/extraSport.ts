@@ -8,7 +8,7 @@ const KEY = "extraSport";
 
 // Fallback-groepen (als er niets in localStorage staat)
 const FALLBACK_GROUPS = [
-  "Poel", "Lier", "Zijl", "Nes", "Vliet", "Gaag", "Kust", "Golf",
+  "Poel A", "Poel B", "Lier", "Zijl", "Nes", "Vliet", "Gaag", "Kust", "Golf",
   "Zift", "Lei", "Kade", "Kreek", "Duin", "Rak", "Bron",
 ];
 

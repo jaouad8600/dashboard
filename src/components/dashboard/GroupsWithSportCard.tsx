@@ -5,7 +5,7 @@ import { Users } from 'lucide-react';
 
 export default function GroupsWithSportCard() {
     // Mock data
-    const groups = ["Gaag", "Zijl", "Lier", "Vliet", "Poel", "Kust", "Golf"];
+    const groups = ["Gaag", "Zijl", "Lier", "Vliet", "Poel A", "Poel B", "Kust", "Golf"];
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col h-full">

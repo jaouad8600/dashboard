@@ -33,27 +33,27 @@ const WEEK_TEMPLATE: Record<
 > = {
   0: {
     // maandag
-    eb: ["Poel", null, null, null],
+    eb: ["Poel A", null, null, null],
     vloed: [null, "Kust", "Nes", "Gaag"],
   },
   1: {
     // dinsdag
-    eb: ["Poel", null, null, null],
+    eb: ["Poel A", null, null, null],
     vloed: [null, "Kade", "Kreek", "Open"],
   },
   2: {
     // woensdag
-    eb: ["Poel", null, null, null],
+    eb: ["Poel A", null, null, null],
     vloed: [null, "Kade", "Kreek", "Open"],
   },
   3: {
     // donderdag
-    eb: ["Poel", null, null, null],
+    eb: ["Poel A", null, null, null],
     vloed: [null, "Kade", "Kreek", "Open"],
   },
   4: {
     // vrijdag
-    eb: ["Poel", null, null, null],
+    eb: ["Poel A", null, null, null],
     vloed: [null, "Kade", "Kreek", "Open"],
   },
 };
@@ -143,10 +143,10 @@ export default function SeedPage() {
 
         <div className="grid sm:grid-cols-2 gap-3">
           <div className="rounded-xl border p-3">
-            <div className="font-semibold mb-2">EB (Poel altijd)</div>
+            <div className="font-semibold mb-2">EB (Poel A altijd)</div>
             <ul className="text-sm grid gap-1">
               <li>
-                <b>Ma–Vr</b>: 16:45 Poel
+                <b>Ma–Vr</b>: 16:45 Poel A
               </li>
             </ul>
           </div>
@@ -185,7 +185,7 @@ export default function SeedPage() {
 
         <div className="text-xs opacity-70">
           Her-seeden is veilig: bestaande momenten van díe week en díe tide
-          worden eerst verwijderd. Poel staat nooit in Vloed.
+          worden eerst verwijderd. Poel A/B staat nooit in Vloed.
         </div>
       </div>
     </div>

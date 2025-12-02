@@ -11,8 +11,11 @@ export async function GET(request: Request) {
         const startDateParam = searchParams.get("startDate");
         const endDateParam = searchParams.get("endDate");
 
-        const startDate = startDateParam ? new Date(startDateParam) : undefined;
-        const endDate = endDateParam ? new Date(endDateParam) : undefined;
+        const endDate = endDateParam ? new Date(endDateParam) : new Date();
+        // Default to 30 days ago if not specified
+        const startDate = startDateParam
+            ? new Date(startDateParam)
+            : new Date(new Date().setDate(endDate.getDate() - 30));
 
         const priorities = await calculateGroupPriorities(startDate, endDate);
 

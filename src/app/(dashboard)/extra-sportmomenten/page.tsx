@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Phone, Trophy, Calendar, TrendingUp, Award, CheckCircle, Info, RefreshCw, ChevronLeft, ChevronRight, Check, X, Dumbbell } from "lucide-react";
 import { motion } from "framer-motion";
+import ExtraSportPriorityWidget from '@/components/dashboard/ExtraSportPriorityWidget';
 
 interface GroupPriority {
     groupId: string;
@@ -14,6 +15,7 @@ interface GroupPriority {
     totalScore: number;
     priority: number;
     explanation: string;
+    department?: string;
 }
 
 interface Group {
@@ -78,7 +80,7 @@ export default function SportPriorityPage() {
             const res = await fetch("/api/groups");
             const data = await res.json();
             if (Array.isArray(data)) {
-                setGroups(data);
+                setGroups(data.filter((g: any) => g.name.toLowerCase() !== "poel"));
             }
         } catch (error) {
             console.error("Failed to fetch groups", error);
@@ -98,7 +100,7 @@ export default function SportPriorityPage() {
                 url += `?startDate=${start.toISOString()}`;
             }
 
-            const res = await fetch(url);
+            const res = await fetch(url, { cache: 'no-store' });
             const data = await res.json();
             setPriorities(data);
         } catch (error) {
@@ -113,7 +115,7 @@ export default function SportPriorityPage() {
         try {
             const start = weekStart.toISOString();
             const end = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000).toISOString();
-            const res = await fetch(`/api/extra-sport?start=${start}&end=${end}`);
+            const res = await fetch(`/api/extra-sport?start=${start}&end=${end}`, { cache: 'no-store' });
             const data = await res.json();
             setMoments(Array.isArray(data) ? data : []);
         } catch (error) {
@@ -150,6 +152,65 @@ export default function SportPriorityPage() {
             m.groupId === groupId &&
             new Date(m.date).toISOString().split('T')[0] === dateStr
         );
+
+        // Optimistic update for priorities
+        // Only update if the moment is within the last 30 days (the default priority window)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+        const momentDate = new Date(date);
+        momentDate.setHours(0, 0, 0, 0);
+
+        if (momentDate >= thirtyDaysAgo) {
+            setPriorities(prev => {
+                const updated = prev.map(p => {
+                    if (p.groupId !== groupId) return p;
+
+                    let change = 0;
+                    if (!existingMoment) {
+                        // Empty -> COMPLETED (+1)
+                        change = 1;
+                    } else if (existingMoment.status === "COMPLETED") {
+                        // COMPLETED -> REFUSED (0 change, both count)
+                        change = 0;
+                    } else {
+                        // REFUSED -> Empty (-1)
+                        change = -1;
+                    }
+
+                    const newExtraMoments = p.extraMoments + change;
+                    const newTotalScore = p.regularMoments + newExtraMoments - p.missedMoments;
+
+                    // Update explanation
+                    let explanation = `${p.regularMoments} reguliere moment${p.regularMoments !== 1 ? 'en' : ''}`;
+                    if (newExtraMoments > 0) {
+                        explanation += `, ${newExtraMoments} extra moment${newExtraMoments !== 1 ? 'en' : ''}`;
+                    }
+                    if (p.missedMoments > 0) {
+                        explanation += `, ${p.missedMoments} gemist`;
+                    }
+
+                    return {
+                        ...p,
+                        extraMoments: newExtraMoments,
+                        totalScore: newTotalScore,
+                        explanation
+                    };
+                });
+
+                // Re-sort
+                updated.sort((a, b) => {
+                    if (a.totalScore === b.totalScore) {
+                        return a.groupName.localeCompare(b.groupName);
+                    }
+                    return a.totalScore - b.totalScore;
+                });
+
+                // Re-assign priority numbers
+                return updated.map((p, i) => ({ ...p, priority: i + 1 }));
+            });
+        }
 
         try {
             if (!existingMoment) {
@@ -194,6 +255,7 @@ export default function SportPriorityPage() {
         } catch (error) {
             console.error("Failed to toggle moment", error);
             fetchMoments(); // Revert on error
+            fetchPriorities(); // Revert priorities on error
         }
     };
 
@@ -330,31 +392,20 @@ export default function SportPriorityPage() {
 
 
             {/* Priority Tab */}
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-2xl shadow-xl">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-sm font-medium opacity-90">Totaal Groepen</h3>
-                        <Trophy className="opacity-80" size={24} />
-                    </div>
-                    <p className="text-4xl font-bold">{priorities.length}</p>
-                </div>
-                <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-2xl shadow-xl">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-sm font-medium opacity-90">Hoogste Prioriteit</h3>
-                        <Award className="opacity-80" size={24} />
-                    </div>
-                    <p className="text-4xl font-bold">{priorities[0]?.groupName || "-"}</p>
-                </div>
-                <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-2xl shadow-xl">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-sm font-medium opacity-90">Totaal Extra Momenten</h3>
-                        <Calendar className="opacity-80" size={24} />
-                    </div>
-                    <p className="text-4xl font-bold">
-                        {priorities.reduce((sum, g) => sum + g.extraMoments, 0)}
-                    </p>
-                </div>
+            {/* Priority Widget */}
+            {/* Priority Widget */}
+            <div className="grid grid-cols-1 gap-6">
+                <ExtraSportPriorityWidget
+                    externalData={priorities.map(p => ({
+                        id: p.groupId,
+                        name: p.groupName,
+                        score: p.totalScore,
+                        momentCount: p.extraMoments,
+                        department: p.department
+                    }))}
+                    showAll={true}
+                    splitView={isSplitView}
+                />
             </div>
 
             <div className="space-y-6">
@@ -545,18 +596,7 @@ function PriorityList({ items, loading, registering, onRegister, getPriorityBadg
 
                         <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto justify-between sm:justify-end">
                             <div className="flex items-center gap-4 text-sm">
-                                <div className="text-center">
-                                    <p className="text-xl sm:text-2xl font-bold text-teylingereind-orange">
-                                        {group.extraMoments}
-                                    </p>
-                                    <p className="text-[10px] sm:text-xs text-gray-500">Extra</p>
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-xl sm:text-2xl font-bold text-gray-900">
-                                        {group.totalScore}
-                                    </p>
-                                    <p className="text-[10px] sm:text-xs text-gray-500">Totaal</p>
-                                </div>
+                                {/* Removed detailed score breakdown to simplify UI */}
                             </div>
 
                             <button

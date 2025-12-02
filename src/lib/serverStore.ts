@@ -46,7 +46,7 @@ type DB = {
 const DB_PATH = path.join(process.cwd(), "data", "app-data.json");
 
 export function seedGroepen(): Groep[] {
-  const eb = ["Poel", "Lier", "Zijl", "Nes", "Vliet", "Gaag", "Kust", "Golf"];
+  const eb = ["Poel A", "Poel B", "Lier", "Zijl", "Nes", "Vliet", "Gaag", "Kust", "Golf"];
   const vloed = ["Zift", "Lei", "Kade", "Kreek", "Duin", "Rak", "Bron", "Dijk"];
   const mk = (naam: string, afdeling: "EB" | "VLOED"): Groep => ({
     id: `${afdeling}-${naam}`.toLowerCase(),

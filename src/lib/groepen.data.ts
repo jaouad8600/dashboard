@@ -19,7 +19,8 @@ export type Groep = {
 const FILE = "groepen.json";
 
 const DEFAULT_NAMEN = [
-  "Poel",
+  "Poel A",
+  "Poel B",
   "Lier",
   "Zijl",
   "Nes",
